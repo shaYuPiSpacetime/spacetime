@@ -34,6 +34,11 @@ public class RecommendPreferenceDaoImpl implements RecommendPreferenceDao {
     @Override
     public int updateByVersion(RecommendPreference entity, Integer expectedVersion) {
         return mapper.update(entity, new LambdaUpdateWrapper<RecommendPreference>()
+                // MyBatis 默认忽略实体的空字段，必须显式写入用户清空的范围。
+                .set(entity.getMinHeight() == null, RecommendPreference::getMinHeight, null)
+                .set(entity.getMaxHeight() == null, RecommendPreference::getMaxHeight, null)
+                .set(entity.getMinWeight() == null, RecommendPreference::getMinWeight, null)
+                .set(entity.getMaxWeight() == null, RecommendPreference::getMaxWeight, null)
                 .eq(RecommendPreference::getUserId, entity.getUserId())
                 .eq(RecommendPreference::getVersion, expectedVersion));
     }

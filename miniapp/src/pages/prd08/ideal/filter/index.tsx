@@ -6,8 +6,8 @@ import {
   Text,
   View,
 } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useEffect, useMemo, useState } from 'react'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import AppTabBar from '@/components/AppTabBar'
 import DualRangeSlider from '@/components/DualRangeSlider'
 import NativeNavigation from '@/components/NativeNavigation'
@@ -15,9 +15,11 @@ import { miniappOssIcons } from '@/constants/ossIcons'
 import { createIdealSearch, getIdealMeta, type IdealMetaVO } from '@/services/ideal'
 import { getRecommendPreferences, saveRecommendPreferences } from '@/services/recommend'
 import { prd01Api } from '@/services/prd01'
+import { mergeIdealFilterDraft } from '@/domain/idealFilterDraft'
 import type { RegionTreeOption } from '@/types/prd01'
 
 const BLUE = '#2876FF'
+const RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY = 'recommendPreferenceRefreshRequired'
 
 export default function IdealFilterPage() {
   const [meta, setMeta] = useState<IdealMetaVO | null>(null)
@@ -30,18 +32,32 @@ export default function IdealFilterPage() {
   const [showAge, setShowAge] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
+  const loadedRef = useRef(false)
+  const requestGeneration = useRef(0)
+  const draftRef = useRef<{
+    preferenceVersion: number
+    targetCities: Array<{ code: string; name: string }>
+    minAge: number
+    maxAge: number
+    selectedConditionCodes: string[]
+  } | null>(null)
+  useEffect(() => {
+    if (meta) draftRef.current = { preferenceVersion: meta.preferenceVersion, targetCities, minAge, maxAge, selectedConditionCodes }
+  }, [meta, targetCities, minAge, maxAge, selectedConditionCodes])
   const load = async () => {
+    const generation = ++requestGeneration.current
     try {
       const [metaData, cityTree] = await Promise.all([getIdealMeta(), prd01Api.getProvinceCities()])
+      if (generation !== requestGeneration.current) return
+      const draft = mergeIdealFilterDraft(draftRef.current, metaData)
       setMeta(metaData)
       setCities(cityTree)
-      setTargetCities(metaData.targetCities || [])
-      setMinAge(metaData.minAge)
-      setMaxAge(metaData.maxAge)
-      const availableCodes = new Set(
-        (metaData.conditions || []).filter(condition => condition.available).map(condition => condition.code)
-      )
-      setSelectedConditionCodes((metaData.lastConditionCodes || []).filter(code => availableCodes.has(code)))
+      setTargetCities(draft.targetCities)
+      setMinAge(draft.minAge)
+      setMaxAge(draft.maxAge)
+      setSelectedConditionCodes(draft.selectedConditionCodes)
+      loadedRef.current = true
+      setMessage('')
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '理想型条件加载失败')
     }
@@ -49,9 +65,13 @@ export default function IdealFilterPage() {
   useEffect(() => {
     void load()
   }, [])
+  useDidShow(() => {
+    if (loadedRef.current) void load()
+  })
   const groups = useMemo(() => {
     const result = new Map<string, NonNullable<IdealMetaVO['conditions']>>()
     for (const condition of meta?.conditions || []) {
+      if (!condition.available) continue
       if (result.has(condition.category)) {
         result.get(condition.category)!.push(condition)
       } else {
@@ -97,6 +117,7 @@ export default function IdealFilterPage() {
         })
         preferenceVersion = saved.version
         setMeta(current => current ? { ...current, preferenceVersion } : current)
+        Taro.setStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY, true)
       }
       const result = await createIdealSearch({
         requestId: `ideal-search-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`,

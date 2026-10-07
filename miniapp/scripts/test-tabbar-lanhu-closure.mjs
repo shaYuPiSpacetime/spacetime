@@ -37,7 +37,8 @@ for (const iconName of ['tab-home', 'tab-home-active', 'tab-work', 'tab-work-act
 assert.doesNotMatch(appTabBar, /assets\/icons\/tab-[^']+\.svg/, '底部 Tab 禁止继续混用旧 SVG')
 assert.doesNotMatch(appTabBar, /showActiveDot|background: '#2876FF'[\s\S]{0,120}width: '18rpx'/, '点亮蓝点已包含在蓝湖 active 切图内，禁止重复绘制')
 assert.match(appTabBar, /const isOn = tab\.key === active/, '同一 TabBar 必须只由唯一 active key 推导点亮态')
-assert.match(appTabBar, /src=\{tab\.iconPath\}[\s\S]{0,280}opacity: isOn \? 0 : 1[\s\S]{0,420}src=\{tab\.activeIconPath\}[\s\S]{0,280}opacity: isOn \? 1 : 0/, '普通态和点亮态切图必须常驻，切换时只改可见性')
+assert.match(appTabBar, /src=\{isOn \? tab\.activeIconPath : tab\.iconPath\}/, '普通态和点亮态由同一个图标节点渲染')
+assert.doesNotMatch(appTabBar, /opacity: isOn \?/, '底部每项禁止叠放两张图标')
 
 assert.match(appTabBar, /id="app-tab-recommend-outer-arc"[\s\S]{0,180}left: '300rpx'[\s\S]{0,120}top: '0'[\s\S]{0,120}width: '150rpx'[\s\S]{0,120}height: '150rpx'[\s\S]{0,120}borderRadius: '75rpx'/, '推荐按钮必须保留位于中间的 150rpx 白色外圆弧')
 assert.match(appTabBar, /id="app-tab-recommend-blue-circle"[\s\S]{0,360}left: '12rpx'[\s\S]{0,160}top: '12rpx'[\s\S]{0,180}width: `\$\{tab\.iconWidth\}rpx`[\s\S]{0,160}height: `\$\{tab\.iconHeight\}rpx`/, '推荐蓝色内圆必须相对外圆下移并保持 12rpx 环宽')

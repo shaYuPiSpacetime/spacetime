@@ -170,6 +170,10 @@ export default function RecommendPreferencePage() {
   }
   const save = async () => {
     if (saving) return
+    if (!model.targetCities.length) {
+      await Taro.showToast({ title: '请至少选择一个城市', icon: 'none' })
+      return
+    }
     setSaving(true)
     try {
       const result = await saveRecommendPreferences({
@@ -225,7 +229,7 @@ export default function RecommendPreferencePage() {
                 key={city.code}
                 city={city}
                 location={index === 0}
-                removable={index > 0}
+                removable
                 onRemove={() =>
                   patch({
                     targetCities: model.targetCities.filter(item => item.code !== city.code),
@@ -265,7 +269,7 @@ export default function RecommendPreferencePage() {
             subtitle={
               model.neighborCityAvailable
                 ? '仅推荐tab候选不足时生效'
-                : '周边城市关系配置后生效'
+                : '选择会保存，待配置周边城市后自动生效'
             }
             checked={model.allowNeighborCity}
             onChange={checked => patch({ allowNeighborCity: checked })}
@@ -282,7 +286,7 @@ export default function RecommendPreferencePage() {
           />
           <SwitchRow
             title="仅认证用户可与我交友"
-            subtitle="平台当前仅允许认证用户互动，设置会保存"
+            subtitle="按你的选择保存，推荐嘉宾均须通过平台认证"
             checked={model.onlyCertifiedUsers}
             onChange={checked => patch({ onlyCertifiedUsers: checked })}
           />
@@ -339,6 +343,7 @@ export default function RecommendPreferencePage() {
               disabled={!model.advancedFilterEffective}
               onLow={value => patchAdvanced({ minHeight: value })}
               onHigh={value => patchAdvanced({ maxHeight: value })}
+              onReset={() => patchAdvanced({ minHeight: null, maxHeight: null })}
             />
             <RangeSection
               title="体重偏好"
@@ -350,6 +355,7 @@ export default function RecommendPreferencePage() {
               disabled={!model.advancedFilterEffective}
               onLow={value => patchAdvanced({ minWeight: value })}
               onHigh={value => patchAdvanced({ maxWeight: value })}
+              onReset={() => patchAdvanced({ minWeight: null, maxWeight: null })}
             />
             <Text
               style={{
@@ -441,6 +447,12 @@ export default function RecommendPreferencePage() {
                 <Text style={{ color: '#999999', fontSize: '26rpx' }}>›</Text>
               </View>
             </Picker>
+            <View
+              onClick={() => model.advancedFilterEffective && patchAdvanced({ hometowns: [] })}
+              style={{ color: BLUE, fontSize: '24rpx', marginTop: '16rpx', textAlign: 'right' }}
+            >
+              家乡不限
+            </View>
           </View>
           <View
             onClick={() => void save()}
@@ -562,6 +574,7 @@ function RangeSection({
   disabled = false,
   onLow,
   onHigh,
+  onReset,
 }: {
   title: string
   value: string
@@ -572,12 +585,21 @@ function RangeSection({
   disabled?: boolean
   onLow: (value: number) => void
   onHigh: (value: number) => void
+  onReset?: () => void
 }) {
   return (
     <View style={{ marginTop: '34rpx' }}>
       <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>
         {title} {value}
       </Text>
+      {onReset ? (
+        <View
+          onClick={() => !disabled && onReset()}
+          style={{ display: 'inline-block', marginLeft: '20rpx', color: disabled ? '#999999' : BLUE, fontSize: '24rpx' }}
+        >
+          不限
+        </View>
+      ) : null}
       <View style={{ height: '70rpx', marginTop: '14rpx' }}>
         <DualRangeSlider
           min={min}

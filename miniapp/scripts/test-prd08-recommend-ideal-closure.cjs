@@ -8,6 +8,8 @@ const test = require('node:test')
 
 const root = path.resolve(__dirname, '..')
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf8')
+  + (relativePath === 'src/pages/prd08/ideal/results/index.tsx'
+    ? fs.readFileSync(path.join(root, 'src/components/IdealResultsContent/index.tsx'), 'utf8') : '')
 
 test('推荐三重认证弹窗使用最新蓝湖独立切图', () => {
   const source = read('src/pages/recommend/index.tsx')

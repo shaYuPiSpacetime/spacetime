@@ -39,6 +39,8 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.util.MunicipalityLocationCodes;
+import com.spacetime.common.util.ProfileAgeFilter;
+import com.spacetime.common.util.CityNeighborDefaults;
 import com.spacetime.common.util.RecommendBrowseCycle;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.RecommendPreferenceSaveReq;
@@ -63,7 +65,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -189,18 +190,33 @@ public class RecommendServiceImpl implements RecommendService {
         }
 
         int resultLimit = Math.min(PAGE_SIZE, remaining);
+        List<String> targetCities = parseList(preference.getTargetCityCodes());
+        List<String> neighborCities = effectiveTargetCities(preference).stream()
+                .filter(code -> !MunicipalityLocationCodes.matchesAny(targetCities, code)).toList();
+        boolean neighborPhase = cursor != null && cursor.startsWith("neighbor:");
+        if (neighborPhase && neighborCities.isEmpty()) {
+            throw new BusinessException(409, "周边城市配置已更新，请刷新推荐");
+        }
         List<RecommendCandidateVO> items = new ArrayList<>();
         AppUser lastAccepted = null;
-        String scanCursor = cursor;
+        String scanCursor = neighborPhase ? cursor.substring("neighbor:".length()) : cursor;
         String previousScanCursor = null;
         String continuationCursor = null;
         int scannedBatches = 0;
         while (items.size() < resultLimit && scannedBatches < MAX_CANDIDATE_SCAN_BATCHES) {
             LambdaQueryWrapper<AppUser> wrapper = candidateWrapper(
-                    current, preference, advancedFilterEffective, scanCursor);
+                    current, preference, advancedFilterEffective, scanCursor,
+                    neighborPhase ? neighborCities : targetCities);
             List<AppUser> queried = safeUsers(appUserDao.selectList(wrapper));
             scannedBatches++;
             if (queried.isEmpty()) {
+                if (!neighborPhase && !neighborCities.isEmpty()) {
+                    neighborPhase = true;
+                    scanCursor = null;
+                    previousScanCursor = null;
+                    if (scannedBatches >= MAX_CANDIDATE_SCAN_BATCHES) continuationCursor = "neighbor:";
+                    continue;
+                }
                 break;
             }
             Map<Long, String> access = accessProjectionService.projectAll(queried);
@@ -235,7 +251,17 @@ public class RecommendServiceImpl implements RecommendService {
                 lastAccepted = candidate;
             }
 
-            if (items.size() >= resultLimit || queried.size() < CANDIDATE_SCAN_BATCH_SIZE) {
+            if (items.size() >= resultLimit) {
+                break;
+            }
+            if (queried.size() < CANDIDATE_SCAN_BATCH_SIZE) {
+                if (!neighborPhase && !neighborCities.isEmpty()) {
+                    neighborPhase = true;
+                    scanCursor = null;
+                    previousScanCursor = null;
+                    if (scannedBatches >= MAX_CANDIDATE_SCAN_BATCHES) continuationCursor = "neighbor:";
+                    continue;
+                }
                 break;
             }
             String nextScanCursor = encodeCursor(queried.getLast());
@@ -244,7 +270,7 @@ public class RecommendServiceImpl implements RecommendService {
                 break;
             }
             if (scannedBatches >= MAX_CANDIDATE_SCAN_BATCHES) {
-                continuationCursor = nextScanCursor;
+                continuationCursor = (neighborPhase ? "neighbor:" : "") + nextScanCursor;
                 break;
             }
             previousScanCursor = scanCursor;
@@ -253,7 +279,8 @@ public class RecommendServiceImpl implements RecommendService {
         result.setItems(items);
         result.setWaitingReason(items.isEmpty() ? "no_candidate" : null);
         if (items.size() == resultLimit) {
-            result.setNextCursor(lastAccepted == null ? null : encodeCursor(lastAccepted));
+            result.setNextCursor(lastAccepted == null ? null
+                    : (neighborPhase ? "neighbor:" : "") + encodeCursor(lastAccepted));
         } else if (continuationCursor != null) {
             result.setNextCursor(continuationCursor);
         }
@@ -371,7 +398,7 @@ public class RecommendServiceImpl implements RecommendService {
                     new AuditContentKey(candidateId, AppUserAuditTypeEnum.PROFILE_BG.getCode()))));
             profile.setPhotos(photos);
             profile.setGender(candidate.getGender());
-            profile.setAge(candidate.getAge());
+            profile.setAge(ProfileAgeFilter.currentAge(candidate));
             profile.setHeight(candidate.getHeight());
             profile.setZodiac(candidate.getZodiac());
             profile.setCurrentCity(batchLabel(regionLabels, candidate.getLocationCity()));
@@ -589,15 +616,15 @@ public class RecommendServiceImpl implements RecommendService {
     private LambdaQueryWrapper<AppUser> candidateWrapper(AppUser current,
                                                           RecommendPreference preference,
                                                           boolean advancedFilterEffective,
-                                                          String cursor) {
+                                                          String cursor, List<String> targetCities) {
         String opposite = GenderEnum.MALE.getCode().equals(current.getGender())
                 ? GenderEnum.FEMALE.getCode() : GenderEnum.MALE.getCode();
         LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
                 .ne(AppUser::getId, current.getId())
                 .eq(AppUser::getGender, opposite)
-                .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode())
-                .between(AppUser::getAge, preference.getMinAge(), preference.getMaxAge());
-        MunicipalityLocationCodes.applyCityFilter(wrapper, effectiveTargetCities(preference));
+                .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode());
+        ProfileAgeFilter.apply(wrapper, preference.getMinAge(), preference.getMaxAge());
+        MunicipalityLocationCodes.applyCityFilter(wrapper, targetCities);
         if (advancedFilterEffective) {
             wrapper.ge(preference.getMinHeight() != null, AppUser::getHeight, preference.getMinHeight())
                     .le(preference.getMaxHeight() != null, AppUser::getHeight, preference.getMaxHeight())
@@ -780,7 +807,7 @@ public class RecommendServiceImpl implements RecommendService {
         profile.setNickname(target.getNickname());
         profile.setAvatar(avatar);
         profile.setGender(target.getGender());
-        profile.setAge(target.getAge());
+        profile.setAge(ProfileAgeFilter.currentAge(target));
         profile.setCurrentCity(batchLabel(cityLabels, target.getLocationCity()));
         profile.setOccupationLabel(batchLabel(occupationLabels, target.getOccupation()));
         profile.setLiked(liked);
@@ -961,8 +988,7 @@ public class RecommendServiceImpl implements RecommendService {
         RecommendPreference entity = new RecommendPreference();
         entity.setUserId(userId);
         entity.setTargetCityCodes(JSONUtil.toJsonStr(normalize(req.getTargetCityCodes())));
-        entity.setAllowNeighborCity(Boolean.TRUE.equals(req.getAllowNeighborCity())
-                && neighborCityAvailable(normalize(req.getTargetCityCodes())) ? 1 : 0);
+        entity.setAllowNeighborCity(Boolean.TRUE.equals(req.getAllowNeighborCity()) ? 1 : 0);
         entity.setOnlyCertifiedUsers(req.getOnlyCertifiedUsers() == null
                 ? previous == null || previous.getOnlyCertifiedUsers() == null
                         ? 0 : previous.getOnlyCertifiedUsers()
@@ -1074,8 +1100,7 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private Integer currentAge(AppUser user) {
-        LocalDate birthday = user.getBirthday();
-        return birthday == null ? user.getAge() : Period.between(birthday, LocalDate.now()).getYears();
+        return ProfileAgeFilter.currentAge(user);
     }
 
     private List<String> normalize(List<String> values) {
@@ -1124,24 +1149,25 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private Map<String, List<String>> neighborCityMapping() {
+        Map<String, List<String>> defaults = CityNeighborDefaults.mapping();
         AppConfig config = appConfigDao.selectByKey(NEIGHBOR_CITY_MAP_KEY);
-        if (config == null || StrUtil.isBlank(config.getConfigValue())) {
-            return Map.of();
+        if (config == null || CommonStatusEnum.DISABLED.getCode().equals(config.getStatus())
+                || StrUtil.isBlank(config.getConfigValue())) {
+            return defaults;
         }
         try {
             cn.hutool.json.JSONObject json = JSONUtil.parseObj(config.getConfigValue());
-            Map<String, List<String>> result = new LinkedHashMap<>();
+            Map<String, List<String>> result = new LinkedHashMap<>(defaults);
             for (String key : json.keySet()) {
                 List<String> neighbors = json.getJSONArray(key) == null
                         ? List.of() : normalize(json.getJSONArray(key).toList(String.class));
-                if (!neighbors.isEmpty()) {
-                    result.put(key, neighbors);
-                }
+                // 显式空数组用于关闭某城市扩展；空对象则沿用全国默认邻接。
+                result.put(MunicipalityLocationCodes.cityGroupCode(key), neighbors);
             }
             return result;
         } catch (RuntimeException ignored) {
-            // 运行配置异常时暂不扩展城市范围，保留用户已保存的开关状态。
-            return Map.of();
+            // 配置格式异常时使用已校验的默认数据，不改写用户偏好。
+            return defaults;
         }
     }
 

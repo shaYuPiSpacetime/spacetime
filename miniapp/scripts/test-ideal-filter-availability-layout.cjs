@@ -11,7 +11,7 @@ const source = fs.readFileSync(
 test('理想型仅展示当前资料可用的依赖条件', () => {
   assert.ok(/if \(!condition\.available\) continue/.test(source), '不可用条件应隐藏')
   assert.ok(
-    /setSelectedConditionCodes\(\(metaData\.lastConditionCodes \|\| \[\]\)\.filter/.test(source),
+    /mergeIdealFilterDraft\(draftRef\.current, metaData\)/.test(source),
     '历史条件回显应过滤不可用项'
   )
 })
