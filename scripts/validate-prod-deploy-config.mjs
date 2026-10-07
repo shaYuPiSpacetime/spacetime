@@ -44,7 +44,11 @@ for (const file of workflows) {
   assertNotIncludes(content, 'runs-on: self-hosted', file);
   assertIncludes(content, 'appleboy/ssh-action', file);
   assertIncludes(content, 'appleboy/scp-action', file);
-  assertIncludes(content, "source: 'deploy/scripts/*,deploy/nginx-prod/conf.d/*", file);
+  // 按目录成员校验，允许证书续期等新增目录，不依赖同步顺序。
+  const copySources = content.match(/source: '([^']+)'/)?.[1].split(',').map((source) => source.trim()) || [];
+  for (const requiredSource of ['deploy/scripts/*', 'deploy/nginx-prod/conf.d/*']) {
+    assert.ok(copySources.includes(requiredSource), `${file} 同步目录缺少 ${requiredSource}`);
+  }
   assertIncludes(content, "target: '/mnt/data/spacetime-prod'", file);
   assertIncludes(content, 'host: ${{ env.PROD_SERVER_HOST }}', file);
   assertIncludes(content, 'username: ${{ env.PROD_SERVER_USER }}', file);
