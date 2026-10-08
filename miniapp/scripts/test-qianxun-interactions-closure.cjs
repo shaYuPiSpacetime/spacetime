@@ -65,6 +65,17 @@ test('互动页消费真实 viewed 互动接口并保留关联动态和互动时
   assert.match(communityService, /toggleCommunityFollow\s*=\s*\(targetUserId:\s*number\)/, '关注接口类型必须限制为数字用户 ID')
 })
 
+test('千寻互动动态头像进入作者主页且不触发动态详情', () => {
+  const source = read('src/pages/qianxun/interactions.tsx')
+
+  assert.match(source, /data-role="qianxun-interaction-author-avatar"[^>]*onClick=\{openAuthorProfile\}/, '互动动态作者头像必须绑定主页导航')
+  assert.match(
+    source,
+    /const openAuthorProfile =[^]*?event\.stopPropagation\(\)[^]*?openCommunityAuthorProfile\(post\.authorId, useAuthStore\.getState\(\)\.userId, Taro\.navigateTo\)/,
+    '头像点击必须阻止卡片详情冒泡，并按作者身份打开本人预览或他人主页',
+  )
+})
+
 test('千寻动态卡统一使用 OSS 性别评论点赞图标', () => {
   const sources = [
     'src/pages/qianxun/interactions.tsx',

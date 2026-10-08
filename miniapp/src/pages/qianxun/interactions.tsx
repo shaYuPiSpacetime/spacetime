@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { prd01Api } from '@/services/prd01'
@@ -702,10 +703,15 @@ function InteractionPostGroups({ groups, scope, onDelete }: { groups: Array<{ ke
 }
 
 function InteractionPostCard({ post, measureKey, onDelete }: { post: CommunityPostVO; measureKey: string; onDelete?: () => void }) {
+  const openAuthorProfile = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation()
+    void openCommunityAuthorProfile(post.authorId, useAuthStore.getState().userId, Taro.navigateTo)
+  }
+
   return (
     <View className="qianxun-interaction-post-card" onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} onLongPress={onDelete} style={{ padding: '0 0 32rpx', marginBottom: '38rpx', borderBottom: '2rpx solid #F0F3F8' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}>
-        <Image src={normalizeAvatarUrl(post.authorAvatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }} />
+        <Image data-role="qianxun-interaction-author-avatar" aria-label="查看用户主页" onClick={openAuthorProfile} src={normalizeAvatarUrl(post.authorAvatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }} />
         <View style={{ marginLeft: '16rpx', flex: 1, minWidth: 0 }}>
           <View style={{ display: 'flex', alignItems: 'center' }}>
             <Text style={{ color: '#333333', fontSize: '27rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName}</Text>
