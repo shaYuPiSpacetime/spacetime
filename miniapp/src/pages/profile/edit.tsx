@@ -538,11 +538,12 @@ export default function ProfileEditPage() {
       void Taro.showToast({ title: '语音审核中，请稍后查看', icon: 'none' })
       return
     }
-    setVoiceSheet(voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')
+    setVoiceSheet(voiceTempPath || voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')
   }
 
   const cancelVoiceConfirm = () => {
-    setVoiceSheet(current => current === 'exit' ? 'recording' : 'complete')
+    if (voiceSheet !== 'exit') stopVoicePlayback()
+    setVoiceSheet(current => current === 'exit' ? 'recording' : null)
   }
 
   const confirmDiscardRecording = () => {
@@ -556,20 +557,22 @@ export default function ProfileEditPage() {
   }
 
   const confirmDeleteVoice = () => {
+    if (voiceSaving) return
     stopVoicePlayback()
     if (voiceTempPath) {
       resetVoiceDraft()
-      setVoiceSheet(voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')
+      setVoiceSheet(null)
       return
     }
-    if (!voiceDetail?.voiceIntroUrl || voiceSaving) {
-      setVoiceSheet('voice')
+    if (!voiceDetail?.voiceIntroUrl) {
+      setVoiceSheet(null)
       return
     }
     setVoiceSaving(true)
     void prd01Api.deleteVoiceIntro().then(() => {
       setVoiceDetail(undefined)
-      setVoiceSheet('delete-success')
+      setVoiceSheet(null)
+      void Taro.showToast({ title: '语音介绍已删除', icon: 'success' })
       void refreshProfileScore()
     }).catch(showError).finally(() => setVoiceSaving(false))
   }
@@ -2254,6 +2257,7 @@ function VoiceIntroSheet({
       {variant === 'delete-success' ? (
         <VoiceToast text={voiceIntro.successText || '语音介绍已删除'} />
       ) : null}
+      {variant !== 'delete' && variant !== 'delete-success' ? (
       <View
         style={{
           position: 'absolute',
@@ -2381,10 +2385,11 @@ function VoiceIntroSheet({
           </Text>
         ) : null}
       </View>
+      ) : null}
 
       {showConfirm ? (
         <VoiceConfirmDialog
-          title={variant === 'exit' ? '退出提示' : '删除提示'}
+          title={variant === 'exit' ? '退出提示' : '确认删除'}
           content={
             variant === 'exit'
               ? '退出录音后当前录音丢失，确定要关闭吗？'
