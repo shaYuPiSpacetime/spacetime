@@ -205,6 +205,11 @@ test('推荐等待聚合页使用蓝湖每日上限页原始切图', () => {
   }
   assert.match(waiting, /每日12点准时推荐/, '主卡标题必须与蓝湖版本 3 一致')
   assert.match(waiting, /fontSize: '28rpx',[\s\S]{0,60}lineHeight: '48rpx'/, '千寻动态正文必须按设计放大')
+  assert.match(
+    waiting,
+    /normalizeAvatarUrl\(post\.authorAvatar, miniappOssIcons\.qianxunTopicAvatar\)/,
+    '千寻动态作者头像为空时必须保留 72rpx 头像位并显示 OSS 兜底图',
+  )
 })
 
 test('PRD-08 子页面全部注册且使用自定义导航', () => {

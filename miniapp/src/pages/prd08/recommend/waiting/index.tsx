@@ -7,6 +7,7 @@ import { shouldShowRecommendWaiting } from '@/domain/recommendBrowseCycle'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getCommunityPosts, type CommunityPostVO } from '@/services/community'
 import { getRecommendCandidates, getRecommendPreferences } from '@/services/recommend'
+import { normalizeAvatarUrl } from '@/utils/avatar'
 
 const background =
   'linear-gradient(90deg,rgba(233,253,251,.72),rgba(234,238,249,.68) 49%,rgba(248,250,239,.68))'
@@ -348,13 +349,11 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
       {post ? (
         <>
           <View style={{ display: 'flex', alignItems: 'center', marginTop: '28rpx' }}>
-            {post.authorAvatar ? (
-              <Image
-                src={post.authorAvatar}
-                mode="aspectFill"
-                style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }}
-              />
-            ) : null}
+            <Image
+              src={normalizeAvatarUrl(post.authorAvatar, miniappOssIcons.qianxunTopicAvatar)}
+              mode="aspectFill"
+              style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: '#EFF3F7', flexShrink: 0 }}
+            />
             <View style={{ marginLeft: '18rpx' }}>
               <Text
                 style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 600 }}
