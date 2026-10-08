@@ -1,0 +1,237 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Clip 2",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#FDEAD9"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF border-0px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF border-0px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "icon",
+      "name": "编组",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng4acd57b2881c9eb6548fccbe4122487098dfd0ba91d10f72354a5496ad844935"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "border-1px border-#FFFFFF33 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "icon",
+      "name": "椭圆形 + 椭圆形蒙版",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng1cad55231d8cdb2ba6c1f7786d5a80f2027e6c37a9ed5bb0af53e4402622e29d"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#2876FF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "border-1px border-#FFFFFF99 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "border-1px border-#FFFFFF99 border-solid"
+    },
+    {
+      "type": "icon",
+      "name": "编组 10",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng7d3e1a640a2a65aa54605d734add62be8fc1614175c3d3f1a48b9eb5af4608bc"
+    },
+    {
+      "type": "icon",
+      "name": "编组 10",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng368a892c95cbcba47dc6e8009eb2b603e020e5c18dd49c0aa4ee00eb4d5afd8f"
+    },
+    {
+      "type": "icon",
+      "name": "编组 2",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng7db5ad43d5e30ac877fa7e4fac46921a95e5c066ed67e8cf4ac54858344028fb"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "border-1px border-#999999 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Clip 2",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#9D9D9D"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#4E8EFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#E3F1FE"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FA5051"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "icon",
+      "name": "举报",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng74fbb90018433ce0df702bdeecc833fedddfe3747e996daee29fdee4ee5e9684"
+    },
+    {
+      "type": "icon",
+      "name": "编组",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngb9b2358a2386834cec52f4ea96fdb57e0254061a477e31f152fcd0c0899d24d0"
+    },
+    {
+      "type": "icon",
+      "name": "形状",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng468a9e7e148636392e007d13692574fbc76c1dfa13ba0f36f2a85d69263197af"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#4E8EFF"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "icon",
+      "name": "编组 3",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng6113687eba8b95d6cd2fe29d40567638709e1c99b9fc02f3f8a58628cba31ae0"
+    },
+    {
+      "type": "icon",
+      "name": "编组 4",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPngc1f1f1f3d276366609e6fe8b1e21f6037a958bd983459986478111d5f572cd8c"
+    },
+    {
+      "type": "icon",
+      "name": "编组 6",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng0278917fc8a64da79137524215b459acd6d0626b7824a0543ea2e5bdd3ef281b"
+    }
+  ]
+}

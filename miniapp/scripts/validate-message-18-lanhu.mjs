@@ -32,6 +32,8 @@ const report = read('src/pages/message/report.tsx')
 const messageService = read('src/services/message.ts')
 const ossIcons = read('src/constants/ossIcons.ts')
 const ossUploader = read('scripts/upload-miniapp-oss-icons.mjs')
+const messageShared = read('src/pages/message/shared.tsx')
+const messageStyles = read('src/pages/message/message.scss')
 
 for (const route of ['whisper-list', 'whisper-detail', 'private-list', 'private-chat', 'channel', 'report']) {
   assert.match(appConfig, new RegExp(`['"]${route}['"]`), `消息分包必须注册 ${route}`)
@@ -139,5 +141,34 @@ assert.match(
   '悄悄话背景仅承载视觉，不得拦截整卡点击事件'
 )
 assert.doesNotMatch(chat, /src=\{miniappOssIcons\.messageHomeYoArt\}/, '悄悄话入口不得继续叠加旧 YO 插画')
+
+const channelIconBaselines = [
+  {
+    type: '官方小助手',
+    file: 'icon-assistant.png',
+    key: 'messageAssistant',
+    sha256: '07e7e9feaa22b7c8e11fc6381a694e16e662e11336050b75d94b794e4884f641',
+  },
+  {
+    type: '系统消息',
+    file: 'icon-system.png',
+    key: 'messageSystem',
+    sha256: 'bddf25a7263fae72d26913fdc92a40361da1764b2254cca28f467f4e47a4fe20',
+  },
+]
+
+for (const icon of channelIconBaselines) {
+  const iconPath = path.join(rootDir, 'src/assets/lanhu/message', icon.file)
+  assert.equal(fs.existsSync(iconPath), true, `${icon.type}必须保留蓝湖 2x 无损 PNG 源文件`)
+  const bytes = fs.readFileSync(iconPath)
+  assert.equal(bytes.readUInt32BE(16), 196, `${icon.type}蓝湖源文件宽度必须为 196px`)
+  assert.equal(bytes.readUInt32BE(20), 196, `${icon.type}蓝湖源文件高度必须为 196px`)
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'), icon.sha256, `${icon.type}必须与“消息-切图”原始字节一致`)
+  assert.match(ossUploader, new RegExp(`${icon.key}:\\s*'src/assets/lanhu/message/${icon.file}'`), `${icon.type}必须接入 OSS 上传清单`)
+  assert.match(ossIcons, new RegExp(`${icon.key}:\\s*'https://`), `${icon.type}运行态必须只引用 OSS 公网地址`)
+}
+assert.match(messageShared, /type === 'assistant' \? miniappOssIcons\.messageAssistant : miniappOssIcons\.messageSystem/, '两个页面必须按频道引用各自最新头像')
+assert.match(messageStyles, /\.message-channel-badge\s*\{[\s\S]*?width:\s*49px;[\s\S]*?height:\s*49px;/, '频道头像容器必须使用蓝湖 49pt 尺寸')
+assert.match(messageStyles, /\.message-channel-icon\s*\{[\s\S]*?width:\s*49px;[\s\S]*?height:\s*49px;/, '频道头像图片必须使用蓝湖 49pt 尺寸')
 
 console.log('消息 18 稿路由、状态、举报链路与静态安全门禁通过')
