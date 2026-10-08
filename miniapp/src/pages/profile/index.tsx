@@ -313,7 +313,7 @@ function HeaderBlock({
           alignItems: 'center',
         }}
       >
-        <Text style={{ color: '#999999', fontSize: '22rpx', lineHeight: '34rpx' }}>{editText}</Text>
+        <Text data-role="profile-edit-copy" style={{ color: '#999999', fontSize: '26rpx', lineHeight: '34rpx' }}>{editText}</Text>
         <View
           style={{
             width: '14rpx',
