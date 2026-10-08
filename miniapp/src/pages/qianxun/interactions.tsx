@@ -686,7 +686,7 @@ function InteractionPostGroups({ groups, onDelete }: { groups: Array<{ key: stri
     <View style={{ padding: '18rpx 26rpx 52rpx' }}>
       {groups.map((group, groupIndex) => (
         <View key={group.key} style={{ paddingTop: groupIndex ? '38rpx' : 0 }}>
-          <Text className="qianxun-interaction-date-group" data-date-label={group.label} style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '36rpx', marginBottom: '28rpx' }}>{group.label}</Text>
+          <Text className="qianxun-interaction-date-group" data-date-label={group.label} style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginBottom: '28rpx' }}>{group.label}</Text>
           {group.items.map(item => item.post ? <InteractionPostCard key={item.id} post={item.post} onDelete={onDelete ? () => onDelete(item.post!.id) : undefined} /> : null)}
         </View>
       ))}
