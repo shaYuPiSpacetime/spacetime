@@ -216,6 +216,16 @@ test('推荐等待聚合页使用蓝湖每日上限页原始切图', () => {
     /event\.stopPropagation\(\)[\s\S]{0,120}openCommunityAuthorProfile\(post\.authorId, currentUserId, Taro\.navigateTo\)/,
     '头像跳转必须阻止卡片详情事件，并按作者身份打开本人预览或他人主页',
   )
+  assert.match(
+    waiting,
+    /fontSize: '26rpx',[\s\S]{0,100}免费查看心动、访客/,
+    '会员横幅次级文案字号必须为 26rpx',
+  )
+  assert.match(
+    waiting,
+    /fontSize: '26rpx'[^>]*>立即开通/,
+    '会员横幅立即开通按钮字号必须为 26rpx',
+  )
 })
 
 test('PRD-08 子页面全部注册且使用自定义导航', () => {

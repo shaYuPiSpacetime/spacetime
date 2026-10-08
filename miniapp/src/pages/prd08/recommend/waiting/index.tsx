@@ -204,7 +204,7 @@ export default function RecommendWaitingPage() {
                 style={{
                   display: 'block',
                   color: '#FFFFFF',
-                  fontSize: '23rpx',
+                  fontSize: '26rpx',
                   marginTop: '12rpx',
                 }}
               >
@@ -222,7 +222,7 @@ export default function RecommendWaitingPage() {
                 background: '#FFC965',
               }}
             >
-              <Text style={{ color: '#252525', fontSize: '22rpx' }}>立即开通</Text>
+              <Text style={{ color: '#252525', fontSize: '26rpx' }}>立即开通</Text>
             </View>
           </View>
           ) : null}
