@@ -166,7 +166,7 @@ test('文档中已有实现的心动、会员和 MBTI 图标规则保持不回�
   const { toggleProfileTagSelection } = loadTypeScriptModule('src/domain/profileTagSelection.ts')
 
   assert.match(heartHeader, /miniappOssIcons\.heartMutualLikes/, '对我心动页必须使用文档指定图标')
-  assert.match(profile, /function VipBannerMark\(\)/, '我的页面会员入口必须保留菱形勾选图标')
+  assert.match(profile, /miniappOssIcons\.profileVipMark/, '我的页面会员入口必须使用蓝湖 MCP 会员图标切图')
   assert.deepEqual(
     toggleProfileTagSelection(['INTJ', '运动'], 'ENFP', 'MBTI', ['INTJ', 'ENFP'], 16).codes,
     ['运动', 'ENFP'],

@@ -656,7 +656,17 @@ function VipBanner({
           height: '128rpx',
         }}
       />
-      <VipBannerMark />
+      <Image
+        src={miniappOssIcons.profileVipMark}
+        mode="aspectFit"
+        style={{
+          position: 'absolute',
+          left: '28rpx',
+          top: '45rpx',
+          width: '48rpx',
+          height: '38rpx',
+        }}
+      />
       <Text
         style={{
           position: 'absolute',
@@ -721,39 +731,6 @@ function VipBanner({
           </Text>
         </View>
       )}
-    </View>
-  )
-}
-
-function VipBannerMark() {
-  return (
-    <View style={{ position: 'absolute', left: '28rpx', top: '38rpx', width: '54rpx', height: '54rpx' }}>
-      <View
-        style={{
-          position: 'absolute',
-          left: '7rpx',
-          top: '7rpx',
-          width: '40rpx',
-          height: '40rpx',
-          borderRadius: '8rpx',
-          border: '4rpx solid #F7C968',
-          boxSizing: 'border-box',
-          transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: '17rpx',
-          top: '19rpx',
-          width: '20rpx',
-          height: '10rpx',
-          borderLeft: '4rpx solid #F7C968',
-          borderBottom: '4rpx solid #F7C968',
-          transform: 'rotate(-45deg)',
-          boxSizing: 'border-box',
-        }}
-      />
     </View>
   )
 }

@@ -131,6 +131,7 @@ const ICON_ASSETS = Object.freeze({
   profileSettings: 'src/assets/profile/icon-settings.png',
   profileCertification: 'src/assets/profile/icon-cert.png',
   profileBoostButton: 'src/assets/profile/boost-button.png',
+  profileVipMark: 'src/assets/profile/vip-mark.png',
   profileVipBanner: 'src/assets/profile/vip-banner.webp',
   profilePreviewShare: 'src/assets/lanhu/profile/profile-preview-share.png',
   profilePreviewHero: 'src/assets/lanhu/profile/profile-preview-hero.png',
