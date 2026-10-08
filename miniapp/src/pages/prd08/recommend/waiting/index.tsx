@@ -18,7 +18,7 @@ export default function RecommendWaitingPage() {
   const metrics = getNativeNavigationMetrics()
   const [post, setPost] = useState<CommunityPostVO | null>(null)
   const [vipEffective, setVipEffective] = useState<boolean | null>(null)
-  const [nextResetAt, setNextResetAt] = useState<string | null>(null)
+  const [, setNextResetAt] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState('')
   const refreshGeneration = useRef(0)
@@ -86,7 +86,8 @@ export default function RecommendWaitingPage() {
         >
           <View
             style={{
-              height: '226rpx',
+              position: 'relative',
+              height: '225rpx',
               borderRadius: '12rpx',
               background: '#FFFFFF',
               overflow: 'hidden',
@@ -96,30 +97,28 @@ export default function RecommendWaitingPage() {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: '#0C285A', fontSize: '36rpx', fontWeight: 600 }}>
-              每日中午12点更新
-            </Text>
-            <Text
-              onClick={() => { if (refreshError && !refreshing) void refreshRecommendation() }}
-              style={{ color: refreshError ? '#4B8BFF' : '#7F8494', fontSize: '24rpx', marginTop: '8rpx' }}
-            >
-              {refreshing ? '正在获取更新时间…' : refreshError ||
-                (nextResetAt ? `下次更新：${nextResetAt.slice(0, 16)}（北京时间）` : '')}
+            <Image
+              src={miniappOssIcons.recommendDailyLimitHero}
+              mode="scaleToFill"
+              style={{ position: 'absolute', inset: 0, width: '700rpx', height: '225rpx' }}
+            />
+            <Text style={{ position: 'relative', zIndex: 1, color: '#0C285A', fontSize: '36rpx', fontWeight: 600 }}>
+              每日12点准时推荐
             </Text>
             <Text
               onClick={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
-              style={{ color: '#4B8BFF', fontSize: '28rpx', marginTop: '22rpx' }}
+              style={{ position: 'relative', zIndex: 1, color: '#4B8BFF', fontSize: '28rpx', marginTop: '28rpx' }}
             >
               查看往日推荐
             </Text>
-            <View
-              style={{
-                alignSelf: 'stretch',
-                height: '48rpx',
-                marginTop: '26rpx',
-                background: 'linear-gradient(165deg,#F4F8FE 45%,#EEF5FD 46%)',
-              }}
-            />
+            {refreshError ? (
+              <Text
+                onClick={() => { if (!refreshing) void refreshRecommendation() }}
+                style={{ position: 'relative', zIndex: 1, color: '#4B8BFF', fontSize: '22rpx', marginTop: '14rpx' }}
+              >
+                {refreshing ? '正在重试…' : refreshError}
+              </Text>
+            ) : null}
           </View>
           <View
             onClick={openIdeal}
@@ -135,23 +134,25 @@ export default function RecommendWaitingPage() {
             }}
           >
             <Text style={{ color: '#999999', fontSize: '26rpx' }}>按条件搜索 找到你的理想型</Text>
-            <SearchIcon />
+            <Image
+              src={miniappOssIcons.recommendDailyLimitSearch}
+              mode="aspectFit"
+              style={{ width: '36rpx', height: '36rpx' }}
+            />
           </View>
           <View style={{ display: 'flex', gap: '18rpx', marginTop: '20rpx' }}>
             <EntryCard
               title="悄悄话"
               subtitle="即刻开聊"
-              color="#DDEEFF"
+              backgroundImage={miniappOssIcons.recommendDailyLimitWhisperCard}
               textColor="#0D63B5"
-              icon="whisper"
               onClick={() => void Taro.navigateTo({ url: '/pages/message/whisper-list' })}
             />
             <EntryCard
               title="同城推荐"
               subtitle="附近有谁在活跃"
-              color="#FDE8D6"
+              backgroundImage={miniappOssIcons.recommendDailyLimitCityCard}
               textColor="#B56B13"
-              icon="city"
               onClick={() => void Taro.switchTab({ url: '/pages/index/index' })}
             />
           </View>
@@ -170,12 +171,12 @@ export default function RecommendWaitingPage() {
             }}
           >
             <Image
-              src={miniappOssIcons.recommendVipBanner}
-              mode="aspectFill"
+              src={miniappOssIcons.recommendDailyLimitVipBackground}
+              mode="scaleToFill"
               style={{ position: 'absolute', inset: 0, width: '700rpx', height: '168rpx' }}
             />
             <Image
-              src={miniappOssIcons.recommendVipBadge}
+              src={miniappOssIcons.recommendDailyLimitVipBadge}
               mode="aspectFit"
               style={{
                 position: 'absolute',
@@ -183,7 +184,7 @@ export default function RecommendWaitingPage() {
                 left: '30rpx',
                 top: '47rpx',
                 width: '88rpx',
-                height: '74rpx',
+                height: '70rpx',
               }}
             />
             <View
@@ -342,8 +343,8 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
       onClick={open}
       style={{ marginTop: '20rpx', padding: '30rpx', borderRadius: '12rpx', background: '#FFFFFF' }}
     >
-      <Text style={{ color: '#999999', fontSize: '28rpx' }}>千寻动态</Text>
-      <Text onClick={(event) => { event.stopPropagation(); void Taro.switchTab({ url: '/pages/index/index' }) }} style={{ float: 'right', color: '#999999', fontSize: '24rpx' }}>查看更多 ＞</Text>
+      <Text style={{ color: '#999999', fontSize: '30rpx' }}>千寻动态</Text>
+      <Text onClick={(event) => { event.stopPropagation(); void Taro.switchTab({ url: '/pages/index/index' }) }} style={{ float: 'right', color: '#999999', fontSize: '26rpx' }}>查看更多 ＞</Text>
       {post ? (
         <>
           <View style={{ display: 'flex', alignItems: 'center', marginTop: '28rpx' }}>
@@ -356,12 +357,12 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
             ) : null}
             <View style={{ marginLeft: '18rpx' }}>
               <Text
-                style={{ display: 'block', color: '#333333', fontSize: '27rpx', fontWeight: 600 }}
+                style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 600 }}
               >
                 {post.authorName}
               </Text>
               <Text
-                style={{ display: 'block', color: '#2876FF', fontSize: '22rpx', marginTop: '6rpx' }}
+                style={{ display: 'block', color: '#2876FF', fontSize: '24rpx', marginTop: '6rpx' }}
               >
                 {[
                   post.authorBirthYear ? `${post.authorBirthYear}年` : '',
@@ -377,8 +378,8 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
             style={{
               display: 'block',
               color: '#333333',
-              fontSize: '24rpx',
-              lineHeight: '40rpx',
+              fontSize: '28rpx',
+              lineHeight: '48rpx',
               marginTop: '22rpx',
             }}
           >
@@ -414,48 +415,17 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
   )
 }
 
-function SearchIcon() {
-  return (
-    <View style={{ position: 'relative', width: '44rpx', height: '44rpx' }}>
-      <View
-        style={{
-          width: '27rpx',
-          height: '27rpx',
-          border: '4rpx solid #9AA0AA',
-          borderRadius: '50%',
-          boxSizing: 'border-box',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '4rpx',
-          bottom: '7rpx',
-          width: '18rpx',
-          height: '4rpx',
-          borderRadius: '2rpx',
-          background: '#9AA0AA',
-          transform: 'rotate(45deg)',
-          transformOrigin: 'right center',
-        }}
-      />
-    </View>
-  )
-}
-
 function EntryCard({
   title,
   subtitle,
-  color,
+  backgroundImage,
   textColor,
-  icon,
   onClick,
 }: {
   title: string
   subtitle: string
-  color: string
+  backgroundImage: string
   textColor: string
-  icon: 'whisper' | 'city'
   onClick: () => void
 }) {
   return (
@@ -466,87 +436,23 @@ function EntryCard({
         height: '198rpx',
         padding: '42rpx 30rpx',
         borderRadius: '12rpx',
-        background: color,
+        background: textColor === '#0D63B5' ? '#DDEEFF' : '#FDE8D6',
         boxSizing: 'border-box',
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      <Text style={{ display: 'block', color: textColor, fontSize: '30rpx', fontWeight: 600 }}>
+      <Image
+        src={backgroundImage}
+        mode="scaleToFill"
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '198rpx' }}
+      />
+      <Text style={{ position: 'relative', zIndex: 1, display: 'block', color: textColor, fontSize: '30rpx', fontWeight: 600 }}>
         {title}
       </Text>
-      <Text style={{ display: 'block', color: textColor, fontSize: '25rpx', marginTop: '18rpx' }}>
+      <Text style={{ position: 'relative', zIndex: 1, display: 'block', color: textColor, fontSize: '25rpx', marginTop: '18rpx' }}>
         {subtitle}
       </Text>
-      <View
-        style={{
-          position: 'absolute',
-          right: '-22rpx',
-          bottom: '-40rpx',
-          width: '166rpx',
-          height: '166rpx',
-          borderRadius: '83rpx',
-          background: icon === 'whisper' ? 'rgba(88,145,255,.14)' : 'rgba(255,171,81,.18)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <View
-          style={{
-            width: '112rpx',
-            height: '112rpx',
-            borderRadius: '56rpx',
-            background: icon === 'whisper' ? 'rgba(70,133,255,.30)' : 'rgba(255,155,53,.32)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {icon === 'whisper' ? (
-            <Image
-              src={miniappOssIcons.recommendWhisper}
-              mode="aspectFit"
-              style={{ width: '78rpx', height: '78rpx' }}
-            />
-          ) : (
-            <SameCityIcon />
-          )}
-        </View>
-      </View>
-    </View>
-  )
-}
-
-function SameCityIcon() {
-  return (
-    <View style={{ position: 'relative', width: '68rpx', height: '58rpx' }}>
-      <View
-        style={{
-          position: 'absolute',
-          left: '5rpx',
-          top: '7rpx',
-          width: '38rpx',
-          height: '48rpx',
-          border: '4rpx solid #FFFFFF',
-          borderRadius: '6rpx',
-          transform: 'rotate(-26deg)',
-          boxSizing: 'border-box',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '4rpx',
-          top: '4rpx',
-          width: '38rpx',
-          height: '48rpx',
-          border: '4rpx solid #FFFFFF',
-          borderRadius: '6rpx',
-          transform: 'rotate(-5deg)',
-          boxSizing: 'border-box',
-        }}
-      />
     </View>
   )
 }

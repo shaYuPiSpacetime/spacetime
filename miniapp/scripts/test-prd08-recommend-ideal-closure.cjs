@@ -135,6 +135,12 @@ test('推荐非底部静态素材全部来自 OSS 常量', () => {
     'idealFilter',
     'recommendReplay',
     'recommendPreference',
+    'recommendDailyLimitHero',
+    'recommendDailyLimitSearch',
+    'recommendDailyLimitVipBackground',
+    'recommendDailyLimitVipBadge',
+    'recommendDailyLimitWhisperCard',
+    'recommendDailyLimitCityCard',
     'idealHistory',
   ]) {
     assert.match(icons, new RegExp(`${key}: 'https://`), `OSS 常量缺少 ${key}`)
@@ -184,12 +190,21 @@ test('推荐与理想型右上角图标按蓝湖 18px 基线渲染并保留足�
   )
 })
 
-test('推荐等待聚合页的悄悄话和同城入口使用设计图标', () => {
+test('推荐等待聚合页使用蓝湖每日上限页原始切图', () => {
   const waiting = read('src/pages/prd08/recommend/waiting/index.tsx')
 
-  assert.match(waiting, /miniappOssIcons\.recommendWhisper/, '悄悄话入口必须显示设计图标')
-  assert.match(waiting, /<SameCityIcon\s*\/>/, '同城入口必须显示独立的可见图标')
-  assert.match(waiting, /miniappOssIcons\.recommendVipBadge/, '会员横幅必须显示蓝湖会员徽章')
+  for (const key of [
+    'recommendDailyLimitHero',
+    'recommendDailyLimitSearch',
+    'recommendDailyLimitVipBackground',
+    'recommendDailyLimitVipBadge',
+    'recommendDailyLimitWhisperCard',
+    'recommendDailyLimitCityCard',
+  ]) {
+    assert.match(waiting, new RegExp(`miniappOssIcons\\.${key}`), `${key} 必须用于每日上限页`)
+  }
+  assert.match(waiting, /每日12点准时推荐/, '主卡标题必须与蓝湖版本 3 一致')
+  assert.match(waiting, /fontSize: '28rpx',[\s\S]{0,60}lineHeight: '48rpx'/, '千寻动态正文必须按设计放大')
 })
 
 test('PRD-08 子页面全部注册且使用自定义导航', () => {
