@@ -35,6 +35,46 @@ import static org.mockito.Mockito.when;
 @DisplayName("AppUserAuditService L3 测试")
 class AppUserAuditServiceTest {
 
+    @Test
+    void failedPendingShouldExpireWithHistoryOnlyAfterConditionalUpdate() {
+        AppUserAuditRecord current = record(8L, 10L, AppUserAuditTypeEnum.VOICE_INTRO, AppUserAuditStatusEnum.PENDING);
+        when(recordDao.selectById(8L)).thenReturn(current);
+        when(recordDao.expirePending(current, "PENDING")).thenReturn(true);
+        assertThat(auditService.expirePending(8L, "PENDING", null, "请重新提交")).isTrue();
+        ArgumentCaptor<AppUserAuditHistory> history = ArgumentCaptor.forClass(AppUserAuditHistory.class);
+        verify(historyDao).insert(history.capture());
+        assertThat(history.getValue().getAction()).isEqualTo("SYSTEM_EXPIRE");
+        assertThat(history.getValue().getFromStatus()).isEqualTo("PENDING");
+        assertThat(history.getValue().getToStatus()).isEqualTo("EXPIRED");
+    }
+
+    @Test
+    void concurrentAuditShouldNotProduceFalseRecoveryHistory() {
+        AppUserAuditRecord current = record(8L, 10L, AppUserAuditTypeEnum.VOICE_INTRO, AppUserAuditStatusEnum.PENDING);
+        when(recordDao.selectById(8L)).thenReturn(current);
+        assertThat(auditService.expirePending(8L, "PENDING", null, "请重新提交")).isFalse();
+        org.mockito.Mockito.verifyNoInteractions(historyDao);
+    }
+
+    @Test
+    void newlyBoundAsyncTaskShouldPreventStaleRecovery() {
+        AppUserAuditRecord current = record(8L, 10L, AppUserAuditTypeEnum.VOICE_INTRO, AppUserAuditStatusEnum.REVIEWING);
+        current.setProviderTaskId(88L);
+        when(recordDao.selectById(8L)).thenReturn(current);
+        assertThat(auditService.expirePending(8L, "PENDING", null, "请重新提交")).isFalse();
+        org.mockito.Mockito.verify(recordDao, org.mockito.Mockito.never()).expirePending(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(historyDao);
+    }
+
+    @Test
+    void approvedRecordShouldNeverBeExpiredByFailureRecovery() {
+        AppUserAuditRecord current = record(8L, 10L, AppUserAuditTypeEnum.VOICE_INTRO, AppUserAuditStatusEnum.APPROVED);
+        when(recordDao.selectById(8L)).thenReturn(current);
+        assertThat(auditService.expirePending(8L, "PENDING", null, "请重新提交")).isFalse();
+        org.mockito.Mockito.verify(recordDao, org.mockito.Mockito.never()).expirePending(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(historyDao);
+    }
+
     @Mock
     private AppUserAuditRecordDao recordDao;
 

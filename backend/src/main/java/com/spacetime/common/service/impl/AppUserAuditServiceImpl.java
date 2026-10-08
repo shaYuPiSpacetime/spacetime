@@ -244,6 +244,23 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     }
 
     @Override
+    @Transactional
+    public boolean expirePending(Long recordId, String expectedStatus, Long expectedTaskId, String reason) {
+        AppUserAuditRecord record = requireRecord(recordId);
+        String fromStatus = record.getStatus();
+        if (!AppUserAuditStatusEnum.isPendingLike(fromStatus) || !fromStatus.equals(expectedStatus)
+                || !AuditSourceEnum.MACHINE.getCode().equals(record.getAuditSource())
+                || !java.util.Objects.equals(record.getProviderTaskId(), expectedTaskId)) return false;
+        record.setStatus(AppUserAuditStatusEnum.EXPIRED.getCode());
+        record.setExpiredReason(reason);
+        record.setAuditTime(LocalDateTime.now());
+        if (!recordDao.expirePending(record, fromStatus)) return false;
+        appendHistory(record, fromStatus, record.getStatus(), AppUserAuditActionEnum.SYSTEM_EXPIRE,
+                reason, AuditOperatorTypeEnum.SYSTEM, null, "系统");
+        return true;
+    }
+
+    @Override
     public boolean latestApproved(Long userId, AppUserAuditTypeEnum type) {
         AppUserAuditRecord latest = latestRecord(userId, type);
         return latest != null && AppUserAuditStatusEnum.APPROVED.getCode().equals(latest.getStatus());

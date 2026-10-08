@@ -67,4 +67,22 @@ public class AppUserAuditRecordDaoImpl implements AppUserAuditRecordDao {
                 .set(AppUserAuditRecord::getAuditTime, entity.getAuditTime())
                 .set(AppUserAuditRecord::getAuditorId, entity.getAuditorId()));
     }
+
+    @Override
+    public boolean expirePending(AppUserAuditRecord entity, String expectedStatus) {
+        // 同时核对状态及任务关联，避免恢复失败记录时覆盖并发受理或审核通过。
+        LambdaUpdateWrapper<AppUserAuditRecord> wrapper = new LambdaUpdateWrapper<AppUserAuditRecord>()
+                .eq(AppUserAuditRecord::getId, entity.getId())
+                .eq(AppUserAuditRecord::getStatus, expectedStatus)
+                .eq(AppUserAuditRecord::getAuditSource, entity.getAuditSource())
+                .set(AppUserAuditRecord::getStatus, entity.getStatus())
+                .set(AppUserAuditRecord::getExpiredReason, entity.getExpiredReason())
+                .set(AppUserAuditRecord::getAuditTime, entity.getAuditTime());
+        if (entity.getProviderTaskId() == null) {
+            wrapper.isNull(AppUserAuditRecord::getProviderTaskId);
+        } else {
+            wrapper.eq(AppUserAuditRecord::getProviderTaskId, entity.getProviderTaskId());
+        }
+        return mapper.update(null, wrapper) == 1;
+    }
 }

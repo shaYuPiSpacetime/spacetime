@@ -516,6 +516,12 @@ export default function ProfileEditPage() {
       const uploaded = await prd01Api.uploadVoice(voiceTempPath)
       const saved = await prd01Api.submitVoiceIntro(uploaded.url, voiceTempDuration)
       setVoiceDetail(saved)
+      if (saved.voiceIntroAuditStatus === 'EXPIRED' && saved.canSubmit) {
+        // 审核调用失败时保留录音草稿，方便重试，不当作已成功提交。
+        setVoiceSheet('complete')
+        void Taro.showToast({ title: saved.voiceIntroRejectReason || '语音审核暂不可用，请重新提交', icon: 'none' })
+        return
+      }
       void refreshProfileScore()
       resetVoiceDraft()
       setVoiceSheet(null)

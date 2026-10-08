@@ -18,4 +18,5 @@ public interface AppUserAuditRecordDao {
     void insert(AppUserAuditRecord entity);
     void updateById(AppUserAuditRecord entity);
     void updateAuditResult(AppUserAuditRecord entity);
+    boolean expirePending(AppUserAuditRecord entity, String expectedStatus);
 }

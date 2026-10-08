@@ -45,6 +45,9 @@ public interface AppUserAuditService {
     /** 系统失效一条审核记录，常用于用户删除当前生效内容。 */
     void systemExpire(Long recordId, String reason);
 
+    /** 仅在记录仍待审且任务关联未变化时使其失效，成功后写系统审核历史。 */
+    boolean expirePending(Long recordId, String expectedStatus, Long expectedTaskId, String reason);
+
     /** 判断用户某类审核最新记录是否已通过；头像业务使用该口径。 */
     boolean latestApproved(Long userId, AppUserAuditTypeEnum type);
 

@@ -117,17 +117,27 @@ public class WechatCommunityContentSecurityAdapter implements CommunityContentSe
 
     private JsonNode post(String endpoint, Map<String, Object> body) {
         try {
-            String token = accessToken();
-            if (token == null) return null;
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(endpoint + "?access_token=" + encode(token)))
-                    .timeout(Duration.ofSeconds(12))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() < 200 || response.statusCode() >= 300) return null;
-            return objectMapper.readTree(response.body());
+            for (int attempt = 0; attempt < 2; attempt++) {
+                String token = accessToken();
+                if (token == null) return null;
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(endpoint + "?access_token=" + encode(token)))
+                        .timeout(Duration.ofSeconds(12))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
+                        .build();
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (response.statusCode() < 200 || response.statusCode() >= 300) return null;
+                JsonNode result = objectMapper.readTree(response.body());
+                int code = result.path("errcode").asInt(-1);
+                if (attempt == 0 && (code == 40001 || code == 40014 || code == 42001)) {
+                    // 仅清理当前小程序的失效凭证，刷新后最多重试一次，其他错误不重试。
+                    redisTemplate.delete(accessTokenCacheKey());
+                    continue;
+                }
+                return result;
+            }
+            return null;
         } catch (Exception ex) {
             log.warn("微信社区内容安全调用失败，按保守策略降级: {}", ex.getClass().getSimpleName());
             return null;

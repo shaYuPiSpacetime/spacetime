@@ -22,11 +22,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("移动端语音介绍微信审核")
@@ -51,10 +54,104 @@ class VoiceIntroServiceImplTest {
     @BeforeEach
     void setUp() {
         snapshot = new Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(Map.of());
-        when(runtimeConfigResolver.snapshot()).thenReturn(snapshot);
-        when(runtimeConfigResolver.voiceDurationRange(snapshot))
+        lenient().when(runtimeConfigResolver.snapshot()).thenReturn(snapshot);
+        lenient().when(runtimeConfigResolver.voiceDurationRange(snapshot))
                 .thenReturn(new Prd01RuntimeConfigResolver.DurationRange(10, 60));
-        when(runtimeConfigResolver.fieldVisible(snapshot, "voiceIntro", true)).thenReturn(true);
+        lenient().when(runtimeConfigResolver.fieldVisible(snapshot, "voiceIntro", true)).thenReturn(true);
+        lenient().when(auditService.expirePending(any(), any(), any(), any())).thenReturn(true);
+    }
+
+    @Test
+    void creationFailureShouldAllowResubmissionAndNeverPublish() {
+        prepareSubmission();
+        when(audioSafetyProvider.check(any(), any(), any())).thenReturn(ProviderCheckResult.pending(
+                "wechat-content-security", "{}", false, null, "wechat_media_err_40001"));
+        VoiceIntroVO result = service.submitVoiceIntro(7L, request());
+        assertThat(result.getVoiceIntroAuditStatus()).isEqualTo("EXPIRED");
+        assertThat(result.getCanSubmit()).isTrue();
+        assertThat(result.getVisibleToPublic()).isFalse();
+        assertThat(result.getVoiceIntroRejectReason()).contains("重新提交");
+        verify(auditService, never()).machineApprove(any(), any(), any());
+    }
+
+    @Test
+    void providerExceptionShouldNotLeavePermanentPending() {
+        prepareSubmission();
+        when(audioSafetyProvider.check(any(), any(), any())).thenThrow(new IllegalStateException("网络不可用"));
+        VoiceIntroVO result = service.submitVoiceIntro(7L, request());
+        assertThat(result.getVoiceIntroAuditStatus()).isEqualTo("EXPIRED");
+        assertThat(result.getCanSubmit()).isTrue();
+        assertThat(result.getVoiceIntroUrl()).isNull();
+    }
+
+    @Test
+    void oldOrphanPendingRecordShouldBeRecoverableWhenRead() {
+        AppUser user = new AppUser(); user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord stale = new AppUserAuditRecord();
+        stale.setId(100L); stale.setUserId(7L); stale.setStatus("PENDING"); stale.setAuditSource("MACHINE");
+        stale.setSubmitTime(LocalDateTime.now().minusDays(30));
+        when(auditService.latestRecord(7L, com.spacetime.common.enums.AppUserAuditTypeEnum.VOICE_INTRO)).thenReturn(stale);
+        VoiceIntroVO result = service.getVoiceIntro(7L);
+        assertThat(result.getCanSubmit()).isTrue();
+        assertThat(result.getVoiceIntroAuditStatus()).isEqualTo("EXPIRED");
+        assertThat(result.getVisibleToPublic()).isFalse();
+    }
+
+    @Test
+    void realAsyncTaskShouldRemainPendingEvenWhenOld() {
+        AppUser user = new AppUser(); user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setId(100L); record.setUserId(7L); record.setStatus("REVIEWING");
+        record.setAuditSource("MACHINE"); record.setProviderTaskId(201L);
+        record.setSubmitTime(LocalDateTime.now().minusDays(30));
+        ExternalProviderTask task = new ExternalProviderTask();
+        task.setTaskStatus("PENDING"); task.setExternalTaskId("real-trace");
+        when(externalProviderTaskDao.selectById(201L)).thenReturn(task);
+        when(auditService.latestRecord(7L, com.spacetime.common.enums.AppUserAuditTypeEnum.VOICE_INTRO)).thenReturn(record);
+        VoiceIntroVO result = service.getVoiceIntro(7L);
+        assertThat(result.getVoiceIntroAuditStatus()).isEqualTo("REVIEWING");
+        assertThat(result.getCanSubmit()).isFalse();
+        verify(auditService, never()).expirePending(any(), any(), any(), any());
+    }
+
+    @Test
+    void emptyProviderResultShouldAllowRetry() {
+        prepareSubmission();
+        VoiceIntroVO result = service.submitVoiceIntro(7L, request());
+        assertThat(result.getVoiceIntroAuditStatus()).isEqualTo("EXPIRED");
+        assertThat(result.getCanSubmit()).isTrue();
+        assertThat(result.getVisibleToPublic()).isFalse();
+    }
+
+    @Test
+    void orphanPendingShouldNotBlockNewSubmission() {
+        prepareSubmission();
+        AppUserAuditRecord stale = new AppUserAuditRecord();
+        stale.setId(100L); stale.setUserId(7L); stale.setStatus("PENDING"); stale.setAuditSource("MACHINE");
+        stale.setSubmitTime(LocalDateTime.now().minusDays(30));
+        when(auditService.latestRecord(7L, com.spacetime.common.enums.AppUserAuditTypeEnum.VOICE_INTRO)).thenReturn(stale);
+        when(audioSafetyProvider.check(any(), any(), any())).thenReturn(ProviderCheckResult.pending(
+                "wechat-content-security", "{}", false, "new-trace", "wechat_media_async_pending"));
+        VoiceIntroVO result = service.submitVoiceIntro(7L, request());
+        assertThat(result.getVoiceIntroAuditStatus()).isEqualTo("REVIEWING");
+        verify(auditService).expirePending(100L, "PENDING", null, "语音审核服务暂不可用，请重新提交");
+        verify(auditService).submit(any());
+    }
+
+    private void prepareSubmission() {
+        AppUser user = new AppUser(); user.setId(7L); user.setOpenid("openid-7");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.submit(any())).thenAnswer(invocation -> {
+            AppUserAuditRecord record = invocation.getArgument(0); record.setId(101L); return record;
+        });
+    }
+
+    private VoiceIntroSubmitReq request() {
+        VoiceIntroSubmitReq request = new VoiceIntroSubmitReq();
+        request.setVoiceUrl("https://static.example.com/voice/intro.mp3"); request.setDuration(20);
+        return request;
     }
 
     @Test
