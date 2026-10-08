@@ -55,6 +55,7 @@ const ICON_ASSETS = Object.freeze({
   coinUsageLimitedActivity: 'src/assets/lanhu/pages/coin-usage/limited-activity.png',
   memberDividerLeft: 'src/assets/lanhu/pages/member-benefits/member-slice-group-5-a.png',
   memberDividerRight: 'src/assets/lanhu/pages/member-benefits/member-slice-group-5-b.png',
+  memberHeroBackground: 'src/assets/lanhu/membership-center/member-hero-bg.png',
   memberBenefitMatch: 'src/assets/lanhu/pages/member-benefits/member-slice-match.png',
   memberBenefitEyeOpen: 'src/assets/lanhu/pages/member-benefits/member-slice-eye-open.png',
   memberBenefitGreeting: 'src/assets/lanhu/pages/member-benefits/member-slice-greeting-a.png',

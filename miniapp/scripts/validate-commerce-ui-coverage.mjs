@@ -949,7 +949,7 @@ const REQUIRED_MISSING_SLICE_FALLBACKS = [
   {
     note: '会员状态页 60/61/62/63 MCP slices 均为 0',
     file: 'src/pages/membership/index.tsx',
-    snippets: ['function MemberHeroPattern', "background: '#2B2928'", "height: '268rpx'"],
+    snippets: ['miniappOssIcons.memberHeroBackground', "width: '700rpx'", "height: '268rpx'"],
   },
   {
     note: '会员记录 MCP slices 为 0',
@@ -994,7 +994,6 @@ const REQUIRED_MISSING_SLICE_FALLBACKS = [
 ]
 
 const ALLOWED_MISSING_SLICE_PLACEHOLDER_FUNCTIONS = [
-  'MemberHeroPattern',
   'MemberRecordDiamond',
   'MemberRecordGemLine',
   'RefundStamp',
@@ -1397,7 +1396,8 @@ function assertMembershipPlanRailMatchesLanhu() {
     membershipSource.includes("padding: '40rpx 25rpx max(30rpx, env(safe-area-inset-bottom))'"),
     '会员中心支付栏安全区必须在基础留白和设备安全区之间取较大值，不能重复累加',
   )
-  assert.ok(membershipSource.includes('function MemberHeroPattern'), '会员中心会员卡缺少无文案几何纹理背景')
+  assert.ok(membershipSource.includes('miniappOssIcons.memberHeroBackground'), '会员中心会员卡缺少蓝湖 MCP 无文案背景切图')
+  assert.ok(!membershipSource.includes('function MemberHeroPattern'), '会员中心会员卡不能继续使用 CSS 近似几何纹理背景')
   assert.ok(!membershipSource.includes('member-vip-bg'), '会员中心不能复用带文案的 member-vip-bg.webp')
   const report = fs.readFileSync(acceptanceReportPath, 'utf8')
   assert.ok(

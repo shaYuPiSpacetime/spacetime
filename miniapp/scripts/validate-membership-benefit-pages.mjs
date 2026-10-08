@@ -40,6 +40,8 @@ assert.ok(membershipPage.includes("height: '270rpx'"), '会员套餐轨道必须
 assert.ok(membershipPage.includes('index={index + 1}'), '9 项权益卡必须有可核查的顺序标识')
 assert.ok(membershipPage.includes('data-benefit-index={index}'), '权益卡必须将顺序标识输出到真实组件')
 assert.ok(!membershipPage.includes('member-vip-bg.webp'), '动态会员卡不能使用带头像和文案的背景整图')
+assert.ok(membershipPage.includes('miniappOssIcons.memberHeroBackground'), '会员中心必须使用蓝湖 MCP 原始无文案会员背景切图')
+assert.ok(!membershipPage.includes('function MemberHeroPattern'), '会员中心不能继续使用 CSS 近似绘制会员背景')
 assert.ok(membershipPage.includes('plans.some(plan => plan.id === activePlanId)'), '接口套餐替换后必须重新选择有效套餐')
 assert.ok(membershipPage.includes('useAuthStore'), '会员中心必须读取当前登录用户的头像和昵称')
 assert.ok(recordDetailPage.includes('<ScrollView scrollY'), '会员详情必须在小屏设备可纵向滚动')

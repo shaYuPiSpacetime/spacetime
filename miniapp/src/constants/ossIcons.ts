@@ -33,6 +33,7 @@ export const miniappOssIcons = Object.freeze({
   coinUsageLimitedActivity: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/934d99749921ab80/limited-activity.png',
   memberDividerLeft: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c32873f2d5bbb029/member-slice-group-5-a.png',
   memberDividerRight: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/947063ce7ca559c0/member-slice-group-5-b.png',
+  memberHeroBackground: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/a763ac89b03bfd3c/member-hero-bg.png',
   memberBenefitMatch: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/bb0db47013381ae6/member-slice-match.png',
   memberBenefitEyeOpen: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/d824d6dd6bda86ab/member-slice-eye-open.png',
   memberBenefitGreeting: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/53c1e311f480a67c/member-slice-greeting-a.png',
