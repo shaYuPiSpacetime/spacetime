@@ -114,11 +114,13 @@ test('千寻互动共享字号和筛选色值符合点赞暂无数据蓝湖基�
     '互动和浏览记录的日期分组必须统一为 28rpx 加粗深色文字',
   )
   assert.match(source, /const INTERACTION_BODY_FONT_SIZE = '28rpx'/, '千寻互动正文必须统一为 28rpx')
-  assert.equal(
-    (source.match(/fontSize: INTERACTION_BODY_FONT_SIZE/g) || []).length,
-    2,
-    '互动/浏览记录卡和我的动态卡必须同步使用统一正文 28rpx token',
-  )
+  assert.match(source, /<InteractionPostExcerpt[\s\S]{0,180}content=\{item\.content\}/, '我的动态必须复用统一正文组件')
+  assert.match(source, /<InteractionPostExcerpt content=\{post\.content\}/, '互动和浏览记录必须复用统一正文组件')
+  assert.match(source, /INTERACTION_BODY_MAX_LINES = 4/, '千寻互动正文最多展示四行')
+  assert.match(source, /rect\.height > maxHeightPx \+ 1/, '查看全部必须以真实渲染高度判断，不得仅按字数猜测')
+  assert.match(source, /WebkitLineClamp: INTERACTION_BODY_MAX_LINES/, '超长正文必须应用四行截断')
+  assert.match(source, />查看全部<\/Text>/, '超长正文必须显示查看全部入口')
+  assert.match(source, /event\.stopPropagation\(\)[\s\S]{0,120}post-detail\?id=\$\{postId\}/, '查看全部必须阻止卡片冒泡并进入动态详情')
 })
 
 test('驳回动态编辑必须带入原图文并重新提交审核', () => {

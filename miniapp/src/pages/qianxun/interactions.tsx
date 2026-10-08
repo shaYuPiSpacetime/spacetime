@@ -38,6 +38,8 @@ const BLUE = '#2876FF'
 const NAVY = '#0C285A'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
 const INTERACTION_BODY_FONT_SIZE = '28rpx'
+const INTERACTION_BODY_LINE_HEIGHT_RPX = 42
+const INTERACTION_BODY_MAX_LINES = 4
 
 type MainSection = 'interaction' | 'history' | 'mine'
 type InteractionFilter = 'commented' | 'liked' | 'unlocked'
@@ -388,7 +390,7 @@ export default function QianxunInteractionsPage() {
             {loading ? <LoadingRows /> : (filter === 'unlocked' ? visibleRecords.length > 0 : visiblePostGroups.length > 0) ? (
               filter === 'unlocked'
                 ? <View style={{ padding: '20rpx 26rpx 40rpx' }}>{visibleRecords.map(item => <InteractionRow key={item.id} item={item} config={config} />)}</View>
-                : <InteractionPostGroups groups={visiblePostGroups} />
+                : <InteractionPostGroups groups={visiblePostGroups} scope="interaction" />
             ) : <InteractionEmpty filter={filter} config={config} />}
           </ScrollView>
         </View>
@@ -396,7 +398,7 @@ export default function QianxunInteractionsPage() {
           {history.length && !loading ? <View id="qianxun-history-more" role="button" onClick={() => void openHistoryActions()} style={{ position: 'absolute', right: '20rpx', top: '4rpx', width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}><Text style={{ color: '#8D929B', fontSize: '32rpx', letterSpacing: '3rpx' }}>···</Text></View> : null}
           <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : historyGroups.length ? (
-              <InteractionPostGroups groups={historyGroups} onDelete={postId => void deleteHistoryItem(postId)} />
+              <InteractionPostGroups groups={historyGroups} scope="history" onDelete={postId => void deleteHistoryItem(postId)} />
             ) : <HistoryEmpty config={config} />}
           </ScrollView>
         </View>
@@ -554,7 +556,12 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: 
       <View style={{ display: 'flex', alignItems: 'flex-start' }}>
         <View style={{ width: '112rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ display: 'block', color: '#333333', fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: '42rpx' }}>{item.content}</Text>
+          <InteractionPostExcerpt
+            content={item.content}
+            postId={item.status === 'published' ? item.postId : undefined}
+            measureKey={`mine-${item.id}`}
+            color="#333333"
+          />
           <MyPostImages images={item.imageUrls} />
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
@@ -681,20 +688,20 @@ function InteractionRow({ item, config }: { item: InteractionRecord; config?: Co
   )
 }
 
-function InteractionPostGroups({ groups, onDelete }: { groups: Array<{ key: string; label: string; items: InteractionRecord[] }>; onDelete?: (postId: number) => void }) {
+function InteractionPostGroups({ groups, scope, onDelete }: { groups: Array<{ key: string; label: string; items: InteractionRecord[] }>; scope: 'interaction' | 'history'; onDelete?: (postId: number) => void }) {
   return (
     <View style={{ padding: '18rpx 26rpx 52rpx' }}>
       {groups.map((group, groupIndex) => (
         <View key={group.key} style={{ paddingTop: groupIndex ? '38rpx' : 0 }}>
           <Text className="qianxun-interaction-date-group" data-date-label={group.label} style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginBottom: '28rpx' }}>{group.label}</Text>
-          {group.items.map(item => item.post ? <InteractionPostCard key={item.id} post={item.post} onDelete={onDelete ? () => onDelete(item.post!.id) : undefined} /> : null)}
+          {group.items.map(item => item.post ? <InteractionPostCard key={item.id} post={item.post} measureKey={`${scope}-${item.id}`} onDelete={onDelete ? () => onDelete(item.post!.id) : undefined} /> : null)}
         </View>
       ))}
     </View>
   )
 }
 
-function InteractionPostCard({ post, onDelete }: { post: CommunityPostVO; onDelete?: () => void }) {
+function InteractionPostCard({ post, measureKey, onDelete }: { post: CommunityPostVO; measureKey: string; onDelete?: () => void }) {
   return (
     <View className="qianxun-interaction-post-card" onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} onLongPress={onDelete} style={{ padding: '0 0 32rpx', marginBottom: '38rpx', borderBottom: '2rpx solid #F0F3F8' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}>
@@ -707,7 +714,7 @@ function InteractionPostCard({ post, onDelete }: { post: CommunityPostVO; onDele
           <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx', marginTop: '4rpx' }}>{[post.authorCity, post.authorProfession].filter(Boolean).join(' · ')}</Text>
         </View>
       </View>
-      <Text style={{ display: 'block', color: '#3D3D3D', fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: '42rpx', marginTop: '20rpx' }}>{post.content}</Text>
+      <InteractionPostExcerpt content={post.content} postId={post.id} measureKey={measureKey} color="#3D3D3D" marginTop="20rpx" />
       {post.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '23rpx', lineHeight: '34rpx', marginTop: '12rpx' }}># {post.topicName}</Text> : null}
       {post.imageUrls?.[0] ? <Image src={post.imageUrls[0]} mode="aspectFill" style={{ width: '100%', height: '448rpx', borderRadius: '10rpx', marginTop: '18rpx', background: '#F3F5F8' }} /> : null}
       <View style={{ marginTop: '20rpx', height: '34rpx', display: 'flex', alignItems: 'center' }}>
@@ -717,6 +724,58 @@ function InteractionPostCard({ post, onDelete }: { post: CommunityPostVO; onDele
         <View style={{ width: '30rpx' }} />
         <QianxunActionStat kind="like" count={post.likeCount} active={post.liked} />
       </View>
+    </View>
+  )
+}
+
+function InteractionPostExcerpt({ content, postId, measureKey, color, marginTop }: { content: string; postId?: number; measureKey: string; color: string; marginTop?: string }) {
+  const [overflow, setOverflow] = useState(false)
+  const measureId = `qianxun-interaction-content-measure-${measureKey}`
+
+  useEffect(() => {
+    if (!postId) {
+      setOverflow(false)
+      return
+    }
+    Taro.nextTick(() => {
+      Taro.createSelectorQuery()
+        .select(`#${measureId}`)
+        .boundingClientRect((rect: { height?: number } | null) => {
+          const windowWidth = Taro.getWindowInfo().windowWidth || 375
+          const maxHeightPx = INTERACTION_BODY_LINE_HEIGHT_RPX * INTERACTION_BODY_MAX_LINES * windowWidth / 750
+          setOverflow(Boolean(rect?.height && rect.height > maxHeightPx + 1))
+        })
+        .exec()
+    })
+  }, [content, measureId, postId])
+
+  const openDetail = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation()
+    if (postId) void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${postId}` })
+  }
+
+  if (!postId) {
+    return <Text style={{ display: 'block', color, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, marginTop: marginTop || 0 }}>{content}</Text>
+  }
+
+  return (
+    <View style={{ position: 'relative', marginTop: marginTop || 0 }}>
+      <Text
+        id={measureId}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, visibility: 'hidden', pointerEvents: 'none', display: 'block', fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx` }}
+      >
+        {content}
+      </Text>
+      <Text
+        style={{ display: '-webkit-box', color, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, maxHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX * INTERACTION_BODY_MAX_LINES}rpx`, overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: INTERACTION_BODY_MAX_LINES }}
+      >
+        {content}
+      </Text>
+      {overflow ? (
+        <View onClick={openDetail} style={{ position: 'absolute', right: 0, bottom: 0, height: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, paddingLeft: '48rpx', background: 'linear-gradient(90deg, rgba(255,255,255,0), #FFFFFF 32%)', display: 'flex', alignItems: 'center' }}>
+          <Text style={{ color: BLUE, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx` }}>查看全部</Text>
+        </View>
+      ) : null}
     </View>
   )
 }
