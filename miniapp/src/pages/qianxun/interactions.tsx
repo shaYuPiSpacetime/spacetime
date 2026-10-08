@@ -390,7 +390,7 @@ export default function QianxunInteractionsPage() {
           <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '80rpx', bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : (filter === 'unlocked' ? visibleRecords.length > 0 : visiblePostGroups.length > 0) ? (
               filter === 'unlocked'
-                ? <View style={{ padding: '20rpx 26rpx 40rpx' }}>{visibleRecords.map(item => <InteractionRow key={item.id} item={item} config={config} />)}</View>
+                ? <View style={{ padding: '20rpx 26rpx 40rpx' }}>{visibleRecords.map(item => <InteractionRow key={item.id} item={item} />)}</View>
                 : <InteractionPostGroups groups={visiblePostGroups} scope="interaction" />
             ) : <InteractionEmpty filter={filter} config={config} />}
           </ScrollView>
@@ -425,8 +425,8 @@ function ProfileHeader({ profile, onFollowing, onFollowers, onLikes, onMine }: {
       <SimpleHeader title="千寻互动" onBack={() => void Taro.navigateBack()} transparent />
       <View style={{ position: 'absolute', left: '33rpx', top: '226rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
         {profile.avatar && profile.avatar !== defaultAvatar
-          ? <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
-          : <View aria-label="头像加载中" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />}
+          ? <Image data-role="qianxun-interaction-own-avatar" aria-label="查看我的主页" onClick={() => void openInteractionUserProfile(useAuthStore.getState().userId)} src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
+          : <View data-role="qianxun-interaction-own-avatar" aria-label="查看我的主页" onClick={() => void openInteractionUserProfile(useAuthStore.getState().userId)} style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />}
         <View style={{ marginLeft: '20rpx', minWidth: 0 }}>
           <Text style={{ display: 'block', color: '#222222', fontSize: '32rpx', lineHeight: '44rpx', fontWeight: 600 }}>{profile.nickname}</Text>
           <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.description}</Text>
@@ -676,15 +676,24 @@ function openQianxunCity() {
   void Taro.switchTab({ url: '/pages/index/index' })
 }
 
-function InteractionRow({ item, config }: { item: InteractionRecord; config?: CommunityConfig }) {
+function openInteractionUserProfile(userId?: number, event?: { stopPropagation: () => void }) {
+  event?.stopPropagation()
+  const targetUserId = Number(userId || 0)
+  if (!targetUserId) {
+    return Taro.showToast({ title: resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.profileUnavailable), icon: 'none' })
+  }
+  return openCommunityAuthorProfile(targetUserId, useAuthStore.getState().userId, Taro.navigateTo)
+}
+
+function InteractionRow({ item }: { item: InteractionRecord }) {
   return (
     <View style={{ height: '124rpx', display: 'flex', alignItems: 'center' }}>
-      <Image src={normalizeAvatarUrl(item.avatar, defaultAvatar)} mode="aspectFill" style={{ width: '82rpx', height: '82rpx', borderRadius: '41rpx', background: '#EEF1F5' }} />
+      <Image data-role="qianxun-interaction-unlocked-avatar" aria-label="查看用户主页" onClick={event => void openInteractionUserProfile(item.userId, event)} src={normalizeAvatarUrl(item.avatar, defaultAvatar)} mode="aspectFill" style={{ width: '82rpx', height: '82rpx', borderRadius: '41rpx', background: '#EEF1F5' }} />
       <View style={{ marginLeft: '18rpx', minWidth: 0, flex: 1 }}>
         <Text style={{ display: 'block', color: '#292929', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600 }}>{item.nickname}</Text>
         <Text style={{ display: 'block', color: '#A1A1A1', fontSize: '23rpx', lineHeight: '33rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.description}</Text>
       </View>
-      <View onClick={() => item.userId ? void Taro.navigateTo({ url: `/pages/heart/user?userId=${item.userId}` }) : void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnavailable), icon: 'none' })} style={{ width: '138rpx', height: '58rpx', borderRadius: '29rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>查看主页</Text></View>
+      <View onClick={event => void openInteractionUserProfile(item.userId, event)} style={{ width: '138rpx', height: '58rpx', borderRadius: '29rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>查看主页</Text></View>
     </View>
   )
 }
@@ -703,15 +712,10 @@ function InteractionPostGroups({ groups, scope, onDelete }: { groups: Array<{ ke
 }
 
 function InteractionPostCard({ post, measureKey, onDelete }: { post: CommunityPostVO; measureKey: string; onDelete?: () => void }) {
-  const openAuthorProfile = (event: { stopPropagation: () => void }) => {
-    event.stopPropagation()
-    void openCommunityAuthorProfile(post.authorId, useAuthStore.getState().userId, Taro.navigateTo)
-  }
-
   return (
     <View className="qianxun-interaction-post-card" onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} onLongPress={onDelete} style={{ padding: '0 0 32rpx', marginBottom: '38rpx', borderBottom: '2rpx solid #F0F3F8' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}>
-        <Image data-role="qianxun-interaction-author-avatar" aria-label="查看用户主页" onClick={openAuthorProfile} src={normalizeAvatarUrl(post.authorAvatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }} />
+        <Image data-role="qianxun-interaction-author-avatar" aria-label="查看用户主页" onClick={event => void openInteractionUserProfile(post.authorId, event)} src={normalizeAvatarUrl(post.authorAvatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }} />
         <View style={{ marginLeft: '16rpx', flex: 1, minWidth: 0 }}>
           <View style={{ display: 'flex', alignItems: 'center' }}>
             <Text style={{ color: '#333333', fontSize: '27rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName}</Text>

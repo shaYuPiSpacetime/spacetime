@@ -65,14 +65,20 @@ test('互动页消费真实 viewed 互动接口并保留关联动态和互动时
   assert.match(communityService, /toggleCommunityFollow\s*=\s*\(targetUserId:\s*number\)/, '关注接口类型必须限制为数字用户 ID')
 })
 
-test('千寻互动动态头像进入作者主页且不触发动态详情', () => {
+test('千寻互动五类视图头像均进入用户主页且不误触卡片详情', () => {
   const source = read('src/pages/qianxun/interactions.tsx')
+  const myPosts = read('src/pages/qianxun/my-posts.tsx')
 
-  assert.match(source, /data-role="qianxun-interaction-author-avatar"[^>]*onClick=\{openAuthorProfile\}/, '互动动态作者头像必须绑定主页导航')
+  assert.match(source, /<InteractionPostGroups groups=\{visiblePostGroups\} scope="interaction"/, '评论过和点赞过必须复用支持头像跳转的互动动态卡片')
+  assert.match(source, /<InteractionPostGroups groups=\{historyGroups\} scope="history"/, '浏览记录必须复用支持头像跳转的互动动态卡片')
+  assert.match(source, /data-role="qianxun-interaction-author-avatar"[^\n]*openInteractionUserProfile\(post\.authorId, event\)/, '评论过、点赞过和浏览记录的作者头像必须绑定主页导航')
+  assert.match(source, /data-role="qianxun-interaction-unlocked-avatar"[^\n]*openInteractionUserProfile\(item\.userId, event\)/, '解锁过的用户头像必须绑定主页导航')
+  assert.match(source, /data-role="qianxun-interaction-own-avatar"[^\n]*openInteractionUserProfile\(useAuthStore\.getState\(\)\.userId\)/, '我的动态顶部本人头像必须绑定主页导航')
+  assert.match(myPosts, /data-role="qianxun-my-posts-own-avatar"[^>]*onClick=\{openOwnProfile\}/, '独立我的动态页本人头像必须绑定主页导航')
   assert.match(
     source,
-    /const openAuthorProfile =[^]*?event\.stopPropagation\(\)[^]*?openCommunityAuthorProfile\(post\.authorId, useAuthStore\.getState\(\)\.userId, Taro\.navigateTo\)/,
-    '头像点击必须阻止卡片详情冒泡，并按作者身份打开本人预览或他人主页',
+    /function openInteractionUserProfile[^]*?event\?\.stopPropagation\(\)[^]*?openCommunityAuthorProfile\(targetUserId, useAuthStore\.getState\(\)\.userId, Taro\.navigateTo\)/,
+    '头像点击必须阻止卡片事件冒泡，并按作者身份打开本人预览或他人主页',
   )
 })
 
