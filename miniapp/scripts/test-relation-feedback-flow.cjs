@@ -89,6 +89,7 @@ test('页面源码不得保留假数据、URL 会员覆盖或文案猜错误码'
   assert.doesNotMatch(community, /\/(余额|5001)\//)
   assert.doesNotMatch(community, /只看ta\(100|解锁全部访客/)
   assert.doesNotMatch(mutual, /fallbackPeople|相互喜欢\(4人\)/)
+  assert.match(mutual, /data-role="mutual-profile-meta"[\s\S]{0,180}fontSize: '26rpx'/, '相互喜欢页现居地和年龄文字必须为 26rpx')
   assert.match(request, /class ApiBusinessError/)
   assert.match(request, /code = code/)
   assert.match(config, /resolveRelationApiBaseUrl/)
