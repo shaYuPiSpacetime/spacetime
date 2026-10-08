@@ -108,6 +108,12 @@ test('千寻互动共享字号和筛选色值符合点赞暂无数据蓝湖基�
   assert.match(source, /fontSize:\s*'26rpx',\s*lineHeight:\s*'36rpx'.*item\.label/, '筛选胶囊必须使用蓝湖 26rpx 字号')
   assert.match(source, /fontSize:\s*'28rpx',\s*lineHeight:\s*'40rpx'.*model\.subtitle/, '空态说明必须使用蓝湖 28rpx 字号')
   assert.match(source, /fontSize:\s*'32rpx',\s*lineHeight:\s*'44rpx'.*>去千寻同城看看</, '空态主按钮必须使用蓝湖 32rpx 字号')
+  assert.match(source, /const INTERACTION_BODY_FONT_SIZE = '28rpx'/, '千寻互动正文必须统一为 28rpx')
+  assert.equal(
+    (source.match(/fontSize: INTERACTION_BODY_FONT_SIZE/g) || []).length,
+    2,
+    '互动/浏览记录卡和我的动态卡必须同步使用统一正文 28rpx token',
+  )
 })
 
 test('驳回动态编辑必须带入原图文并重新提交审核', () => {

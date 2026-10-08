@@ -37,6 +37,7 @@ import defaultAvatar from '@/assets/profile/default-avatar.webp'
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
+const INTERACTION_BODY_FONT_SIZE = '28rpx'
 
 type MainSection = 'interaction' | 'history' | 'mine'
 type InteractionFilter = 'commented' | 'liked' | 'unlocked'
@@ -553,7 +554,7 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: 
       <View style={{ display: 'flex', alignItems: 'flex-start' }}>
         <View style={{ width: '112rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '42rpx' }}>{item.content}</Text>
+          <Text style={{ display: 'block', color: '#333333', fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: '42rpx' }}>{item.content}</Text>
           <MyPostImages images={item.imageUrls} />
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
@@ -706,7 +707,7 @@ function InteractionPostCard({ post, onDelete }: { post: CommunityPostVO; onDele
           <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx', marginTop: '4rpx' }}>{[post.authorCity, post.authorProfession].filter(Boolean).join(' · ')}</Text>
         </View>
       </View>
-      <Text style={{ display: 'block', color: '#3D3D3D', fontSize: '27rpx', lineHeight: '42rpx', marginTop: '20rpx' }}>{post.content}</Text>
+      <Text style={{ display: 'block', color: '#3D3D3D', fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: '42rpx', marginTop: '20rpx' }}>{post.content}</Text>
       {post.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '23rpx', lineHeight: '34rpx', marginTop: '12rpx' }}># {post.topicName}</Text> : null}
       {post.imageUrls?.[0] ? <Image src={post.imageUrls[0]} mode="aspectFill" style={{ width: '100%', height: '448rpx', borderRadius: '10rpx', marginTop: '18rpx', background: '#F3F5F8' }} /> : null}
       <View style={{ marginTop: '20rpx', height: '34rpx', display: 'flex', alignItems: 'center' }}>
