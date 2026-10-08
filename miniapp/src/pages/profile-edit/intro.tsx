@@ -91,7 +91,7 @@ export default function ProfileEditIntroPage() {
             marginTop: '18rpx',
           }}
         >
-          介绍下自己的性格、习惯、有点、缺点
+          介绍下自己的性格、习惯、优点、缺点
         </Text>
         <View
           style={{

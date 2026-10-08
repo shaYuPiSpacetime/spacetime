@@ -116,7 +116,7 @@ const SOURCE_EVIDENCE = [
       'ProfileEditIntroPage',
       'profileDemo.editProfile.intro',
       '>保存</Text>',
-      '介绍下自己的性格、习惯、有点、缺点',
+      '介绍下自己的性格、习惯、优点、缺点',
       "borderRadius: '8rpx'",
     ],
     route: '/pages/profile-edit/intro',
