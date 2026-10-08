@@ -127,6 +127,7 @@ export default function IdealFilterPage() {
         maxAge,
         conditionCodes: selectedConditionCodes,
       })
+      Taro.setStorageSync('idealResultsRefreshRequired', true)
       await Taro.redirectTo({
         url: `/pages/prd08/ideal/results/index?snapshotNo=${encodeURIComponent(result.snapshotNo)}`,
       })

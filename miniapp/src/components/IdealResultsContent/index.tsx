@@ -21,10 +21,14 @@ interface Props {
   snapshotNo: string
   embedded?: boolean
   onRecommend?: () => void
+  active?: boolean
+  resolvingSnapshot?: boolean
+  resolutionError?: string
+  onRetry?: () => void
 }
 
 /** 推荐页与独立结果页复用内容；内嵌时只由推荐主页面拥有底部导航。 */
-export default function IdealResultsContent({ snapshotNo, embedded = false, onRecommend }: Props) {
+export default function IdealResultsContent({ snapshotNo, embedded = false, onRecommend, active = true, resolvingSnapshot = false, resolutionError = '', onRetry }: Props) {
   const [page, setPage] = useState<IdealResultPageVO | null>(null)
   const [items, setItems] = useState<IdealResultItemVO[]>([])
   const [message, setMessage] = useState('')
@@ -33,10 +37,11 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
   const [unlocking, setUnlocking] = useState(false)
   const pendingCheck = useRef(false)
   const loadInFlight = useRef(false)
-  const showEmptyState = !loading && !message && items.length === 0
+  const showEmptyState = !resolvingSnapshot && !loading && !message && !resolutionError && items.length === 0
   const load = async (cursor?: string) => {
     if (loadInFlight.current) return
     if (!snapshotNo) {
+      if (resolvingSnapshot) return
       setMessage('筛选快照不存在')
       setLoading(false)
       return
@@ -67,6 +72,8 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
       void load()
       return
     }
+    // 常驻但隐藏的面板只预取内容，不能在用户浏览推荐时自动执行待确认的解锁。
+    if (!active) return
     pendingCheck.current = true
     void confirmQuote(
       pending.quoteToken,
@@ -78,7 +85,13 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
   }
   // 两个入口都走同一套恢复逻辑，避免首次挂载与充值返回并发加载旧结果。
   useEffect(refreshResults, [snapshotNo])
-  useDidShow(refreshResults)
+  useDidShow(() => {
+    if (active) refreshResults()
+  })
+  useEffect(() => {
+    const pending = Taro.getStorageSync(PENDING_QUOTE_KEY)
+    if (active && snapshotNo && (!page || (pending?.snapshotNo === snapshotNo && pending?.quoteToken))) refreshResults()
+  }, [active])
   const confirmQuote = async (quoteToken: string, requestId: string) => {
     setUnlocking(true)
     try {
@@ -159,7 +172,12 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
               position: 'relative',
             }}
           >
-            {loading ? <CenterText text="理想型结果加载中…" /> : null}
+            {(loading || resolvingSnapshot) && !items.length && !resolutionError ? <CenterText text="理想型结果加载中…" /> : null}
+            {resolutionError ? (
+              <View onClick={onRetry}>
+                <CenterText text={`${resolutionError}，点击重试`} />
+              </View>
+            ) : null}
             {message ? <CenterText text={message} /> : null}
             {items.map(item => (
               <IdealCandidateCard
