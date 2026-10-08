@@ -210,6 +210,12 @@ test('推荐等待聚合页使用蓝湖每日上限页原始切图', () => {
     /normalizeAvatarUrl\(post\.authorAvatar, miniappOssIcons\.qianxunTopicAvatar\)/,
     '千寻动态作者头像为空时必须保留 72rpx 头像位并显示 OSS 兜底图',
   )
+  assert.match(waiting, /onClick=\{openAuthor\}/, '点击千寻动态作者头像必须触发作者主页导航')
+  assert.match(
+    waiting,
+    /event\.stopPropagation\(\)[\s\S]{0,120}openCommunityAuthorProfile\(post\.authorId, currentUserId, Taro\.navigateTo\)/,
+    '头像跳转必须阻止卡片详情事件，并按作者身份打开本人预览或他人主页',
+  )
 })
 
 test('PRD-08 子页面全部注册且使用自定义导航', () => {

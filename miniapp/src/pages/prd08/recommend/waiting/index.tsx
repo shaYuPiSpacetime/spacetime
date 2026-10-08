@@ -8,6 +8,8 @@ import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getCommunityPosts, type CommunityPostVO } from '@/services/community'
 import { getRecommendCandidates, getRecommendPreferences } from '@/services/recommend'
 import { normalizeAvatarUrl } from '@/utils/avatar'
+import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
+import { useAuthStore } from '@/stores/authStore'
 
 const background =
   'linear-gradient(90deg,rgba(233,253,251,.72),rgba(234,238,249,.68) 49%,rgba(248,250,239,.68))'
@@ -335,10 +337,15 @@ function WaitingHeader({ onIdeal }: { onIdeal: () => void }) {
 }
 
 function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
+  const currentUserId = useAuthStore(state => state.userId)
   const open = () =>
     post
       ? void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })
       : void Taro.switchTab({ url: '/pages/index/index' })
+  const openAuthor = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation()
+    if (post) void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)
+  }
   return (
     <View
       onClick={open}
@@ -350,6 +357,7 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
         <>
           <View style={{ display: 'flex', alignItems: 'center', marginTop: '28rpx' }}>
             <Image
+              onClick={openAuthor}
               src={normalizeAvatarUrl(post.authorAvatar, miniappOssIcons.qianxunTopicAvatar)}
               mode="aspectFill"
               style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: '#EFF3F7', flexShrink: 0 }}
