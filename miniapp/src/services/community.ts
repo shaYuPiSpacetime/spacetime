@@ -269,6 +269,7 @@ export function resolveCommunityFeedback(
 }
 
 export function resolveCommunityStatusLabel(config: CommunityConfig | undefined, status: string, statusName?: string) {
+  if (status === 'pending_manual') return '待审核'
   const serverLabel = String(statusName || '').trim()
   if (serverLabel) return serverLabel
   const dictionaryLabel = [...(config?.publishStatuses || []), ...(config?.contentStatuses || [])]

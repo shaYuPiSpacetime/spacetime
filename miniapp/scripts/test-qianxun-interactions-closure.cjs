@@ -65,6 +65,25 @@ test('互动页消费真实 viewed 互动接口并保留关联动态和互动时
   assert.match(communityService, /toggleCommunityFollow\s*=\s*\(targetUserId:\s*number\)/, '关注接口类型必须限制为数字用户 ID')
 })
 
+test('我的动态待人工复核状态统一展示为待审核', () => {
+  const communityService = read('src/services/community.ts')
+  const interactions = read('src/pages/qianxun/interactions.tsx')
+  const myPosts = read('src/pages/qianxun/my-posts.tsx')
+
+  assert.match(
+    communityService,
+    /if \(status === 'pending_manual'\) return '待审核'[\s\S]*const serverLabel/,
+    'pending_manual 必须优先覆盖服务端“待人工复核”文案',
+  )
+  assert.match(interactions, /resolveCommunityStatusLabel\(config, item\.status, item\.statusName\)/, '互动内我的动态必须使用统一状态文案')
+  assert.match(myPosts, /resolveCommunityStatusLabel\(config, receipt\.status, receipt\.statusName\)/, '独立我的动态必须使用统一状态文案')
+  assert.match(
+    interactions,
+    /showToast\(\{ title: resolveCommunityStatusLabel\(config, item\.status, item\.statusName\)/,
+    '点击待审核动态后的提示也必须使用统一状态文案',
+  )
+})
+
 test('千寻互动五类视图头像均进入用户主页且不误触卡片详情', () => {
   const source = read('src/pages/qianxun/interactions.tsx')
   const myPosts = read('src/pages/qianxun/my-posts.tsx')

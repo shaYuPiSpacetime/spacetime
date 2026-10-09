@@ -549,7 +549,7 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: 
         .catch(error => setCommentsError(error instanceof Error ? error.message : '评论加载失败'))
         .finally(() => setCommentsLoading(false))
     } else if (item.statusName) {
-      void Taro.showToast({ title: item.statusName, icon: 'none' })
+      void Taro.showToast({ title: resolveCommunityStatusLabel(config, item.status, item.statusName), icon: 'none' })
     }
   }
   return (
