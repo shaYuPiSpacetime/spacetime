@@ -1,3 +1,4 @@
+/** 时空站台工作人员名单沿用历史配置键，保留已有号码和保存协议。 */
 export const SOULMATE_PHONE_CONFIG_KEY = 'community.soulmate_source_phones';
 
 export function formatSoulmatePhoneConfig(value: unknown) {

@@ -95,7 +95,7 @@ public class FinanceAdminServiceImpl implements FinanceAdminService {
                 .like(StrUtil.isNotBlank(req.getOrderNo()), TradeOrder::getOrderNo, req.getOrderNo())
                 .eq(req.getUserId() != null, TradeOrder::getUserId, req.getUserId())
                 .eq(StrUtil.isNotBlank(req.getOrderType()), TradeOrder::getOrderType, req.getOrderType())
-                .eq(StrUtil.isNotBlank(req.getOrderStatus()), TradeOrder::getOrderStatus, req.getOrderStatus())
+                .eq(TradeOrder::getOrderStatus, OrderStatusEnum.SUCCESS.getCode())
                 .ge(req.getPayAmountMin() != null, TradeOrder::getPayAmount, req.getPayAmountMin())
                 .le(req.getPayAmountMax() != null, TradeOrder::getPayAmount, req.getPayAmountMax())
                 .ge(req.getStartTime() != null, TradeOrder::getCreateTime, req.getStartTime())

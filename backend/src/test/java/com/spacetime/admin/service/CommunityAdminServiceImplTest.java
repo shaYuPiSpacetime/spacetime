@@ -224,11 +224,12 @@ class CommunityAdminServiceImplTest {
                     assertThat(item.getConfigValue()).isEqualTo("[]");
                     assertThat(item.getConfigGroup()).isEqualTo("COMMUNITY_PRIVATE");
                     assertThat(item.getHighRisk()).isTrue();
+                    assertThat(item.getName()).isEqualTo("时空站台工作人员手机号");
                 });
     }
 
     @Test
-    @DisplayName("旧配置版本读取时自动补齐心灵搭子手机号配置")
+    @DisplayName("旧配置版本读取时自动补齐时空站台工作人员名单")
     void getConfigVersion_legacySnapshot_shouldMergeNewCanonicalItem() throws Exception {
         CommunityConfigVersion latest = new CommunityConfigVersion();
         latest.setVersion(3);
@@ -251,7 +252,7 @@ class CommunityAdminServiceImplTest {
     }
 
     @Test
-    @DisplayName("心灵搭子手机号配置拒绝非法号码")
+    @DisplayName("时空站台工作人员名单拒绝非法号码")
     void saveConfigVersion_invalidSoulmatePhone_shouldReject() {
         when(communityExtensionDao.selectConfigVersionOne(any())).thenReturn(null);
         when(appConfigDao.selectByKeys(any())).thenReturn(List.of());
@@ -325,7 +326,7 @@ class CommunityAdminServiceImplTest {
 
     @Test
     @DisplayName("内容管理按心灵搭子归属筛选并返回归属标识")
-    void getPostPage_soulmateSection_shouldFilterConfiguredAuthorsAndExposeSection() {
+    void getPostPage_soulmateSection_shouldQueryAllAuthorsAndExposeSection() {
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), CommunityPost.class);
         CommunityPostPageReq req = new CommunityPostPageReq();
@@ -356,23 +357,24 @@ class CommunityAdminServiceImplTest {
                 ArgumentCaptor.forClass((Class) LambdaQueryWrapper.class);
         verify(communityPostDao).selectPage(any(), queryCaptor.capture());
         assertThat(queryCaptor.getValue().getSqlSegment())
-                .contains("post_type", "author_id");
+                .contains("post_type").doesNotContain("author_id IN");
         assertThat(queryCaptor.getValue().getParamNameValuePairs().values())
-                .contains("community_post", 2L);
+                .contains("community_post");
         assertThat(result.getRecords().get(0).getZhiyinSection()).isEqualTo("soulmate");
     }
 
     @Test
-    @DisplayName("心灵搭子名单为空时列表筛选直接返回空页")
-    void getPostPage_emptySoulmateSection_shouldReturnEmptyWithoutPostQuery() {
+    @DisplayName("工作人员名单为空不影响心灵搭子全员动态列表")
+    void getPostPage_emptyStaffConfig_shouldStillQuerySoulmatePosts() {
         CommunityPostPageReq req = new CommunityPostPageReq();
         req.setZhiyinSection("soulmate");
+        when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(1, 20, 0));
 
         var result = communityAdminService.getPostPage(req);
 
         assertThat(result.getTotal()).isZero();
         assertThat(result.getRecords()).isEmpty();
-        verify(communityPostDao, never()).selectPage(any(), any());
+        verify(communityPostDao).selectPage(any(), any());
     }
 
     @Test

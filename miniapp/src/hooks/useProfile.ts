@@ -231,6 +231,7 @@ export function useProfile(): UseProfileReturn {
         }
       }
       const freshData = buildProfileData(home, membership, coinBalance, location, basicProfile, introduction);
+      if (auth.isLoggedIn && home) auth.updateIdentity(auth.userId, freshData.nickname, freshData.avatarUrl);
       setData(freshData);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '资料加载失败，请稍后重试';

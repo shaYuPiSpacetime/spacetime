@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { prd01Api } from '@/services/prd01'
@@ -37,6 +38,9 @@ import defaultAvatar from '@/assets/profile/default-avatar.webp'
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
+const INTERACTION_BODY_FONT_SIZE = '28rpx'
+const INTERACTION_BODY_LINE_HEIGHT_RPX = 42
+const INTERACTION_BODY_MAX_LINES = 4
 
 type MainSection = 'interaction' | 'history' | 'mine'
 type InteractionFilter = 'commented' | 'liked' | 'unlocked'
@@ -89,8 +93,17 @@ const emptyProfile: ProfileSummary = {
   receivedLikeCount: 0,
 }
 
+/** 本人头像没有加载好时保留中性占位，不使用默认人物照片。 */
+function resolveOwnAvatar(value?: string | null) {
+  const avatar = normalizeAvatarUrl(value, '')
+  return avatar === defaultAvatar || /(?:^|\/)default[-_]avatar(?:[.\-/]|$)/i.test(avatar) ? '' : avatar
+}
+
 export default function QianxunInteractionsPage() {
-  const [profile, setProfile] = useState<ProfileSummary>(emptyProfile)
+  const [profile, setProfile] = useState<ProfileSummary>(() => {
+    const auth = useAuthStore.getState()
+    return { ...emptyProfile, nickname: auth.nickname || emptyProfile.nickname, avatar: resolveOwnAvatar(auth.avatar) }
+  })
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState<MainSection>('interaction')
   const [filter, setFilter] = useState<InteractionFilter>('commented')
@@ -124,6 +137,7 @@ export default function QianxunInteractionsPage() {
   })
 
   useDidShow(() => {
+    void loadIdentity()
     void loadPage()
     void loadMyPosts()
   })
@@ -147,9 +161,8 @@ export default function QianxunInteractionsPage() {
   const loadPage = async () => {
     setLoading(true)
     try {
-      const [runtime, home, summary, commented, liked, unlocked, viewHistory] = await Promise.all([
+      const [runtime, summary, commented, liked, unlocked, viewHistory] = await Promise.all([
         getCommunityMeta(),
-        prd01Api.getHomeDetail(),
         getCommunityProfileSummary(),
         getCommunityInteractions('commented', 1, 50),
         getCommunityInteractions('liked', 1, 50),
@@ -157,17 +170,13 @@ export default function QianxunInteractionsPage() {
         getCommunityInteractions('viewed', 1, 50),
       ])
       setConfig(runtime)
-      const auth = useAuthStore.getState()
-      const source = home.profile || {}
-      setProfile({
-        nickname: String(source.nickname || auth.nickname || resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.profilePendingNickname)),
-        avatar: normalizeAvatarUrl(String(source.avatar || auth.avatar || ''), ''),
-        description: buildProfileDescription(source, runtime),
+      setProfile(current => ({
+        ...current,
         postCount: readNonNegativeNumber(summary.stats?.postCount),
         followingCount: readNonNegativeNumber(summary.stats?.followingCount),
         followerCount: readNonNegativeNumber(summary.stats?.followerCount),
         receivedLikeCount: readNonNegativeNumber(summary.stats?.receivedLikeCount),
-      })
+      }))
       setRecords([...commented.records, ...liked.records, ...unlocked.records].map(item => ({
         id: String(item.id),
         kind: item.interactionType as InteractionFilter,
@@ -192,6 +201,22 @@ export default function QianxunInteractionsPage() {
       await showError(config, error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadIdentity = async () => {
+    try {
+      const ownerId = useAuthStore.getState().userId
+      const home = await prd01Api.getHomeDetail()
+      const auth = useAuthStore.getState()
+      if (auth.userId !== ownerId) return
+      const source = home.profile || {}
+      const nickname = String(source.nickname || auth.nickname || emptyProfile.nickname)
+      const avatar = resolveOwnAvatar(String(source.avatar || auth.avatar || ''))
+      setProfile(current => ({ ...current, nickname, avatar, description: buildProfileDescription(source, config) }))
+      auth.updateIdentity(ownerId, nickname, avatar)
+    } catch {
+      // 资料刷新失败时继续展示本人缓存，互动记录可独立加载。
     }
   }
 
@@ -365,8 +390,8 @@ export default function QianxunInteractionsPage() {
           <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '80rpx', bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : (filter === 'unlocked' ? visibleRecords.length > 0 : visiblePostGroups.length > 0) ? (
               filter === 'unlocked'
-                ? <View style={{ padding: '20rpx 26rpx 40rpx' }}>{visibleRecords.map(item => <InteractionRow key={item.id} item={item} config={config} />)}</View>
-                : <InteractionPostGroups groups={visiblePostGroups} />
+                ? <View style={{ padding: '20rpx 26rpx 40rpx' }}>{visibleRecords.map(item => <InteractionRow key={item.id} item={item} />)}</View>
+                : <InteractionPostGroups groups={visiblePostGroups} scope="interaction" />
             ) : <InteractionEmpty filter={filter} config={config} />}
           </ScrollView>
         </View>
@@ -374,7 +399,7 @@ export default function QianxunInteractionsPage() {
           {history.length && !loading ? <View id="qianxun-history-more" role="button" onClick={() => void openHistoryActions()} style={{ position: 'absolute', right: '20rpx', top: '4rpx', width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}><Text style={{ color: '#8D929B', fontSize: '32rpx', letterSpacing: '3rpx' }}>···</Text></View> : null}
           <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : historyGroups.length ? (
-              <InteractionPostGroups groups={historyGroups} onDelete={postId => void deleteHistoryItem(postId)} />
+              <InteractionPostGroups groups={historyGroups} scope="history" onDelete={postId => void deleteHistoryItem(postId)} />
             ) : <HistoryEmpty config={config} />}
           </ScrollView>
         </View>
@@ -400,8 +425,8 @@ function ProfileHeader({ profile, onFollowing, onFollowers, onLikes, onMine }: {
       <SimpleHeader title="千寻互动" onBack={() => void Taro.navigateBack()} transparent />
       <View style={{ position: 'absolute', left: '33rpx', top: '226rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
         {profile.avatar && profile.avatar !== defaultAvatar
-          ? <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
-          : <View aria-label="头像加载中" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />}
+          ? <Image data-role="qianxun-interaction-own-avatar" aria-label="查看我的主页" onClick={() => void openInteractionUserProfile(useAuthStore.getState().userId)} src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
+          : <View data-role="qianxun-interaction-own-avatar" aria-label="查看我的主页" onClick={() => void openInteractionUserProfile(useAuthStore.getState().userId)} style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />}
         <View style={{ marginLeft: '20rpx', minWidth: 0 }}>
           <Text style={{ display: 'block', color: '#222222', fontSize: '32rpx', lineHeight: '44rpx', fontWeight: 600 }}>{profile.nickname}</Text>
           <Text style={{ display: 'block', color: '#999999', fontSize: '24rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.description}</Text>
@@ -532,7 +557,12 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: 
       <View style={{ display: 'flex', alignItems: 'flex-start' }}>
         <View style={{ width: '112rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '42rpx' }}>{item.content}</Text>
+          <InteractionPostExcerpt
+            content={item.content}
+            postId={item.status === 'published' ? item.postId : undefined}
+            measureKey={`mine-${item.id}`}
+            color="#333333"
+          />
           <MyPostImages images={item.imageUrls} />
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
@@ -646,37 +676,46 @@ function openQianxunCity() {
   void Taro.switchTab({ url: '/pages/index/index' })
 }
 
-function InteractionRow({ item, config }: { item: InteractionRecord; config?: CommunityConfig }) {
+function openInteractionUserProfile(userId?: number, event?: { stopPropagation: () => void }) {
+  event?.stopPropagation()
+  const targetUserId = Number(userId || 0)
+  if (!targetUserId) {
+    return Taro.showToast({ title: resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.profileUnavailable), icon: 'none' })
+  }
+  return openCommunityAuthorProfile(targetUserId, useAuthStore.getState().userId, Taro.navigateTo)
+}
+
+function InteractionRow({ item }: { item: InteractionRecord }) {
   return (
     <View style={{ height: '124rpx', display: 'flex', alignItems: 'center' }}>
-      <Image src={normalizeAvatarUrl(item.avatar, defaultAvatar)} mode="aspectFill" style={{ width: '82rpx', height: '82rpx', borderRadius: '41rpx', background: '#EEF1F5' }} />
+      <Image data-role="qianxun-interaction-unlocked-avatar" aria-label="查看用户主页" onClick={event => void openInteractionUserProfile(item.userId, event)} src={normalizeAvatarUrl(item.avatar, defaultAvatar)} mode="aspectFill" style={{ width: '82rpx', height: '82rpx', borderRadius: '41rpx', background: '#EEF1F5' }} />
       <View style={{ marginLeft: '18rpx', minWidth: 0, flex: 1 }}>
         <Text style={{ display: 'block', color: '#292929', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600 }}>{item.nickname}</Text>
         <Text style={{ display: 'block', color: '#A1A1A1', fontSize: '23rpx', lineHeight: '33rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.description}</Text>
       </View>
-      <View onClick={() => item.userId ? void Taro.navigateTo({ url: `/pages/heart/user?userId=${item.userId}` }) : void Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profileUnavailable), icon: 'none' })} style={{ width: '138rpx', height: '58rpx', borderRadius: '29rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>查看主页</Text></View>
+      <View onClick={event => void openInteractionUserProfile(item.userId, event)} style={{ width: '138rpx', height: '58rpx', borderRadius: '29rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '24rpx' }}>查看主页</Text></View>
     </View>
   )
 }
 
-function InteractionPostGroups({ groups, onDelete }: { groups: Array<{ key: string; label: string; items: InteractionRecord[] }>; onDelete?: (postId: number) => void }) {
+function InteractionPostGroups({ groups, scope, onDelete }: { groups: Array<{ key: string; label: string; items: InteractionRecord[] }>; scope: 'interaction' | 'history'; onDelete?: (postId: number) => void }) {
   return (
     <View style={{ padding: '18rpx 26rpx 52rpx' }}>
       {groups.map((group, groupIndex) => (
         <View key={group.key} style={{ paddingTop: groupIndex ? '38rpx' : 0 }}>
-          <Text className="qianxun-interaction-date-group" data-date-label={group.label} style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '36rpx', marginBottom: '28rpx' }}>{group.label}</Text>
-          {group.items.map(item => item.post ? <InteractionPostCard key={item.id} post={item.post} onDelete={onDelete ? () => onDelete(item.post!.id) : undefined} /> : null)}
+          <Text className="qianxun-interaction-date-group" data-date-label={group.label} style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginBottom: '28rpx' }}>{group.label}</Text>
+          {group.items.map(item => item.post ? <InteractionPostCard key={item.id} post={item.post} measureKey={`${scope}-${item.id}`} onDelete={onDelete ? () => onDelete(item.post!.id) : undefined} /> : null)}
         </View>
       ))}
     </View>
   )
 }
 
-function InteractionPostCard({ post, onDelete }: { post: CommunityPostVO; onDelete?: () => void }) {
+function InteractionPostCard({ post, measureKey, onDelete }: { post: CommunityPostVO; measureKey: string; onDelete?: () => void }) {
   return (
     <View className="qianxun-interaction-post-card" onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })} onLongPress={onDelete} style={{ padding: '0 0 32rpx', marginBottom: '38rpx', borderBottom: '2rpx solid #F0F3F8' }}>
       <View style={{ display: 'flex', alignItems: 'center' }}>
-        <Image src={normalizeAvatarUrl(post.authorAvatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }} />
+        <Image data-role="qianxun-interaction-author-avatar" aria-label="查看用户主页" onClick={event => void openInteractionUserProfile(post.authorId, event)} src={normalizeAvatarUrl(post.authorAvatar, defaultAvatar)} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx' }} />
         <View style={{ marginLeft: '16rpx', flex: 1, minWidth: 0 }}>
           <View style={{ display: 'flex', alignItems: 'center' }}>
             <Text style={{ color: '#333333', fontSize: '27rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName}</Text>
@@ -685,7 +724,7 @@ function InteractionPostCard({ post, onDelete }: { post: CommunityPostVO; onDele
           <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx', marginTop: '4rpx' }}>{[post.authorCity, post.authorProfession].filter(Boolean).join(' · ')}</Text>
         </View>
       </View>
-      <Text style={{ display: 'block', color: '#3D3D3D', fontSize: '27rpx', lineHeight: '42rpx', marginTop: '20rpx' }}>{post.content}</Text>
+      <InteractionPostExcerpt content={post.content} postId={post.id} measureKey={measureKey} color="#3D3D3D" marginTop="20rpx" />
       {post.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '23rpx', lineHeight: '34rpx', marginTop: '12rpx' }}># {post.topicName}</Text> : null}
       {post.imageUrls?.[0] ? <Image src={post.imageUrls[0]} mode="aspectFill" style={{ width: '100%', height: '448rpx', borderRadius: '10rpx', marginTop: '18rpx', background: '#F3F5F8' }} /> : null}
       <View style={{ marginTop: '20rpx', height: '34rpx', display: 'flex', alignItems: 'center' }}>
@@ -695,6 +734,58 @@ function InteractionPostCard({ post, onDelete }: { post: CommunityPostVO; onDele
         <View style={{ width: '30rpx' }} />
         <QianxunActionStat kind="like" count={post.likeCount} active={post.liked} />
       </View>
+    </View>
+  )
+}
+
+function InteractionPostExcerpt({ content, postId, measureKey, color, marginTop }: { content: string; postId?: number; measureKey: string; color: string; marginTop?: string }) {
+  const [overflow, setOverflow] = useState(false)
+  const measureId = `qianxun-interaction-content-measure-${measureKey}`
+
+  useEffect(() => {
+    if (!postId) {
+      setOverflow(false)
+      return
+    }
+    Taro.nextTick(() => {
+      Taro.createSelectorQuery()
+        .select(`#${measureId}`)
+        .boundingClientRect((rect: { height?: number } | null) => {
+          const windowWidth = Taro.getWindowInfo().windowWidth || 375
+          const maxHeightPx = INTERACTION_BODY_LINE_HEIGHT_RPX * INTERACTION_BODY_MAX_LINES * windowWidth / 750
+          setOverflow(Boolean(rect?.height && rect.height > maxHeightPx + 1))
+        })
+        .exec()
+    })
+  }, [content, measureId, postId])
+
+  const openDetail = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation()
+    if (postId) void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${postId}` })
+  }
+
+  if (!postId) {
+    return <Text style={{ display: 'block', color, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, marginTop: marginTop || 0 }}>{content}</Text>
+  }
+
+  return (
+    <View style={{ position: 'relative', marginTop: marginTop || 0 }}>
+      <Text
+        id={measureId}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, visibility: 'hidden', pointerEvents: 'none', display: 'block', fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx` }}
+      >
+        {content}
+      </Text>
+      <Text
+        style={{ display: '-webkit-box', color, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, maxHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX * INTERACTION_BODY_MAX_LINES}rpx`, overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: INTERACTION_BODY_MAX_LINES }}
+      >
+        {content}
+      </Text>
+      {overflow ? (
+        <View onClick={openDetail} style={{ position: 'absolute', right: 0, bottom: 0, height: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, paddingLeft: '48rpx', background: 'linear-gradient(90deg, rgba(255,255,255,0), #FFFFFF 32%)', display: 'flex', alignItems: 'center' }}>
+          <Text style={{ color: BLUE, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx` }}>查看全部</Text>
+        </View>
+      ) : null}
     </View>
   )
 }

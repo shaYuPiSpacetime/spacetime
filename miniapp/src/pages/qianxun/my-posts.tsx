@@ -4,6 +4,7 @@ import { useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat } from '@/components/QianxunCommunityIcons'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import {
   COMMUNITY_COPY_KEYS,
@@ -185,6 +186,15 @@ export default function QianxunMyPostsPage() {
 }
 
 function ProfileHeader({ profile }: { profile: ProfileSummary }) {
+  const openOwnProfile = () => {
+    const currentUserId = useAuthStore.getState().userId
+    if (!currentUserId) {
+      void Taro.showToast({ title: resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.profileUnavailable), icon: 'none' })
+      return
+    }
+    void openCommunityAuthorProfile(currentUserId, currentUserId, Taro.navigateTo)
+  }
+
   const stats = [
     { label: '动态', value: profile.postCount, onClick: undefined },
     { label: '关注', value: profile.followingCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions?roster=following' }) },
@@ -195,7 +205,7 @@ function ProfileHeader({ profile }: { profile: ProfileSummary }) {
     <View style={{ height: '430rpx', position: 'relative' }}>
       <NativeNavigation title="千寻互动" background="transparent" />
       <View style={{ position: 'absolute', left: '33rpx', top: '226rpx', right: '30rpx', height: '100rpx', display: 'flex', alignItems: 'center' }}>
-        <Image src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
+        <Image data-role="qianxun-my-posts-own-avatar" aria-label="查看我的主页" onClick={openOwnProfile} src={profile.avatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', border: '5rpx solid #FFFFFF', boxSizing: 'border-box', background: '#EDF1F6' }} />
         <View style={{ marginLeft: '20rpx', minWidth: 0 }}>
           <Text style={{ display: 'block', color: '#222222', fontSize: '31rpx', lineHeight: '44rpx', fontWeight: 600 }}>{profile.nickname}</Text>
           <Text style={{ display: 'block', color: '#999999', fontSize: '23rpx', lineHeight: '34rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{profile.description}</Text>

@@ -65,6 +65,23 @@ test('互动页消费真实 viewed 互动接口并保留关联动态和互动时
   assert.match(communityService, /toggleCommunityFollow\s*=\s*\(targetUserId:\s*number\)/, '关注接口类型必须限制为数字用户 ID')
 })
 
+test('千寻互动五类视图头像均进入用户主页且不误触卡片详情', () => {
+  const source = read('src/pages/qianxun/interactions.tsx')
+  const myPosts = read('src/pages/qianxun/my-posts.tsx')
+
+  assert.match(source, /<InteractionPostGroups groups=\{visiblePostGroups\} scope="interaction"/, '评论过和点赞过必须复用支持头像跳转的互动动态卡片')
+  assert.match(source, /<InteractionPostGroups groups=\{historyGroups\} scope="history"/, '浏览记录必须复用支持头像跳转的互动动态卡片')
+  assert.match(source, /data-role="qianxun-interaction-author-avatar"[^\n]*openInteractionUserProfile\(post\.authorId, event\)/, '评论过、点赞过和浏览记录的作者头像必须绑定主页导航')
+  assert.match(source, /data-role="qianxun-interaction-unlocked-avatar"[^\n]*openInteractionUserProfile\(item\.userId, event\)/, '解锁过的用户头像必须绑定主页导航')
+  assert.match(source, /data-role="qianxun-interaction-own-avatar"[^\n]*openInteractionUserProfile\(useAuthStore\.getState\(\)\.userId\)/, '我的动态顶部本人头像必须绑定主页导航')
+  assert.match(myPosts, /data-role="qianxun-my-posts-own-avatar"[^>]*onClick=\{openOwnProfile\}/, '独立我的动态页本人头像必须绑定主页导航')
+  assert.match(
+    source,
+    /function openInteractionUserProfile[^]*?event\?\.stopPropagation\(\)[^]*?openCommunityAuthorProfile\(targetUserId, useAuthStore\.getState\(\)\.userId, Taro\.navigateTo\)/,
+    '头像点击必须阻止卡片事件冒泡，并按作者身份打开本人预览或他人主页',
+  )
+})
+
 test('千寻动态卡统一使用 OSS 性别评论点赞图标', () => {
   const sources = [
     'src/pages/qianxun/interactions.tsx',
@@ -108,6 +125,19 @@ test('千寻互动共享字号和筛选色值符合点赞暂无数据蓝湖基�
   assert.match(source, /fontSize:\s*'26rpx',\s*lineHeight:\s*'36rpx'.*item\.label/, '筛选胶囊必须使用蓝湖 26rpx 字号')
   assert.match(source, /fontSize:\s*'28rpx',\s*lineHeight:\s*'40rpx'.*model\.subtitle/, '空态说明必须使用蓝湖 28rpx 字号')
   assert.match(source, /fontSize:\s*'32rpx',\s*lineHeight:\s*'44rpx'.*>去千寻同城看看</, '空态主按钮必须使用蓝湖 32rpx 字号')
+  assert.match(
+    source,
+    /qianxun-interaction-date-group[^\n]*color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600/,
+    '互动和浏览记录的日期分组必须统一为 28rpx 加粗深色文字',
+  )
+  assert.match(source, /const INTERACTION_BODY_FONT_SIZE = '28rpx'/, '千寻互动正文必须统一为 28rpx')
+  assert.match(source, /<InteractionPostExcerpt[\s\S]{0,180}content=\{item\.content\}/, '我的动态必须复用统一正文组件')
+  assert.match(source, /<InteractionPostExcerpt content=\{post\.content\}/, '互动和浏览记录必须复用统一正文组件')
+  assert.match(source, /INTERACTION_BODY_MAX_LINES = 4/, '千寻互动正文最多展示四行')
+  assert.match(source, /rect\.height > maxHeightPx \+ 1/, '查看全部必须以真实渲染高度判断，不得仅按字数猜测')
+  assert.match(source, /WebkitLineClamp: INTERACTION_BODY_MAX_LINES/, '超长正文必须应用四行截断')
+  assert.match(source, />查看全部<\/Text>/, '超长正文必须显示查看全部入口')
+  assert.match(source, /event\.stopPropagation\(\)[\s\S]{0,120}post-detail\?id=\$\{postId\}/, '查看全部必须阻止卡片冒泡并进入动态详情')
 })
 
 test('驳回动态编辑必须带入原图文并重新提交审核', () => {

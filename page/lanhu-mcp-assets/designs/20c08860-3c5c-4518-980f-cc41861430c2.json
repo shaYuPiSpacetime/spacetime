@@ -1,0 +1,619 @@
+{
+  "sliceScale": 2,
+  "isFigma": false,
+  "nodes": [
+    {
+      "type": "shape",
+      "name": "会员中心-全",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#151515"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "Border",
+      "class": "border-2px border-#000000 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "Cap",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Capacity",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Wifi",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "shape",
+      "name": "Cellular Connection",
+      "class": "bg-#000000"
+    },
+    {
+      "type": "text",
+      "name": "12:00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#151515"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#82828233"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#F7D9A5"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#F7D9A5"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#F7D9A5"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#F7D9A5"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#F7D9A5"
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#F7D9A5"
+    },
+    {
+      "type": "icon",
+      "name": "VIP",
+      "class": "",
+      "imageRef": "https://lanhu-oss-2537-2.lanhuapp.com/SketchPng48731bce7b5917427a903bd259cb5275de448f448ccb9b10055552d8263df226"
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#282828 border-4px border-#FFC969 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFC969"
+    },
+    {
+      "type": "text",
+      "name": "专属2.1折",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥57.33/月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "12个月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "包年",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥688.00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#282828"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFC969"
+    },
+    {
+      "type": "text",
+      "name": "专属2.4折",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥47.33/月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "12个月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "年卡",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥568.00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#282828"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFC969"
+    },
+    {
+      "type": "text",
+      "name": "专属5.2折",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥139.33/月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "3个月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "包季",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥418.00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#282828"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFC969"
+    },
+    {
+      "type": "text",
+      "name": "尝鲜首选",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥268.00/月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "1个月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "包月",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "¥268.00",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "专属9大特权，加速双向奔赴",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "蒙版",
+      "class": "bg-#D8D8D8 border-2px border-#FFC969 border-solid"
+    },
+    {
+      "type": "text",
+      "name": "筱脑虎",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "你还不是会员，开通立享超多特权",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#FFFFFF"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#F1F1F1 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#D8D8D8"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919"
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#191919 border-4px border-#FFFFFF border-solid"
+    },
+    {
+      "type": "text",
+      "name": "会员中心",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "时空邂逅会员特权",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#634D31"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#B58133"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F4C474"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#634D31"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#B58133"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#F4C474"
+    },
+    {
+      "type": "text",
+      "name": "心动名单一键揭晓：123人",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "有人对你心动了！看到喜欢的，立即发起对话",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "text",
+      "name": "谁来看过你：340位访客",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "访客全公开，别让在意你的人白等",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "text",
+      "name": "每日专属悄悄话1条",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "消息直接弹到对方主页，第一时间抓住ta的",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "每日额外浏览10位嘉宾",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "比别人多一倍的机会，更快遇见对的人",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "text",
+      "name": "精准筛选功能",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "按你的标准定制筛选条件，只看最合心意的人",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "路径",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFFFFF border-1px border-#979797 border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#242122"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#FFC969"
+    },
+    {
+      "type": "text",
+      "name": "立即开通",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "阅读并同意《时空邂逅会员服务协议》",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "椭圆形",
+      "class": "bg-#FFFFFF border-1px border-#935A11 border-solid"
+    },
+    {
+      "type": "text",
+      "name": "¥568.00/包年",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "text",
+      "name": "曝光度拉满",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "你的资料优先展示给活跃用户和你心仪的对象",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "text",
+      "name": "隐身模式",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "只对你选中的人可见，主动权完全在你手上",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "text",
+      "name": "三天回放功能",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "最近3天滑过的嘉宾都能找回，手滑也不怕",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状结合",
+      "class": "bg-#22201F border-1px border-#22201F border-solid"
+    },
+    {
+      "type": "shape",
+      "name": "矩形",
+      "class": "bg-#22201F"
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": ""
+    },
+    {
+      "type": "text",
+      "name": "每日多5次心动机会",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "text",
+      "name": "每天额外多看5张心动嘉宾，让缘分不被错过",
+      "class": "",
+      "text": ""
+    },
+    {
+      "type": "shape",
+      "name": "形状",
+      "class": ""
+    }
+  ]
+}

@@ -2,6 +2,12 @@ package com.spacetime.admin.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.RefundReq;
+import com.spacetime.admin.dto.request.OrderPageReq;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import org.mockito.ArgumentCaptor;
 import com.spacetime.admin.dto.response.ReconcileDailyVO;
 import com.spacetime.admin.service.impl.FinanceAdminServiceImpl;
 import com.spacetime.common.dao.AppUserDao;
@@ -68,6 +74,23 @@ class FinanceAdminServiceImplTest {
     @BeforeEach
     void setUpTransactionManager() {
         lenient().when(transactionManager.getTransaction(any())).thenReturn(transactionStatus);
+    }
+
+    @Test
+    @DisplayName("管理后台订单查询始终只展示支付成功订单")
+    void getOrderListShouldOnlyQueryPaidOrdersEvenWhenUnpaidIsRequested() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), TradeOrder.class);
+        OrderPageReq req = new OrderPageReq();
+        req.setOrderStatus("unpaid");
+        when(tradeOrderDao.selectPage(any(), any())).thenReturn(new Page<TradeOrder>(1, 10, 0));
+
+        service.getOrderList(req);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<TradeOrder>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(tradeOrderDao).selectPage(any(), captor.capture());
+        assertThat(captor.getValue().getSqlSegment()).contains("order_status =");
+        assertThat(captor.getValue().getParamNameValuePairs().values()).contains("success").doesNotContain("unpaid");
     }
 
     @Test

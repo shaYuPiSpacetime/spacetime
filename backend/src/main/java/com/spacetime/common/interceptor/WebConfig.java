@@ -64,6 +64,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/admin/login",
                         "/miniapp/auth/**",
                         "/miniapp/config/**",
+                        "/miniapp/profile/shared/**",
                         "/miniapp/dict/**",
                         "/miniapp/login/**",
                         "/miniapp/promotion/source-traces",

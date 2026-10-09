@@ -20,11 +20,15 @@ import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.IdealSearchReq;
 import com.spacetime.miniapp.dto.response.IdealMetaVO;
+import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.IdealPricingVO;
 import com.spacetime.miniapp.dto.response.IdealResultPageVO;
 import com.spacetime.miniapp.dto.response.IdealSearchVO;
 import com.spacetime.miniapp.service.impl.IdealServiceImpl;
+import com.spacetime.miniapp.service.impl.Prd01AccessEvaluator;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -32,6 +36,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,8 +64,122 @@ class IdealServiceImplTest {
     @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private MiniappPublicProfileService publicProfileService;
     @Mock private IdealUnlockService idealUnlockService;
+    @Mock private Prd01AccessEvaluator accessEvaluator;
 
     @InjectMocks private IdealServiceImpl service;
+
+    @ParameterizedTest
+    @CsvSource({
+            "M08-IDEAL-overseas,有留学经历", "M08-IDEAL-home-owner,已购房",
+            "M08-IDEAL-car-owner,已购车", "M08-IDEAL-only-child,独生子女",
+            "M08-IDEAL-public-family,体制内家庭", "M08-IDEAL-sports,有健身习惯",
+            "M08-IDEAL-animals,喜欢小动物", "M08-IDEAL-food,热爱一切美食", "M08-IDEAL-travel,喜欢旅行"
+    })
+    void adminDefinedTagCodesShouldMatchOnlyTheirSelectedSemanticCondition(String condition, String label) {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser matched = openUser(8L, "FEMALE", 28, "320100");
+        matched.setTags("[\"operator-defined-tag\"]");
+        AppUser unmatched = openUser(9L, "FEMALE", 28, "320100");
+        unmatched.setTags("[]");
+        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+                tag(30L, 0L, "recommedation", "推荐"), tag(31L, 30L, "operator-defined-tag", label)));
+        prepareSearch(current, List.of(matched, unmatched));
+        assertThat(service.search(7L, searchReq(List.of(condition))).getResultCount()).isEqualTo(1);
+        ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(rows.capture());
+        assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId).containsExactly(8L);
+    }
+
+    @Test
+    void twoYearMarriageConditionShouldUseSavedGoalAndRejectOtherGoals() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser matched = openUser(8L, "FEMALE", 28, "320100");
+        matched.setDatingGoal("ONE_TO_TWO_YEARS");
+        AppUser unmatched = openUser(9L, "FEMALE", 28, "320100");
+        unmatched.setDatingGoal("DATE_NOT_MARRY");
+        prepareSearch(current, List.of(matched, unmatched));
+        assertThat(service.search(7L, searchReq(List.of("M08-IDEAL-marry-2y"))).getResultCount()).isEqualTo(1);
+    }
+
+    @Test
+    void completedBasicProfileShouldAllowIdealBrowsingWithoutInteractionCertification() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("CLOSED");
+        AccessStatusVO access = new AccessStatusVO();
+        access.setCanBrowseCards(true);
+        org.mockito.Mockito.lenient().when(accessEvaluator.evaluate(current)).thenReturn(access);
+
+        assertThat(service.getMeta(7L).getConditions()).isNotEmpty();
+    }
+
+    @Test
+    void sameLabelLoveTagsAcrossAdminGroupsShouldEnableAndMatchCompatibility() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        current.setTags("[\"recommedation_注重仪式感\"]");
+        AppUser candidate = openUser(8L, "FEMALE", 28, "320100");
+        candidate.setTags("[\"love_注重仪式感\"]");
+        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+                tag(20L, 0L, "lovetag", "恋爱"), tag(30L, 0L, "recommedation", "推荐"),
+                tag(21L, 20L, "love_注重仪式感", "注重仪式感"),
+                tag(31L, 30L, "recommedation_注重仪式感", "注重仪式感")));
+        prepareSearch(current, List.of(candidate));
+
+        assertThat(service.getMeta(7L).getConditions())
+                .filteredOn(item -> "M08-IDEAL-view-compatible".equals(item.getCode()))
+                .singleElement().satisfies(item -> assertThat(item.getAvailable()).isTrue());
+        assertThat(service.search(7L, searchReq(List.of("M08-IDEAL-view-compatible"))).getResultCount())
+                .isEqualTo(1);
+    }
+
+    @Test
+    void enabledAdminSemanticTagsShouldApplyAllSelectedConditions() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser matched = openUser(8L, "FEMALE", 28, "320100");
+        matched.setTags("[\"recommedation_已购房\",\"recommedation_已购车\"]");
+        AppUser incomplete = openUser(9L, "FEMALE", 28, "320100");
+        incomplete.setTags("[\"recommedation_已购房\"]");
+        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+                tag(30L, 0L, "recommedation", "推荐"),
+                tag(31L, 30L, "recommedation_已购房", "已购房"),
+                tag(32L, 30L, "recommedation_已购车", "已购车")));
+        prepareSearch(current, List.of(matched, incomplete));
+
+        assertThat(service.search(7L, searchReq(List.of("M08-IDEAL-home-owner", "M08-IDEAL-car-owner")))
+                .getResultCount()).isEqualTo(1);
+        ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(rows.capture());
+        assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId).containsExactly(8L);
+    }
+
+    @Test
+    void idealShouldUseBirthdayInsteadOfStaleAgeAndNeverExpandCities() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser stale = openUser(8L, "FEMALE", 50, "320100");
+        stale.setBirthday(LocalDate.now().minusYears(28));
+        AppUser neighbor = openUser(9L, "FEMALE", 28, "320200");
+        prepareSearch(current, List.of(stale, neighbor));
+
+        assertThat(service.search(7L, searchReq(List.of())).getResultCount()).isEqualTo(1);
+        ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(rows.capture());
+        assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId).containsExactly(8L);
+    }
+
+    private void prepareSearch(AppUser current, List<AppUser> candidates) {
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
+        when(appUserDao.selectList(any())).thenReturn(candidates);
+        Map<Long, String> projection = new java.util.HashMap<>();
+        candidates.forEach(candidate -> projection.put(candidate.getId(), "OPEN"));
+        when(accessProjectionService.projectAll(candidates)).thenReturn(projection);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            IdealFilterSnapshot snapshot = invocation.getArgument(0);
+            snapshot.setId(100L);
+            return null;
+        }).when(snapshotDao).insert(any());
+    }
 
     @Test
     void metaOffersSchoolTierAndDisablesAlumniWithoutOwnSchoolCode() {

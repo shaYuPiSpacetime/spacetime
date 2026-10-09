@@ -1,7 +1,8 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
-import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
+import { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
+import IdealResultsContent from '@/components/IdealResultsContent'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
@@ -9,11 +10,13 @@ import { miniappOssIcons } from '@/constants/ossIcons'
 import { applyRecommendViewToPage } from '@/domain/recommendBadge'
 import { omitSeenRecommendCandidates } from '@/domain/recommendCandidateQueue'
 import { hasRecommendCycleExpired, shouldShowRecommendWaiting } from '@/domain/recommendBrowseCycle'
+import { isIdealSnapshotForPreference } from '@/domain/idealFilterDraft'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { getIdealSearchRecords } from '@/services/ideal'
 import {
   getRecommendCandidates,
+  getRecommendPreferences,
   recordRecommendLike,
   recordRecommendSkip,
   recordRecommendView,
@@ -22,6 +25,8 @@ import {
 } from '@/services/recommend'
 import { findConversationByPeerUserId } from '@/services/message'
 import { cancelRelationLike, sendRelationLike } from '@/services/relation'
+import { useAuthStore } from '@/stores/authStore'
+import { publishRecommendBadge } from '@/stores/recommendBadgeStore'
 
 type RecommendTab = 'recommend' | 'ideal'
 type LoadState = 'loading' | 'ready' | 'empty' | 'limit' | 'error'
@@ -45,17 +50,26 @@ export default function RecommendPage() {
     router.params.tab === 'ideal' ? 'ideal' : 'recommend'
   )
   const [page, setPage] = useState<RecommendCandidatePageVO | null>(null)
+  const [idealSnapshotNo, setIdealSnapshotNo] = useState<string | null>(null)
+  const [idealTabResolved, setIdealTabResolved] = useState(false)
+  const [idealTabError, setIdealTabError] = useState('')
+  const activeTabRef = useRef(activeTab)
+  activeTabRef.current = activeTab
   const [candidateIndex, setCandidateIndex] = useState(0)
   const [state, setState] = useState<LoadState>('loading')
   const [errorMessage, setErrorMessage] = useState('')
   const [actionSubmitting, setActionSubmitting] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [showIpDialog, setShowIpDialog] = useState(false)
   const [showCertification, setShowCertification] = useState(false)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const viewedCandidates = useRef(new Set<string>())
   const browseCycleRef = useRef<string | null>(null)
-  const idealTabSubmitting = useRef(false)
+  const idealTabResolvedRef = useRef(false)
+  const idealTabExpiresAtRef = useRef<number | null>(null)
+  const idealTabTaskRef = useRef<Promise<void> | null>(null)
+  const idealRequestGenerationRef = useRef(0)
   const initialIdealTabHandled = useRef(false)
   const candidateRequestGenerationRef = useRef(0)
   const retryCandidateCursorRef = useRef<string | null>(null)
@@ -69,6 +83,11 @@ export default function RecommendPage() {
 
   const candidates = page?.items || []
   const candidate = candidates[candidateIndex] || null
+
+  useEffect(() => {
+    const userId = useAuthStore.getState().userId
+    if (page && userId) publishRecommendBadge(userId, { ...page, items: page.items.slice(candidateIndex) })
+  }, [page, candidateIndex])
 
   const syncBrowseCycle = (data: RecommendCandidatePageVO) => {
     const nextResetAt = data.nextResetAt || null
@@ -113,6 +132,8 @@ export default function RecommendPage() {
   }
 
   const openWaitingPage = async () => {
+    setState('limit')
+    if (activeTabRef.current !== 'recommend') return
     if (waitingNavigationRef.current) return
     waitingNavigationRef.current = true
     setState('limit')
@@ -130,7 +151,8 @@ export default function RecommendPage() {
     const requestGeneration = ++candidateRequestGenerationRef.current
     const resumeCursor = retryCandidateCursorRef.current
     retryCandidateCursorRef.current = null
-    setState('loading')
+    setRefreshing(true)
+    if (!page?.items.length) setState('loading')
     setErrorMessage('')
     try {
       let data = resumeCursor
@@ -160,6 +182,8 @@ export default function RecommendPage() {
       if (candidateRequestGenerationRef.current !== requestGeneration) return
       setErrorMessage(error instanceof Error ? error.message : '推荐加载失败，请稍后再试')
       setState('error')
+    } finally {
+      if (candidateRequestGenerationRef.current === requestGeneration) setRefreshing(false)
     }
   }
 
@@ -167,27 +191,49 @@ export default function RecommendPage() {
     void loadCandidates()
   }, [])
 
-  const openIdealTab = async () => {
-    if (idealTabSubmitting.current) return
-    idealTabSubmitting.current = true
-    try {
-      const data = await getIdealSearchRecords()
-      const activeRecord = (data.items || []).find(item => item.status === 'active')
-      if (activeRecord?.snapshotNo) {
-        await Taro.navigateTo({
-          url: `/pages/prd08/ideal/results/index?snapshotNo=${encodeURIComponent(activeRecord.snapshotNo)}`,
-        })
-        return
-      }
-      setActiveTab('ideal')
-    } catch (error) {
-      await Taro.showToast({
-        title: error instanceof Error ? error.message : '筛选记录加载失败，请稍后重试',
-        icon: 'none',
-      })
-    } finally {
-      idealTabSubmitting.current = false
+  const loadIdealTab = (force = false): Promise<void> => {
+    if (force) {
+      idealTabResolvedRef.current = false
+      idealTabTaskRef.current = null
+      setIdealSnapshotNo(null)
     }
+    if (idealTabResolvedRef.current && (idealTabExpiresAtRef.current || 0) > Date.now()) {
+      return Promise.resolve()
+    }
+    if (idealTabTaskRef.current) return idealTabTaskRef.current
+    const generation = ++idealRequestGenerationRef.current
+    setIdealTabResolved(false)
+    setIdealTabError('')
+    const task = (async () => {
+      try {
+        const [data, preference] = await Promise.all([getIdealSearchRecords(), getRecommendPreferences()])
+        if (generation !== idealRequestGenerationRef.current) return
+        const activeRecord = (data.items || []).find(item =>
+          isIdealSnapshotForPreference(item, preference)
+          && (!item.expiresAt || Date.parse(item.expiresAt) > Date.now()))
+        setIdealSnapshotNo(activeRecord?.snapshotNo || null)
+        idealTabResolvedRef.current = true
+        // 只在页面内短期复用，条件修改立即失效，跨设备修改最多等待一分钟刷新。
+        idealTabExpiresAtRef.current = Math.min(
+          Date.now() + 60000,
+          activeRecord?.expiresAt ? Date.parse(activeRecord.expiresAt) : Infinity,
+        )
+        setIdealTabResolved(true)
+      } catch (error) {
+        if (generation !== idealRequestGenerationRef.current) return
+        setIdealTabError(error instanceof Error ? error.message : '筛选记录加载失败，请点击重试')
+      } finally {
+        if (generation === idealRequestGenerationRef.current) idealTabTaskRef.current = null
+      }
+    })()
+    idealTabTaskRef.current = task
+    return task
+  }
+
+  const openIdealTab = async () => {
+    activeTabRef.current = 'ideal'
+    setActiveTab('ideal')
+    await loadIdealTab()
   }
 
   const handleTabChange = (tab: RecommendTab) => {
@@ -196,12 +242,36 @@ export default function RecommendPage() {
       return
     }
     setActiveTab(tab)
+    activeTabRef.current = tab
+    if (shouldShowRecommendWaiting(page, Taro.getStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY))) {
+      void openWaitingPage()
+    }
   }
 
+  useEffect(() => {
+    // 首次展示推荐时预取理想型，点击切换不再串行等待记录、偏好和结果三段请求。
+    void loadIdealTab()
+  }, [])
+
   useDidShow(() => {
+    const targetTab = Taro.getStorageSync(RECOMMEND_TAB_STORAGE_KEY)
+    const requestedByRoute = !initialIdealTabHandled.current && router.params.tab === 'ideal'
+    if (targetTab === 'recommend' || targetTab === 'ideal' || requestedByRoute) {
+      activeTabRef.current = targetTab === 'recommend' ? 'recommend' : 'ideal'
+      setActiveTab(activeTabRef.current)
+      Taro.removeStorageSync(RECOMMEND_TAB_STORAGE_KEY)
+      initialIdealTabHandled.current = true
+    }
     const preferencesChanged = Boolean(
       Taro.getStorageSync(RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY)
     )
+    const idealRefreshRequired = Boolean(Taro.getStorageSync('idealResultsRefreshRequired'))
+    if (preferencesChanged || idealRefreshRequired) {
+      Taro.removeStorageSync('idealResultsRefreshRequired')
+      void loadIdealTab(true)
+    } else if (activeTabRef.current === 'ideal') {
+      void loadIdealTab()
+    }
     const refreshRequired = Boolean(Taro.getStorageSync(RECOMMEND_REFRESH_STORAGE_KEY))
     const cycleExpired = hasRecommendCycleExpired(page?.nextResetAt)
     if (preferencesChanged || refreshRequired || cycleExpired) {
@@ -218,16 +288,13 @@ export default function RecommendPage() {
     )) {
       void openWaitingPage()
     }
-    const targetTab = Taro.getStorageSync(RECOMMEND_TAB_STORAGE_KEY)
-    const requestedByRoute =
-      !initialIdealTabHandled.current && router.params.tab === 'ideal'
-    if (targetTab !== 'ideal' && !requestedByRoute) return
-    initialIdealTabHandled.current = true
-    if (targetTab === 'ideal') Taro.removeStorageSync(RECOMMEND_TAB_STORAGE_KEY)
-    void openIdealTab()
   })
 
   usePullDownRefresh(() => {
+    if (activeTabRef.current === 'ideal') {
+      void loadIdealTab(true).finally(() => Taro.stopPullDownRefresh())
+      return
+    }
     retryCandidateCursorRef.current = null
     void loadCandidates().finally(() => Taro.stopPullDownRefresh())
   })
@@ -269,9 +336,9 @@ export default function RecommendPage() {
   }
 
   useEffect(() => {
-    if (!candidate) return
+    if (!candidate || activeTab !== 'recommend' || state !== 'ready' || refreshing) return
     void ensureCandidateView(candidate, candidateIndex + 1, page?.preferenceVersion)
-  }, [candidate?.candidateNo, candidateIndex, page?.preferenceVersion, page?.nextResetAt])
+  }, [activeTab, state, refreshing, candidate?.candidateNo, candidateIndex, page?.preferenceVersion, page?.nextResetAt])
 
   const awaitCurrentCandidateView = async () => {
     if (!candidate) return false
@@ -490,24 +557,37 @@ export default function RecommendPage() {
       id="prd08-recommend-page"
       style={{
         minHeight: '100vh',
-        background: activeTab === 'ideal' ? '#071D43' : PAGE_BACKGROUND,
+        background: activeTab === 'ideal' ? (idealSnapshotNo || !idealTabResolved ? '#FFFFFF' : '#071D43') : PAGE_BACKGROUND,
         fontFamily: 'PingFang SC, sans-serif',
       }}
     >
-      {activeTab === 'ideal' ? (
-        <IdealLanding
-          onTabChange={handleTabChange}
-          onHistory={() => runCertifiedAction(() => {
-            void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })
-          })}
-          onChoose={() => runCertifiedAction(() => {
-            void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })
-          })}
+      <View id="ideal-content-panel" style={{ display: activeTab === 'ideal' ? 'block' : 'none' }}>
+      {!idealTabResolved || idealSnapshotNo ? (
+        <IdealResultsContent
+          key={idealSnapshotNo || 'pending'}
+          snapshotNo={idealSnapshotNo || ''}
+          embedded
+          active={activeTab === 'ideal'}
+          resolvingSnapshot={!idealTabResolved}
+          resolutionError={idealTabError}
+          onRetry={() => void loadIdealTab(true)}
+          onRecommend={() => handleTabChange('recommend')}
         />
       ) : (
-        <>
+        <IdealLanding
+          onTabChange={handleTabChange}
+          onHistory={() => {
+            void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })
+          }}
+          onChoose={() => {
+            void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })
+          }}
+        />
+      )}
+      </View>
+      <View id="recommend-content-panel" style={{ display: activeTab === 'recommend' ? 'block' : 'none' }}>
           <RecommendHeader
-            activeTab={activeTab}
+            activeTab="recommend"
             onTabChange={handleTabChange}
             onHistory={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
             onPreference={() =>
@@ -536,18 +616,13 @@ export default function RecommendPage() {
             <RecommendActions
               communicationMode={candidate.communicationMode}
               liked={candidate.liked}
-              disabled={actionSubmitting}
+              disabled={actionSubmitting || refreshing}
               onSkip={() => void advanceCandidate()}
               onConversation={() => runCertifiedAction(() => void openConversation())}
               onLike={() => runCertifiedAction(() => void toggleLike())}
             />
           ) : null}
-        </>
-      )}
-      <AppTabBar
-        active="recommend"
-        recommendBadgeCount={state === 'ready' && candidate ? page?.remainingBrowseCount : 0}
-      />
+      </View>
       {showIpDialog ? (
         <IpLocationDialog
           onClose={() => setShowIpDialog(false)}

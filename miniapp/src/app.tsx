@@ -97,6 +97,15 @@ function App({ children }: PropsWithChildren<object>) {
     const currentRoute = currentPage?.route || ''
     rememberPendingShareRoute(options?.path, options?.query)
     rememberPendingShareRoute(currentRoute, currentPage?.options)
+    const sharedProfile = currentRoute
+      ? resolvePendingShareRoute(currentRoute, currentPage?.options)
+      : resolvePendingShareRoute(options?.path, options?.query)
+    if (sharedProfile?.startsWith('/pages/heart/user?')) {
+      checkLogin()
+      loginRedirectingRef.current = false
+      messagePlatformRuntime.stop()
+      return
+    }
     if (currentRoute.startsWith('pages/login/')) return
     if (loginRedirectingRef.current) return
 

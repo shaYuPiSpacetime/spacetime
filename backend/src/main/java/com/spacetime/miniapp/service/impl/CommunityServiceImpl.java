@@ -35,8 +35,6 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -277,34 +275,10 @@ public class CommunityServiceImpl implements CommunityService {
     public Page<CommunityPostCardVO> getSoulmatePosts(Long userId, int page, int size) {
         int safePage = Math.max(1, page);
         int safeSize = Math.max(1, Math.min(size, 100));
-        AppConfig sourceConfig = appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES);
-        List<String> phoneHashes = sourceConfig == null ? List.of() : parseJsonList(sourceConfig.getConfigValue()).stream()
-                .map(String::trim)
-                .filter(phone -> phone.matches("^1[3-9]\\d{9}$"))
-                .distinct()
-                .limit(50)
-                .map(this::hashPhone)
-                .toList();
-        if (phoneHashes.isEmpty()) {
-            return emptyPostPage(safePage, safeSize);
-        }
-
-        List<Long> authorIds = appUserDao.selectList(new LambdaQueryWrapper<AppUser>()
-                        .in(AppUser::getPhoneHash, phoneHashes)
-                        .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode()))
-                .stream()
-                .map(AppUser::getId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (authorIds.isEmpty()) {
-            return emptyPostPage(safePage, safeSize);
-        }
-
+        // 心灵搭子面向全员，工作人员名单只用于时空站台发布权限。
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
                 .eq(CommunityPost::getPostType, CommunityPostTypeEnum.COMMUNITY.getCode())
-                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
-                .in(CommunityPost::getAuthorId, authorIds);
+                .eq(CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode());
         excludeHiddenAuthors(userId, wrapper);
         excludeBlockedAuthors(userId, wrapper);
         wrapper.orderByDesc(CommunityPost::getCreateTime)
@@ -2119,7 +2093,7 @@ public class CommunityServiceImpl implements CommunityService {
         }
     }
 
-    /** 时空站台发布人必须同时是启用的后台工作人员。 */
+    /** 时空站台发布人必须是配置名单账号或启用的后台工作人员。 */
     private void ensureStationPublisher(AppUser user) {
         if (!isStationPublisher(user)) {
             throw error("station_staff_only");
@@ -2132,20 +2106,17 @@ public class CommunityServiceImpl implements CommunityService {
 
     private boolean isStationPublisher(AppUser user) {
         if (user == null || StrUtil.isBlank(user.getPhone())) return false;
+        AppConfig publisherPhones = appConfigDao.selectByKey(CommunityConfigKeys.SOULMATE_SOURCE_PHONES);
+        if (publisherPhones != null && !"DISABLED".equalsIgnoreCase(publisherPhones.getStatus())
+                && parseJsonList(publisherPhones.getConfigValue()).stream()
+                .map(String::trim).filter(phone -> phone.matches("^1[3-9]\\d{9}$"))
+                .distinct().limit(50).anyMatch(user.getPhone().trim()::equals)) {
+            return true;
+        }
         SysUser staff = userDao.selectByPhone(user.getPhone().trim());
         return staff != null
                 && CommonStatusEnum.ENABLED.getCode().equalsIgnoreCase(
                         StrUtil.blankToDefault(staff.getStatus(), ""));
-    }
-
-    /** 配置手机号仅以 SHA-256 参与账号定位，避免进入查询参数和响应。 */
-    private String hashPhone(String phone) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(phone.getBytes(StandardCharsets.UTF_8)));
-        } catch (Exception exception) {
-            throw error("runtime_config_invalid");
-        }
     }
 
     /**

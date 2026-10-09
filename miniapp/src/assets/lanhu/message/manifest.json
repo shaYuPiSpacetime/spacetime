@@ -77,18 +77,24 @@
     {
       "file": "icon-assistant.png",
       "purpose": "官方小助手喇叭",
-      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
-      "sourceFile": "626cd513-消息.png",
-      "crop": { "x": 82, "y": 1098, "width": 200, "height": 200 },
-      "sha256": "ca6d84c0f7933d2b11f6eab741befb970501428537770dcdca60d48977b9ceca"
+      "sourceDesignId": "898b47f4-64ae-49ce-aad1-f47c26a3c979",
+      "sourceFile": "消息-切图/icon-3.png",
+      "pixelWidth": 196,
+      "pixelHeight": 196,
+      "runtimeSizePx": 49,
+      "cropPolicy": "蓝湖 MCP 2x 原始 PNG 字节，不缩放、不裁切、不转换格式、不压缩",
+      "sha256": "07e7e9feaa22b7c8e11fc6381a694e16e662e11336050b75d94b794e4884f641"
     },
     {
       "file": "icon-system.png",
       "purpose": "系统消息铃铛",
-      "sourceDesignId": "626cd513-005e-4df8-8456-b5280872ba23",
-      "sourceFile": "626cd513-消息.png",
-      "crop": { "x": 90, "y": 1426, "width": 200, "height": 200 },
-      "sha256": "8fbc6e3f45c03735eeb5eb2f4b83665341fd3053dc167b3d0000d35e410c6cfb"
+      "sourceDesignId": "898b47f4-64ae-49ce-aad1-f47c26a3c979",
+      "sourceFile": "消息-切图/icon-4.png",
+      "pixelWidth": 196,
+      "pixelHeight": 196,
+      "runtimeSizePx": 49,
+      "cropPolicy": "蓝湖 MCP 2x 原始 PNG 字节，不缩放、不裁切、不转换格式、不压缩",
+      "sha256": "bddf25a7263fae72d26913fdc92a40361da1764b2254cca28f467f4e47a4fe20"
     },
     {
       "file": "timeline-expired.png",

@@ -8,6 +8,8 @@ const test = require('node:test')
 
 const root = path.resolve(__dirname, '..')
 const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf8')
+  + (relativePath === 'src/pages/prd08/ideal/results/index.tsx'
+    ? fs.readFileSync(path.join(root, 'src/components/IdealResultsContent/index.tsx'), 'utf8') : '')
 
 test('推荐三重认证弹窗使用最新蓝湖独立切图', () => {
   const source = read('src/pages/recommend/index.tsx')
@@ -133,6 +135,12 @@ test('推荐非底部静态素材全部来自 OSS 常量', () => {
     'idealFilter',
     'recommendReplay',
     'recommendPreference',
+    'recommendDailyLimitHero',
+    'recommendDailyLimitSearch',
+    'recommendDailyLimitVipBackground',
+    'recommendDailyLimitVipBadge',
+    'recommendDailyLimitWhisperCard',
+    'recommendDailyLimitCityCard',
     'idealHistory',
   ]) {
     assert.match(icons, new RegExp(`${key}: 'https://`), `OSS 常量缺少 ${key}`)
@@ -182,12 +190,42 @@ test('推荐与理想型右上角图标按蓝湖 18px 基线渲染并保留足�
   )
 })
 
-test('推荐等待聚合页的悄悄话和同城入口使用设计图标', () => {
+test('推荐等待聚合页使用蓝湖每日上限页原始切图', () => {
   const waiting = read('src/pages/prd08/recommend/waiting/index.tsx')
 
-  assert.match(waiting, /miniappOssIcons\.recommendWhisper/, '悄悄话入口必须显示设计图标')
-  assert.match(waiting, /<SameCityIcon\s*\/>/, '同城入口必须显示独立的可见图标')
-  assert.match(waiting, /miniappOssIcons\.recommendVipBadge/, '会员横幅必须显示蓝湖会员徽章')
+  for (const key of [
+    'recommendDailyLimitHero',
+    'recommendDailyLimitSearch',
+    'recommendDailyLimitVipBackground',
+    'recommendDailyLimitVipBadge',
+    'recommendDailyLimitWhisperCard',
+    'recommendDailyLimitCityCard',
+  ]) {
+    assert.match(waiting, new RegExp(`miniappOssIcons\\.${key}`), `${key} 必须用于每日上限页`)
+  }
+  assert.match(waiting, /每日12点准时推荐/, '主卡标题必须与蓝湖版本 3 一致')
+  assert.match(waiting, /fontSize: '28rpx',[\s\S]{0,60}lineHeight: '48rpx'/, '千寻动态正文必须按设计放大')
+  assert.match(
+    waiting,
+    /normalizeAvatarUrl\(post\.authorAvatar, miniappOssIcons\.qianxunTopicAvatar\)/,
+    '千寻动态作者头像为空时必须保留 72rpx 头像位并显示 OSS 兜底图',
+  )
+  assert.match(waiting, /onClick=\{openAuthor\}/, '点击千寻动态作者头像必须触发作者主页导航')
+  assert.match(
+    waiting,
+    /event\.stopPropagation\(\)[\s\S]{0,120}openCommunityAuthorProfile\(post\.authorId, currentUserId, Taro\.navigateTo\)/,
+    '头像跳转必须阻止卡片详情事件，并按作者身份打开本人预览或他人主页',
+  )
+  assert.match(
+    waiting,
+    /fontSize: '26rpx',[\s\S]{0,100}免费查看心动、访客/,
+    '会员横幅次级文案字号必须为 26rpx',
+  )
+  assert.match(
+    waiting,
+    /fontSize: '26rpx'[^>]*>立即开通/,
+    '会员横幅立即开通按钮字号必须为 26rpx',
+  )
 })
 
 test('PRD-08 子页面全部注册且使用自定义导航', () => {

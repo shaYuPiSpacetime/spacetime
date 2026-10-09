@@ -242,7 +242,7 @@ for (const relativePath of profileEditPages) {
 }
 
 const introSource = read('src/pages/profile-edit/intro.tsx')
-assert.ok(introSource.includes('介绍下自己的性格、习惯、有点、缺点'), '自我介绍页面缺少蓝湖标题描述')
+assert.ok(introSource.includes('介绍下自己的性格、习惯、优点、缺点'), '自我介绍页面缺少标题描述')
 assert.ok(introSource.includes('写下你的自我介绍'), '自我介绍页面缺少输入提示')
 assert.ok(introSource.includes(": '保存'"), '自我介绍页面按钮文案必须是保存')
 const forbiddenIntroButtonText = ['保存自我', '介绍'].join('')

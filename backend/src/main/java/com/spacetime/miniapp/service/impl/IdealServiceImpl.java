@@ -27,6 +27,7 @@ import com.spacetime.common.enums.UnlockRecordStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.util.MunicipalityLocationCodes;
+import com.spacetime.common.util.ProfileAgeFilter;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.IdealSearchReq;
 import com.spacetime.miniapp.dto.response.IdealConditionSummaryVO;
@@ -75,6 +76,27 @@ public class IdealServiceImpl implements IdealService {
             "SERIOUS_RELATIONSHIP", "FAMILY_ORIENTED", "SLOW_RELATIONSHIP",
             "MARRIAGE_ORIENTED", "relationship_serious", "relationship_family",
             "relationship_slow", "relationship_marriage");
+    /** 后台可自定义编码，同名启用标签按明确业务含义映射，不根据编码前缀猜测。 */
+    private static final Map<String, Set<String>> CONDITION_TAG_LABELS = Map.ofEntries(
+            Map.entry("M08-IDEAL-overseas", Set.of("留学海归", "有留学经历", "海外留学", "海归")),
+            Map.entry("M08-IDEAL-home-owner", Set.of("已购房", "有房有车")),
+            Map.entry("M08-IDEAL-car-owner", Set.of("已购车", "有房有车")),
+            Map.entry("M08-IDEAL-only-child", Set.of("独生子女")),
+            Map.entry("M08-IDEAL-public-family", Set.of("体制内家庭")),
+            Map.entry("M08-IDEAL-sports", Set.of("有运动习惯", "有健身习惯", "户外发烧友", "跑步", "健身", "徒步", "骑行", "户外运动", "乒乓球", "羽毛球")),
+            Map.entry("M08-IDEAL-animals", Set.of("喜欢小动物", "喜欢动物", "宠物爱好者", "铲屎官")),
+            Map.entry("M08-IDEAL-food", Set.of("喜欢美食", "热爱一切美食", "吃货", "美食爱好者")),
+            Map.entry("M08-IDEAL-travel", Set.of("喜欢旅行", "热爱旅行", "旅行爱好者")));
+    private static final Map<String, Set<String>> LEGACY_CONDITION_TAGS = Map.ofEntries(
+            Map.entry("M08-IDEAL-overseas", Set.of("overseas_returnee", "OVERSEAS_RETURNEE")),
+            Map.entry("M08-IDEAL-home-owner", Set.of("home_owner", "HOME_OWNER")),
+            Map.entry("M08-IDEAL-car-owner", Set.of("car_owner", "CAR_OWNER")),
+            Map.entry("M08-IDEAL-only-child", Set.of("only_child", "ONLY_CHILD")),
+            Map.entry("M08-IDEAL-public-family", Set.of("public_sector_family", "PUBLIC_SECTOR_FAMILY")),
+            Map.entry("M08-IDEAL-sports", Set.of("sports_habit", "RUNNING", "FITNESS", "HIKING", "CYCLING", "OUTDOOR_LOVER")),
+            Map.entry("M08-IDEAL-animals", Set.of("likes_animals", "PET_LOVER")),
+            Map.entry("M08-IDEAL-food", Set.of("foodie", "FOODIE")),
+            Map.entry("M08-IDEAL-travel", Set.of("travel_lover", "LOVE_TRAVEL", "TRAVEL_MEMORY")));
 
     private static final List<ConditionDefinition> CONDITIONS = List.of(
             condition("M08-IDEAL-height-165", "外在条件", "身高165+"),
@@ -109,6 +131,7 @@ public class IdealServiceImpl implements IdealService {
     private final RelationAccessProjectionService accessProjectionService;
     private final ProfileDictionaryService profileDictionaryService;
     private final IdealUnlockService idealUnlockService;
+    private final Prd01AccessEvaluator accessEvaluator;
 
     @Override
     public IdealMetaVO getMeta(Long userId) {
@@ -308,8 +331,8 @@ public class IdealServiceImpl implements IdealService {
         LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
                 .ne(AppUser::getId, current.getId())
                 .eq(AppUser::getGender, opposite)
-                .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode())
-                .between(AppUser::getAge, values.minAge(), values.maxAge());
+                .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode());
+        ProfileAgeFilter.apply(wrapper, values.minAge(), values.maxAge());
         MunicipalityLocationCodes.applyCityFilter(wrapper, values.cities());
         return wrapper
                 .orderByDesc(AppUser::getLastLoginTime)
@@ -319,8 +342,9 @@ public class IdealServiceImpl implements IdealService {
 
     private boolean matchesAll(AppUser current, AppUser candidate, SearchValues values,
                                TagScopes scopes, Map<String, Boolean> schoolTierByCode) {
-        if (candidate.getAge() == null || candidate.getAge() < values.minAge()
-                || candidate.getAge() > values.maxAge()
+        Integer age = ProfileAgeFilter.currentAge(candidate);
+        if (age == null || age < values.minAge()
+                || age > values.maxAge()
                 || !MunicipalityLocationCodes.matchesAny(values.cities(), candidate.getLocationCity())) {
             return false;
         }
@@ -334,30 +358,21 @@ public class IdealServiceImpl implements IdealService {
 
     private boolean matchesCondition(String code, AppUser current, AppUser candidate, List<String> cities,
                                      TagScopes scopes, Map<String, Boolean> schoolTierByCode) {
-        Set<String> tags = tags(candidate);
+        Set<String> tags = tags(candidate, scopes);
+        if (scopes.conditionTags().containsKey(code)) {
+            return hasAny(tags, scopes.conditionTags().get(code));
+        }
         return switch (code) {
             case "M08-IDEAL-height-165" -> candidate.getHeight() != null && candidate.getHeight() >= 165;
             case "M08-IDEAL-school-tier" -> schoolTierMatches(candidate, schoolTierByCode);
             case "M08-IDEAL-alumni" -> StrUtil.isNotBlank(current.getSchoolCode())
                     && current.getSchoolCode().trim().equals(StrUtil.trim(candidate.getSchoolCode()));
             case "M08-IDEAL-doctor" -> "DOCTOR".equalsIgnoreCase(candidate.getEducationLevel());
-            case "M08-IDEAL-overseas" -> hasAny(tags, Set.of("overseas_returnee", "OVERSEAS_RETURNEE"));
-            case "M08-IDEAL-home-owner" -> hasAny(tags, Set.of("home_owner", "HOME_OWNER"));
-            case "M08-IDEAL-car-owner" -> hasAny(tags, Set.of("car_owner", "CAR_OWNER"));
-            case "M08-IDEAL-only-child" -> hasAny(tags, Set.of("only_child", "ONLY_CHILD"));
-            case "M08-IDEAL-public-family" -> hasAny(tags,
-                    Set.of("public_sector_family", "PUBLIC_SECTOR_FAMILY"));
             // 现居城市已经是所有理想型结果的基础条件，不能再拿它判定“本地人”。
             // 当前资料模型尚无独立户籍城市字段，因此只使用家乡城市稳定编码。
             case "M08-IDEAL-local" -> MunicipalityLocationCodes.matchesAny(cities, candidate.getHometownCity());
-            case "M08-IDEAL-sports" -> hasAny(tags,
-                    Set.of("sports_habit", "RUNNING", "FITNESS", "HIKING", "CYCLING", "OUTDOOR_LOVER"));
-            case "M08-IDEAL-animals" -> hasAny(tags, Set.of("likes_animals", "PET_LOVER"));
-            case "M08-IDEAL-food" -> hasAny(tags, Set.of("foodie", "FOODIE"));
-            case "M08-IDEAL-travel" -> hasAny(tags,
-                    Set.of("travel_lover", "LOVE_TRAVEL", "TRAVEL_MEMORY"));
-            case "M08-IDEAL-interest-similar" -> intersects(tags(current), tags, scopes.interest());
-            case "M08-IDEAL-view-compatible" -> intersects(tags(current), tags, scopes.relationship());
+            case "M08-IDEAL-interest-similar" -> intersects(tags(current, scopes), tags, scopes.interest());
+            case "M08-IDEAL-view-compatible" -> intersects(tags(current, scopes), tags, scopes.relationship());
             case "M08-IDEAL-marry-2y" -> "ONE_TO_TWO_YEARS".equals(candidate.getDatingGoal());
             default -> false;
         };
@@ -398,7 +413,7 @@ public class IdealServiceImpl implements IdealService {
     }
 
     private List<IdealConditionVO> conditionVOs(AppUser current, TagScopes scopes) {
-        Set<String> currentTags = tags(current);
+        Set<String> currentTags = tags(current, scopes);
         return CONDITIONS.stream().map(definition -> {
             String reason = switch (definition.code()) {
                 case "M08-IDEAL-alumni" -> StrUtil.isNotBlank(current.getSchoolCode())
@@ -418,10 +433,13 @@ public class IdealServiceImpl implements IdealService {
         List<SysDictData> items = dictDataDao.selectByDictType(ProfileDictType.PROFILE_TAG);
         if (items == null || items.isEmpty()) {
             // 旧环境尚无资料标签字典时兼容历史数据；字典一旦启用，必须服从后台启停状态。
-            return new TagScopes(INTEREST_TAGS, RELATIONSHIP_TAGS);
+            return new TagScopes(INTEREST_TAGS, RELATIONSHIP_TAGS, LEGACY_CONDITION_TAGS, Map.of());
         }
         Set<String> interest = new LinkedHashSet<>();
         Set<String> relationship = new LinkedHashSet<>();
+        Map<String, String> canonicalTags = new HashMap<>();
+        Map<String, Set<String>> conditionTags = new HashMap<>();
+        CONDITION_TAG_LABELS.keySet().forEach(code -> conditionTags.put(code, new LinkedHashSet<>()));
         Map<Long, SysDictData> categories = new HashMap<>();
         for (SysDictData item : items) {
             if (Long.valueOf(0L).equals(item.getParentId())) {
@@ -433,19 +451,29 @@ public class IdealServiceImpl implements IdealService {
             if (category == null || StrUtil.isBlank(item.getDictValue())) {
                 continue;
             }
+            String label = StrUtil.trim(item.getDictLabel());
+            String canonical = StrUtil.isBlank(label) ? item.getDictValue().trim() : label;
+            canonicalTags.put(item.getDictValue().trim(), canonical);
+            CONDITION_TAG_LABELS.forEach((conditionCode, labels) -> {
+                if (labels.contains(canonical)
+                        || LEGACY_CONDITION_TAGS.get(conditionCode).contains(item.getDictValue().trim())) {
+                    conditionTags.get(conditionCode).add(canonical);
+                }
+            });
             String categoryCode = StrUtil.nullToEmpty(category.getDictValue()).trim().toUpperCase(Locale.ROOT);
             String categoryLabel = StrUtil.nullToEmpty(category.getDictLabel());
             if (Set.of("HOBBY", "SPORT", "FOOTPRINT", "INTEREST").contains(categoryCode)
-                    || categoryLabel.contains("兴趣") || categoryLabel.contains("运动")) {
-                interest.add(item.getDictValue());
+                    || categoryLabel.contains("兴趣") || categoryLabel.contains("运动")
+                    || categoryLabel.contains("爱好")) {
+                interest.add(canonical);
             }
             if (Set.of("LOVE", "RELATIONSHIP", "RELATIONSHIP_VIEW").contains(categoryCode)
                     || categoryLabel.contains("爱情") || categoryLabel.contains("感情观")
                     || categoryLabel.contains("恋爱")) {
-                relationship.add(item.getDictValue());
+                relationship.add(canonical);
             }
         }
-        return new TagScopes(interest, relationship);
+        return new TagScopes(interest, relationship, conditionTags, canonicalTags);
     }
 
     private RecommendPreference requirePreference(AppUser user) {
@@ -468,8 +496,13 @@ public class IdealServiceImpl implements IdealService {
 
     private AppUser requireOpenUser(Long userId) {
         AppUser user = userId == null ? null : appUserDao.selectById(userId);
-        if (user == null || !"OPEN".equals(accessProjectionService.project(user))) {
-            throw new BusinessException(403, "完成资料和三项认证后即可使用理想型筛选");
+        if (user == null) {
+            throw new BusinessException(403, "请先完成基础资料后使用理想型筛选");
+        }
+        String access = accessProjectionService.project(user);
+        if ("ABNORMAL".equals(access) || (!"OPEN".equals(access)
+                && !Boolean.TRUE.equals(accessEvaluator.evaluate(user).getCanBrowseCards()))) {
+            throw new BusinessException(403, "请先完成基础资料后使用理想型筛选");
         }
         return user;
     }
@@ -491,7 +524,7 @@ public class IdealServiceImpl implements IdealService {
         item.setItemNo(row.getItemNo());
         item.setUnlocked(false);
         item.setBlurAvatarUrl(SAFE_BLUR_AVATAR);
-        item.setAgeBand(ageBand(candidate.getAge()));
+        item.setAgeBand(ageBand(ProfileAgeFilter.currentAge(candidate)));
         item.setCityName(profileDictionaryService.label(ProfileDictType.CHINA_REGION,
                 candidate.getLocationCity()));
         item.setEducationLabel(profileDictionaryService.label(ProfileDictType.EDUCATION_LEVEL,
@@ -614,8 +647,10 @@ public class IdealServiceImpl implements IdealService {
                 ("ideal-offset:" + offset).getBytes(StandardCharsets.UTF_8));
     }
 
-    private Set<String> tags(AppUser user) {
-        return new LinkedHashSet<>(parseList(user == null ? null : user.getTags()));
+    private Set<String> tags(AppUser user, TagScopes scopes) {
+        return parseList(user == null ? null : user.getTags()).stream()
+                .map(code -> scopes.canonicalTags().getOrDefault(code, code))
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     private boolean hasAny(Set<String> values, Set<String> expected) {
@@ -672,6 +707,7 @@ public class IdealServiceImpl implements IdealService {
                                 Integer minAge, Integer maxAge) {
     }
 
-    private record TagScopes(Set<String> interest, Set<String> relationship) {
+    private record TagScopes(Set<String> interest, Set<String> relationship,
+                             Map<String, Set<String>> conditionTags, Map<String, String> canonicalTags) {
     }
 }

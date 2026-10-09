@@ -1,6 +1,6 @@
 import { Image, View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import tabHomeIcon from '@/assets/icons/tab-home.png'
 import tabHomeActiveIcon from '@/assets/icons/tab-home-active.png'
@@ -13,9 +13,9 @@ import tabProfileIcon from '@/assets/icons/tab-profile.png'
 import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'
 import type { NativeNavigationMetrics } from '@/components/NativeNavigation'
 import { formatMessageBadge } from '@/domain/messageRuntime'
-import { resolveRecommendBadgeCount } from '@/domain/recommendBadge'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
-import { getRecommendCandidates } from '@/services/recommend'
+import { useAuthStore } from '@/stores/authStore'
+import { refreshRecommendBadge, useRecommendBadgeStore } from '@/stores/recommendBadgeStore'
 
 export type TabKey = 'index' | 'community' | 'recommend' | 'chat' | 'profile'
 
@@ -53,7 +53,6 @@ function getCurrentRoute() {
 interface Props {
   active: TabKey
   onActiveChange?: (key: TabKey) => void
-  recommendBadgeCount?: number | null
 }
 
 interface CapsuleLeftActionsOptions
@@ -90,34 +89,18 @@ export function getCapsuleLeftActionsLayout({
 /**
  * 底部 TabBar — 对齐蓝湖「我的」底部栏 750×166 坐标。
  */
-export default function AppTabBar({ active, onActiveChange, recommendBadgeCount }: Props) {
-  const [fetchedRecommendCount, setFetchedRecommendCount] = useState(0)
-  const recommendRequestGenerationRef = useRef(0)
-  const mountedRef = useRef(true)
-
+export default function AppTabBar({ active, onActiveChange }: Props) {
+  const userId = useAuthStore(state => state.userId)
+  const loggedIn = useAuthStore(state => state.isLoggedIn)
+  const badge = useRecommendBadgeStore()
   const refreshRecommendCount = () => {
-    if (recommendBadgeCount != null) return
-    const requestGeneration = ++recommendRequestGenerationRef.current
-    void getRecommendCandidates().then(page => {
-      if (mountedRef.current && requestGeneration === recommendRequestGenerationRef.current) {
-        setFetchedRecommendCount(resolveRecommendBadgeCount(page))
-      }
-    }).catch(() => {
-      if (mountedRef.current && requestGeneration === recommendRequestGenerationRef.current) {
-        setFetchedRecommendCount(0)
-      }
-    })
+    if (loggedIn) void refreshRecommendBadge(userId)
   }
   useEffect(() => {
-    mountedRef.current = true
     refreshRecommendCount()
-    return () => {
-      mountedRef.current = false
-      recommendRequestGenerationRef.current += 1
-    }
-  }, [])
+  }, [loggedIn, userId])
   useDidShow(refreshRecommendCount)
-  const visibleRecommendCount = Math.max(0, recommendBadgeCount ?? fetchedRecommendCount)
+  const visibleRecommendCount = loggedIn && badge.ownerId === userId ? badge.count : 0
   const messageUnreadCount = useMessageRuntimeStore(
     state => state.unreadSummary.messageUnreadCount,
   )
@@ -260,23 +243,12 @@ export default function AppTabBar({ active, onActiveChange, recommendBadgeCount 
               }}
             >
               <Image
-                src={tab.iconPath}
+                src={isOn ? tab.activeIconPath : tab.iconPath}
                 mode="aspectFit"
                 style={{
                   position: 'absolute',
                   width: `${tab.iconWidth}rpx`,
                   height: `${tab.iconHeight}rpx`,
-                  opacity: isOn ? 0 : 1,
-                }}
-              />
-              <Image
-                src={tab.activeIconPath}
-                mode="aspectFit"
-                style={{
-                  position: 'absolute',
-                  width: `${tab.iconWidth}rpx`,
-                  height: `${tab.iconHeight}rpx`,
-                  opacity: isOn ? 1 : 0,
                 }}
               />
               {tab.key === 'chat' && messageBadge ? (

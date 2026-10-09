@@ -22,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 /**
  * 移动端语音介绍服务实现。
  * 语音介绍只走音频安全 Provider，统一写入 app_user_audit_record，不再使用语音分表。
@@ -30,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Slf4j
 public class VoiceIntroServiceImpl implements VoiceIntroService {
+
+    private static final String RETRY_REASON = "语音审核服务暂不可用，请重新提交";
 
     private final AppUserDao appUserDao;
     private final ExternalProviderTaskDao externalProviderTaskDao;
@@ -40,7 +44,8 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
     @Override
     public VoiceIntroVO getVoiceIntro(Long userId) {
         requireUser(userId);
-        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+        AppUserAuditRecord latest = recoverFailedSubmission(
+                auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO));
         AppUserAuditRecord effective = auditService.latestEffectiveRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
         AppUserAuditRecord display = latest != null ? latest : effective;
         if (display == null) {
@@ -60,7 +65,8 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         AppUser user = requireUser(userId);
         Prd01RuntimeConfigResolver.RuntimeConfigSnapshot snapshot = runtimeConfigResolver.snapshot();
         validateRequest(req, snapshot);
-        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+        AppUserAuditRecord latest = recoverFailedSubmission(
+                auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO));
         if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
             throw new BusinessException("语音介绍审核中，请勿重复提交");
         }
@@ -82,13 +88,13 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
             result = audioSafetyProvider.check(
                     user.getOpenid(), req.getVoiceUrl(), req.getDuration());
         } catch (Exception ex) {
-            // Provider 异常时保留 PENDING，后台和后续任务可继续处理；不替换旧有效语音。
-            log.warn("音频安全 Provider 调用失败，auditRecordId={}", record.getId(), ex);
-            return toVo(record, false);
+            log.warn("音频安全 Provider 调用失败，auditRecordId={}, error={}",
+                    record.getId(), ex.getClass().getSimpleName());
+            return toVo(expireFailedSubmission(record), false);
         }
         if (result == null) {
             log.warn("音频安全 Provider 返回空结果，auditRecordId={}", record.getId());
-            return toVo(record, false);
+            return toVo(expireFailedSubmission(record), false);
         }
 
         ExternalProviderTask task = providerTask(
@@ -107,8 +113,35 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
         if (StrUtil.isNotBlank(result.getExternalTaskId())) {
             auditService.machineStart(record.getId(), task.getId(), result.getRawResponseJson());
             record.setStatus(AppUserAuditStatusEnum.REVIEWING.getCode());
+        } else {
+            // 未取得异步任务号就没有可等待的回调，不能永久阻止用户重提。
+            record = expireFailedSubmission(record);
         }
         return toVo(record, false);
+    }
+
+    private AppUserAuditRecord recoverFailedSubmission(AppUserAuditRecord record) {
+        if (record == null || !AppUserAuditStatusEnum.isPendingLike(record.getStatus())
+                || !AuditSourceEnum.MACHINE.getCode().equals(record.getAuditSource())
+                || record.getSubmitTime() == null
+                || record.getSubmitTime().isAfter(LocalDateTime.now().minusMinutes(5))) return record;
+        if (record.getProviderTaskId() != null) {
+            ExternalProviderTask task = externalProviderTaskDao.selectById(record.getProviderTaskId());
+            // 有真实异步任务的记录继续等待审核，不能按等待时长自动放行或作废。
+            if (task == null || !"ERROR".equals(task.getTaskStatus())
+                    || StrUtil.isNotBlank(task.getExternalTaskId())) return record;
+        }
+        return expireFailedSubmission(record);
+    }
+
+    private AppUserAuditRecord expireFailedSubmission(AppUserAuditRecord record) {
+        if (auditService.expirePending(record.getId(), record.getStatus(), record.getProviderTaskId(), RETRY_REASON)) {
+            record.setStatus(AppUserAuditStatusEnum.EXPIRED.getCode());
+            record.setExpiredReason(RETRY_REASON);
+            return record;
+        }
+        // 条件更新未成功说明审核状态已变化，返回最新状态而非伪造恢复成功。
+        return auditService.latestRecord(record.getUserId(), AppUserAuditTypeEnum.VOICE_INTRO);
     }
 
     /** 删除当前有效语音介绍，当前记录失效后不自动回退旧语音。 */

@@ -189,7 +189,17 @@ function MemberHero({
         background: '#2B2B2B',
       }}
     >
-      <MemberHeroPattern />
+      <Image
+        src={miniappOssIcons.memberHeroBackground}
+        mode="scaleToFill"
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: '700rpx',
+          height: '268rpx',
+        }}
+      />
       <Image
         src={avatar}
         mode="aspectFill"
@@ -269,62 +279,6 @@ function MemberRecordEntry({ onRecords }: { onRecords: () => void }) {
       <Text style={{ color: '#FFFFFF', fontSize: '28rpx', lineHeight: '40rpx', opacity: 0.9 }}>
         查看记录
       </Text>
-    </View>
-  )
-}
-
-function MemberHeroPattern() {
-  const border = '12rpx solid rgba(134,126,103,0.22)'
-  return (
-    <View style={{ position: 'absolute', left: 0, top: 0, width: '700rpx', height: '268rpx', overflow: 'hidden', background: '#2B2B2B' }}>
-      <View
-        style={{
-          position: 'absolute',
-          right: '-70rpx',
-          top: '-112rpx',
-          width: '238rpx',
-          height: '238rpx',
-          borderRadius: '20rpx',
-          border,
-          transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '-72rpx',
-          top: '82rpx',
-          width: '218rpx',
-          height: '218rpx',
-          borderRadius: '20rpx',
-          border,
-          transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '140rpx',
-          top: '156rpx',
-          width: '154rpx',
-          height: '154rpx',
-          borderRadius: '18rpx',
-          border,
-          transform: 'rotate(45deg)',
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          right: '89rpx',
-          top: '-92rpx',
-          width: '178rpx',
-          height: '178rpx',
-          borderRadius: '18rpx',
-          border,
-          transform: 'rotate(45deg)',
-        }}
-      />
     </View>
   )
 }

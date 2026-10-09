@@ -106,8 +106,8 @@ class RecommendServiceImplTest {
             assertThat(city.getName()).isEqualTo("南京");
         });
         assertThat(result.getVipEffective()).isFalse();
-        assertThat(result.getNeighborCityAvailable()).isFalse();
-        assertThat(result.getNeighborCityDisabledReason()).contains("暂未配置");
+        assertThat(result.getNeighborCityAvailable()).isTrue();
+        assertThat(result.getNeighborCityDisabledReason()).isNull();
         verify(preferenceDao, never()).insert(any());
     }
 
@@ -130,22 +130,58 @@ class RecommendServiceImplTest {
     }
 
     @Test
-    @DisplayName("周边城市数据缺失时服务端强制关闭开关")
-    void savePreferencesShouldDisableNeighborCityWithoutConfiguredMapping() {
+    @DisplayName("周边城市数据缺失时保留用户选择，数据能力与偏好分离")
+    void savePreferencesShouldKeepNeighborChoiceWithoutConfiguredMapping() {
         AppUser user = openUser(7L, 30, "320100");
         when(appUserDao.selectById(7L)).thenReturn(user);
         when(accessProjectionService.project(user)).thenReturn("OPEN");
         when(preferenceDao.selectByUserId(7L)).thenReturn(null);
         RecommendPreferenceSaveReq req = basicRequest(0);
         req.setAllowNeighborCity(true);
+        when(appConfigDao.selectByKey("prd08.recommend.neighbor-city-map"))
+                .thenReturn(config("prd08.recommend.neighbor-city-map", "{\"320100\":[]}"));
 
         RecommendPreferenceVO result = service.savePreferences(7L, req);
 
         ArgumentCaptor<RecommendPreference> captor = ArgumentCaptor.forClass(RecommendPreference.class);
         verify(preferenceDao).insert(captor.capture());
-        assertThat(captor.getValue().getAllowNeighborCity()).isZero();
-        assertThat(result.getAllowNeighborCity()).isFalse();
+        assertThat(captor.getValue().getAllowNeighborCity()).isEqualTo(1);
+        assertThat(result.getAllowNeighborCity()).isTrue();
         assertThat(result.getNeighborCityAvailable()).isFalse();
+    }
+
+    @Test
+    @DisplayName("上海默认邻接无需运营预填，区县资料同样可开启")
+    void defaultShanghaiNeighborsShouldBeAvailableForDistrictProfile() {
+        AppUser user = openUser(7L, 30, "310115");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(accessProjectionService.project(user)).thenReturn("OPEN");
+        assertThat(service.getPreferences(7L).getNeighborCityAvailable()).isTrue();
+    }
+
+    @Test
+    @DisplayName("周边只补足精确城市，不抢占目标城市候选")
+    void candidatesShouldQueryExactCitiesBeforeNeighbors() {
+        AppUser current = openUser(7L, 30, "320100");
+        AppUser exact = openUser(8L, 28, "320100");
+        exact.setGender("FEMALE");
+        AppUser neighbor = openUser(9L, 28, "320200");
+        neighbor.setGender("FEMALE");
+        RecommendPreference preference = basicPreference(7L, 2);
+        preference.setAllowNeighborCity(1);
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference);
+        when(appConfigDao.selectByKey("prd08.recommend.neighbor-city-map"))
+                .thenReturn(config("prd08.recommend.neighbor-city-map", "{\"320100\":[\"320200\"]}"));
+        when(appUserDao.selectList(any())).thenReturn(List.of(exact), List.of(neighbor));
+        when(accessProjectionService.projectAll(List.of(exact))).thenReturn(Map.of(8L, "OPEN"));
+        org.mockito.Mockito.lenient().when(accessProjectionService.projectAll(List.of(neighbor)))
+                .thenReturn(Map.of(9L, "OPEN"));
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(8L, 9L);
     }
 
     @Test

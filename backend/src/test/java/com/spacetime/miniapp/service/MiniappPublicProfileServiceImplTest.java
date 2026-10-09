@@ -71,6 +71,38 @@ class MiniappPublicProfileServiceImplTest {
     }
 
     @Test
+    void guestCanReadApprovedSharedProfileWithoutRelationshipOrPaidAccess() {
+        AppUser target = user(8L, "分享用户");
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(auditContentService.publicAvatar(8L)).thenReturn("https://cdn.test/approved.jpg");
+        when(auditContentService.publicText(8L, AppUserAuditTypeEnum.ABOUT_ME)).thenReturn("已审核简介");
+
+        PublicProfileVO result = service.getPublicProfile(null, 8L);
+
+        assertThat(result.getNickname()).isEqualTo("分享用户");
+        assertThat(result.getAvatar()).isEqualTo("https://cdn.test/approved.jpg");
+        assertThat(result.getIntroduction()).isEqualTo("已审核简介");
+        assertThat(result.getLiked()).isFalse();
+        assertThat(result.getMatched()).isFalse();
+        assertThat(result.getCanEnterConversation()).isFalse();
+        assertThat(result.getMatchNo()).isNull();
+        verifyNoInteractions(likeDao, matchDao, relationBlockDao, unlockRecordDao,
+                recommendViewLogDao, recommendReplayAccessService);
+    }
+
+    @Test
+    void guestCannotReadUnavailableSharedProfile() {
+        AppUser target = user(8L, "不可展示用户");
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(target)).thenReturn("ABNORMAL");
+
+        assertThatThrownBy(() -> service.getPublicProfile(null, 8L))
+                .isInstanceOf(BusinessException.class).hasMessage("目标用户当前不可访问");
+        verifyNoInteractions(auditContentService, likeDao, matchDao);
+    }
+
+    @Test
     void returnsPublicAuditProjectionAndActiveRelationshipState() {
         AppUser current = user(7L, "当前用户");
         AppUser target = user(8L, "目标用户");

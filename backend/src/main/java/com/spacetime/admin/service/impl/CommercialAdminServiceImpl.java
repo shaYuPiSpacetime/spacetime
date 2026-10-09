@@ -48,6 +48,7 @@ import com.spacetime.common.entity.VirtualPriceChange;
 import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.enums.ConfigGroupEnum;
 import com.spacetime.common.enums.ConfigTypeEnum;
+import com.spacetime.common.enums.OrderStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.WechatVirtualProductCatalog;
@@ -713,6 +714,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         Page<TradeOrder> page = tradeOrderDao.selectPage(new Page<>(1, 5),
                 new LambdaQueryWrapper<TradeOrder>()
                         .eq(TradeOrder::getUserId, userId)
+                        .eq(TradeOrder::getOrderStatus, OrderStatusEnum.SUCCESS.getCode())
                         .orderByDesc(TradeOrder::getCreateTime));
         return page.getRecords().stream().map(this::toOrderVO).toList();
     }

@@ -62,7 +62,7 @@ export default function MutualLikesPage() {
           {records.map((person, index) => (
             <View key={person.matchNo} style={{ width: '700rpx', height: '160rpx', borderTop: index ? '1rpx solid #EFF4FC' : 0, display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
               <Image src={person.avatar || avatarImage} mode="aspectFill" style={{ width: '100rpx', height: '100rpx', borderRadius: '50%' }} />
-              <View style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 500 }}>{person.nickname}</Text><Text style={{ display: 'block', marginTop: '10rpx', color: '#999999', fontSize: '20rpx' }}>{buildLocation(person)}</Text></View>
+              <View style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', fontWeight: 500 }}>{person.nickname}</Text><Text data-role="mutual-profile-meta" style={{ display: 'block', marginTop: '10rpx', color: '#999999', fontSize: '26rpx' }}>{buildLocation(person)}</Text></View>
               <View onClick={() => Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${person.userId}&sourceScene=profile` })} style={{ width: '168rpx', height: '72rpx', borderRadius: '12rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#333333', fontSize: '26rpx' }}>查看主页</Text></View>
             </View>
           ))}

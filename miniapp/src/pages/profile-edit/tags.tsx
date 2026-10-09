@@ -23,7 +23,8 @@ export default function ProfileEditTagsPage() {
   useEffect(() => {
     void (async () => {
       try {
-        await bootstrap()
+        // 后台新增/停用标签应立即可见，不能沿用进入资料页时的旧字典缓存。
+        await bootstrap(true)
         const initialTags = normalizeProfileTagCodes(
           parseTagCodes(await prd01Api.getTags()),
           (usePrd01Store.getState().profileOptions?.profileTagGroups || []).flatMap(group => group.options),

@@ -6,14 +6,18 @@ import type { AccessStatus } from '@/types/prd01'
 
 export type AccessCapability = 'canBrowseCards' | 'canMatch' | 'canMessage' | 'canCommunity' | 'canBeExposed'
 
-export function useAccessStatus(capability: AccessCapability) {
+export function useAccessStatus(capability: AccessCapability, enabled = true) {
   const cached = useAuthStore(state => state.accessStatus)
   const setAccessStatus = useAuthStore(state => state.setAccessStatus)
   const [status, setStatus] = useState<AccessStatus | null>(cached)
-  const [loading, setLoading] = useState(!cached)
+  const [loading, setLoading] = useState(enabled && !cached)
   const [error, setError] = useState('')
 
   const refresh = async () => {
+    if (!enabled) {
+      setLoading(false)
+      return undefined
+    }
     setLoading(true)
     setError('')
     try {
