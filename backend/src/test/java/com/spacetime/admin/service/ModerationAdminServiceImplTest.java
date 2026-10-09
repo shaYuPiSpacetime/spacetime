@@ -1,7 +1,10 @@
 package com.spacetime.admin.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.ModerationDetailVO;
 import com.spacetime.admin.dto.response.VerificationStatsVO;
 import com.spacetime.admin.service.impl.ModerationAdminServiceImpl;
@@ -18,8 +21,11 @@ import com.spacetime.common.enums.AuditSourceEnum;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.AppUserAuditContentService;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +45,13 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ModerationAdminService L3 测试")
 class ModerationAdminServiceImplTest {
+
+    @BeforeAll
+    static void initTableInfo() {
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""),
+                AppUserAuditRecord.class);
+    }
 
     @Mock
     private AppUserAuditRecordDao auditRecordDao;
@@ -76,6 +89,27 @@ class ModerationAdminServiceImplTest {
         assertThat(textStats.getRejectedTodayCount()).isEqualTo(9L);
         assertThat(textStats.getExpiredCount()).isEqualTo(10L);
         verify(auditRecordDao, times(10)).count(any());
+    }
+
+    @Test
+    @DisplayName("资料图片和文字审核用户搜索应支持实名记录绑定手机号")
+    void shouldSearchModerationUsersByBoundPhone() {
+        when(appUserDao.selectList(any())).thenReturn(List.of());
+        when(auditRecordDao.selectList(any())).thenReturn(List.of());
+        when(auditRecordDao.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenReturn(new Page<>(1, 20, 0));
+        VerificationPageReq req = new VerificationPageReq();
+        req.setPage(1);
+        req.setSize(20);
+        req.setKeyword("15821262446");
+
+        service.getPhotoPage(req);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<AppUserAuditRecord>> captor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(auditRecordDao).selectList(captor.capture());
+        assertThat(captor.getValue().getSqlSegment()).contains("bound_phone LIKE");
     }
 
     @Test
