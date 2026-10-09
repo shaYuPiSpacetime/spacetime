@@ -159,6 +159,8 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
                         .eq(AppUserAuditRecord::getAuditType, AppUserAuditTypeEnum.REAL_NAME.getCode())
                         .and(q -> q.like(AppUserAuditRecord::getRealName, keyword)
                                 .or()
+                                .like(AppUserAuditRecord::getBoundPhone, keyword)
+                                .or()
                                 .like(AppUserAuditRecord::getIdCard, keyword)))
                 .stream().map(AppUserAuditRecord::getUserId).toList());
         if (userIds.isEmpty()) {
