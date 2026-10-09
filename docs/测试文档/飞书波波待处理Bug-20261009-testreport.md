@@ -10,15 +10,15 @@
 | 分支 / 基线 | master；开始基线 1eed3d55，交付前同步至 cc78d9d3，保留本日角标更新 |
 | 环境 | Windows、Node 26.8.2、JDK 21.0.12.1、IDEA 内置 Maven |
 | 模式 | 增量模式：真实生产函数行为测试、Service JUnit、实际 Mapper SQL 查询测试、微信诊断编译 |
-| 原始材料 | 完整表格、原始 20 人导入 Excel、97 / 139 / 140 / 141 行录屏、138 行两张原图 |
+| 原始材料 | 完整表格、原始 20 人导入 Excel、97 / 139 / 140 / 141 行录屏、111 / 131 行原图及 138 行两张原图 |
 
 ## 测试结果
 
 | 检查 | 结果 | 证据与边界 |
 | --- | --- | --- |
-| L3 后端定向回归 | 134 项通过 | AdminUser 18、CommunityAuditPolicy 4、CommunityService 54、IdealService 35、MiniappRelation 17、IdealHistory 6；后两次补测仅覆盖新增变更，不重复全量测试 |
+| L3 后端定向回归 | 136 项通过 | AdminUser 18、CommunityAuditPolicy 4、CommunityService 54、IdealService 35、MiniappRelation 19、IdealHistory 6；后续补测仅覆盖新增变更，不重复全量测试 |
 | 推荐 / 账号安全补充回归 | 39 项通过 | 首轮中 RecommendService 37、MiniappAccountSecurity 2 均通过；该轮另一个旧工作人员审核断言随后已按新行为修正，并包含在最终 134 项内 |
-| 小程序定向回归 | 30 项通过 | 本次 16 项、既有理想型切换 8 项、9 月 30 日飞书回归 4 项、远端新增角标 2 项 |
+| 小程序定向回归 | 31 项通过 | 本次 17 项、既有理想型切换 8 项、9 月 30 日飞书回归 4 项、远端新增角标 2 项 |
 | Mapper SQL | 1 项通过 | 在内存 SQLite 执行实际 @Select SQL，排除单向解锁、撤销来源、逻辑删除和其他用户的匹配 |
 | Tab 切换静态门禁 | 通过 | 切图与互斥切换门禁 |
 | 修改文件 ESLint | 0 错误 | DualRangeSlider 保留 3 条既有 any 警告 |
@@ -56,7 +56,7 @@
 | 97、109 | 普通页面导航去重；等待页两处回看入口和私聊头像统一走防重复入口；回退失败只兜底一次 | 待连续点击与右滑真机复验 |
 | 102 | 话题动态统一使用真实微信分享按钮，目标保留所选动态；他人动态关注 / 屏蔽 / 举报仍可操作 | 待微信分享复验 |
 | 103 | 换一批使用当前快照下一游标，替换当前结果，不跳筛选 | 游标行为通过；无下一批时提示全部显示 |
-| 105、131 | 相互喜欢列表只返回有效双向爱心来源；付费解锁仍保留聊天匹配权益，已有喜欢可取消；我喜欢中统一显示“已匹配” | 不改写历史喜欢数据，待原账号联动 |
+| 105、131 | 相互喜欢列表只返回有效双向爱心来源；弹窗新增 mutualLiked 判断当前有效来源，不把初始来源或一般匹配当互相喜欢；付费解锁仍保留聊天权益，已有喜欢可取消；我喜欢中显示“已匹配” | 不改写历史喜欢数据，待原账号联动 |
 | 110 | 已在最近访客时重选底栏心动，切回对我心动 | 事件行为通过 |
 | 111 | 敏感词驳回动态操作列表去除重复的编辑提示 | 待真机复验 |
 | 122 | 获工作人员权限的时空站台内容机审通过即发布；拒绝、疑似与服务不可用仍按安全检查处理 | 后端回归通过 |
@@ -78,6 +78,7 @@
 backend: mvn test -Dtest=AppUserAdminServiceImplTest,CommunityAuditPolicyTest,CommunityServiceImplTest,IdealServiceImplTest,MiniappRelationServiceImplTest
 backend 补测: mvn test -Dtest=IdealHistoryServiceImplTest
 backend 新增方向用例补测: mvn test -Dtest=IdealServiceImplTest
+backend 弹窗补测: mvn test -Dtest=MiniappRelationServiceImplTest
 miniapp: node --test scripts/test-feishu-bobo-20261009.cjs scripts/test-recommend-ideal-switch.cjs scripts/test-feishu-bobo-20260930.cjs scripts/test-global-notification-badge.cjs
 root: node scripts/test-mutual-like-match-query.cjs
 miniapp: npm exec -- taro build --type weapp
@@ -89,3 +90,5 @@ miniapp: npm run postbuild:weapp
 本机尚未找到微信开发者工具或 CI 上传私钥；已向用户询问现有配置路径，不索取或记录密钥内容。标准构建前置失败也尚未解决。当前微信包仅作为本地诊断产物，未声称体验版上传成功。
 
 后端变更将随 master 推送触发 GitHub Actions。最终推送与部署结果另记交付段；部署完成不等于真机验收。飞书只追加实际进度到 H 列，保留 E / F 原处理与验收状态，避免把未发布或缺少复验证据的记录误标为已验收。
+
+飞书初次追加时发现 H135 的原图片被纯文本写入覆盖，已使用读取时保存的原始 rich_text 恢复，并回读确认图片与进度文字同时存在。版本 2344→2346 的 changeset 核对确认本轮仅修改 28 个 H 单元格及 H135 恢复操作；未改动 E/F，也未改动第 125/130 行。

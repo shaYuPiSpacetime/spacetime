@@ -719,7 +719,7 @@ function MatchPopupSheet({ visible = true, popup, submitting, onAction }: { visi
       {visible ? <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '42rpx 34rpx 34rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
         <Image src={popup.avatar || personImage} mode="aspectFill" style={{ width: '132rpx', height: '132rpx', borderRadius: '50%' }} />
         <Text style={{ marginTop: '24rpx', color: '#0C285A', fontSize: '34rpx', fontWeight: 700 }}>匹配成功</Text>
-        <Text style={{ marginTop: '12rpx', color: '#7F8494', fontSize: '24rpx' }}>你和{popup.nickname}互相喜欢了</Text>
+        <Text style={{ marginTop: '12rpx', color: '#7F8494', fontSize: '24rpx' }}>{popup.mutualLiked ? `你和${popup.nickname}互相喜欢了` : `你已与${popup.nickname}建立匹配`}</Text>
         <View style={{ width: '100%', marginTop: '34rpx', display: 'flex', gap: '18rpx', opacity: submitting ? 0.6 : 1 }}>
           <View id="match-profile-button" onClick={() => !submitting && onAction('profile')} style={{ flex: 1, height: '82rpx', borderRadius: '41rpx', background: '#FFF0F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#F06C83', fontSize: '26rpx' }}>查看主页</Text></View>
           <View id="match-chat-button" onClick={() => !submitting && onAction('chat')} style={{ flex: 1, height: '82rpx', borderRadius: '41rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>去聊天</Text></View>

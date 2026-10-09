@@ -19,6 +19,7 @@ import com.spacetime.common.dto.RelationVisitListRow;
 import com.spacetime.common.dto.RelationVisitStats;
 import com.spacetime.common.entity.AppRelationLike;
 import com.spacetime.common.entity.AppRelationMatch;
+import com.spacetime.common.entity.AppRelationMatchPopup;
 import com.spacetime.common.entity.AppRelationVisit;
 import com.spacetime.common.entity.AppRelationVisitEvent;
 import com.spacetime.common.entity.AppRelationVisitInboxState;
@@ -43,6 +44,8 @@ import com.spacetime.miniapp.dto.request.RecentViewersReadReq;
 import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
 import com.spacetime.miniapp.service.impl.MiniappRelationServiceImpl;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -684,6 +687,37 @@ class MiniappRelationServiceImplTest {
         assertThat(likes.getRecords()).hasSize(1);
         assertThat(visitors.getRecords()).isEmpty();
         assertThat(matches.getRecords()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"double_like,0,false", "ideal_unlock,1,true"})
+    void pendingPopupUsesCurrentDoubleLikeSourceInsteadOfInitialMatchSource(
+            String initialSource, long activeDoubleLikeCount, boolean expectedMutual) {
+        AppUser current = activeUser(7L, "当前用户", "MALE");
+        AppUser target = activeUser(8L, "嘉宾", "FEMALE");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        AppRelationMatchPopup popup = new AppRelationMatchPopup();
+        popup.setMatchId(20L);
+        when(matchPopupDao.selectOne(any())).thenReturn(popup);
+        AppRelationMatch match = new AppRelationMatch();
+        match.setId(20L);
+        match.setMatchNo("MAT-001");
+        match.setUserLowId(7L);
+        match.setUserHighId(8L);
+        match.setMatchStatus("matched");
+        match.setPrimarySource(initialSource);
+        when(matchDao.selectById(20L)).thenReturn(match);
+        when(matchSourceDao.count(any())).thenReturn(activeDoubleLikeCount);
+
+        var result = service.pendingPopup(7L);
+
+        assertThat(result.getMutualLiked()).isEqualTo(expectedMutual);
+        assertThat(result.getCanEnterConversation()).isTrue();
+        assertThat(result.getMatchSource()).isEqualTo(initialSource);
+        verify(relationDomainService).markPopupDelivered(eq("MAT-001"), eq(7L), any());
     }
 
     private AppUser activeUser(Long id, String nickname, String gender) {

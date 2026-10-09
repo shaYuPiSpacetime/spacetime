@@ -263,6 +263,22 @@ test('I-04: 拉黑、解锁过期与账号不可访问显示不同原因且不�
   }
 })
 
+test('R-03: 付费解锁或未知来源的匹配弹窗不能冒称相互喜欢', () => {
+  const source = read('pages/community/index.tsx')
+  const start = source.indexOf('function MatchPopupSheet(')
+  const output = ts.transpileModule(source.slice(start), {
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText
+  const jsx = (type, props) => ({ type, props })
+  const sheet = Function('require', 'exports', 'View', 'Text', 'Image', 'personImage', `${output};return MatchPopupSheet`)(
+    () => ({ jsx, jsxs: jsx }), {}, 'View', 'Text', 'Image', 'avatar',
+  )
+  for (const [mutualLiked, expected] of [[false, '你已与嘉宾建立匹配'], [undefined, '你已与嘉宾建立匹配'], [true, '你和嘉宾互相喜欢了']]) {
+    const tree = sheet({ popup: { nickname: '嘉宾', matchSource: 'ideal_unlock', mutualLiked }, submitting: false, onAction: () => {} })
+    assert.ok(JSON.stringify(tree).includes(expected))
+  }
+})
+
 test('S-01: 每次回到隐私设置重取注销状态，旧响应不能盖回冷静期', async () => {
   const source = read('pages/settings/privacy.tsx')
   const start = source.indexOf('  useDidShow(')

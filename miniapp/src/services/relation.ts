@@ -159,6 +159,7 @@ export interface RelationVisitActionVO {
 }
 
 export interface MatchPopupVO {
+  mutualLiked?: boolean
   matchNo: string
   matchedUserId: number
   nickname: string

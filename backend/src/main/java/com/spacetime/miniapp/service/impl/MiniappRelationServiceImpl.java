@@ -31,6 +31,7 @@ import com.spacetime.common.enums.RelationLikeStatusEnum;
 import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.enums.RelationMatchPopupStatusEnum;
 import com.spacetime.common.enums.RelationMatchSourceStatusEnum;
+import com.spacetime.common.enums.RelationMatchSourceTypeEnum;
 import com.spacetime.common.enums.RelationMatchStatusEnum;
 import com.spacetime.common.enums.RelationVisitStatusEnum;
 import com.spacetime.common.enums.VipStatusEnum;
@@ -527,6 +528,10 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         }
         relationDomainService.markPopupDelivered(match.getMatchNo(), userId, LocalDateTime.now());
         MatchPopupVO result = new MatchPopupVO();
+        result.setMutualLiked(matchSourceDao.count(new LambdaQueryWrapper<AppRelationMatchSource>()
+                .eq(AppRelationMatchSource::getMatchId, match.getId())
+                .eq(AppRelationMatchSource::getSourceType, RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode())
+                .eq(AppRelationMatchSource::getSourceStatus, RelationMatchSourceStatusEnum.ACTIVE.getCode())) > 0);
         result.setMatchNo(match.getMatchNo());
         result.setMatchedUserId(targetUserId);
         result.setNickname(displayName(target));
