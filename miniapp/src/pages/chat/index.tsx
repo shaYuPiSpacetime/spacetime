@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
+import NotificationBadge from '@/components/NotificationBadge'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { formatMessageBadge } from '@/domain/messageRuntime'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
@@ -236,13 +237,13 @@ function MessageEntrances({ isMockScene, home, onRestrictedAction }: { isMockSce
         <Image id="message-home-whisper-background" data-role="message-home-whisper-background" src={miniappOssIcons.messageHomeWhisperCardBackground} mode="aspectFill" style={{ position: 'absolute', zIndex: 1, left: 0, top: 0, width: designRpx(340), height: designRpx(158), pointerEvents: 'none' }} />
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(29), color: '#00469F', fontSize: designRpx(28), fontWeight: 500, lineHeight: designRpx(40) }}>悄悄话</Text>
         <Image src={miniappOssIcons.messageAvatarWhisperGroup} mode="widthFix" style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(79), width: designRpx(114), height: designRpx(55) }} />
-        {whisperBadge ? <Text style={{ position: 'absolute', zIndex: 3, right: designRpx(16), top: designRpx(16), minWidth: designRpx(32), height: designRpx(32), padding: `0 ${designRpx(8)}`, borderRadius: designRpx(18), background: '#EE2525', color: '#FFFFFF', fontSize: designRpx(18), lineHeight: designRpx(32), textAlign: 'center', boxSizing: 'border-box' }}>{whisperBadge}</Text> : null}
+        {whisperBadge ? <NotificationBadge value={whisperBadge} style={{ position: 'absolute', zIndex: 3, right: designRpx(16), top: designRpx(16) }} /> : null}
       </View>
       <View id="message-home-private-entry" data-role="message-home-private-entry" onClick={() => onRestrictedAction ? onRestrictedAction() : Taro.navigateTo({ url: `/pages/message/private-list${isMockScene ? '?mockScene=private-list' : ''}` })} style={{ position: 'relative', width: designRpx(340), height: designRpx(158), overflow: 'hidden', borderRadius: designRpx(12), background: '#FDEAD9' }}>
         <Image id="message-home-private-background" data-role="message-home-private-background" src={miniappOssIcons.messageHomePrivateCardBackground} mode="aspectFill" style={{ position: 'absolute', zIndex: 1, left: 0, top: 0, width: designRpx(340), height: designRpx(158), pointerEvents: 'none' }} />
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(29), color: '#9C5C05', fontSize: designRpx(28), fontWeight: 500, lineHeight: designRpx(40) }}>私信</Text>
         <Text style={{ position: 'absolute', zIndex: 2, left: designRpx(22), top: designRpx(79), color: '#9C5C05', fontSize: designRpx(22), fontWeight: 500, lineHeight: designRpx(30) }}>有个小秘密只告诉你</Text>
-        {privateBadge ? <Text style={{ position: 'absolute', zIndex: 3, right: designRpx(16), top: designRpx(16), minWidth: designRpx(32), height: designRpx(32), padding: `0 ${designRpx(8)}`, borderRadius: designRpx(18), background: '#EE2525', color: '#FFFFFF', fontSize: designRpx(18), lineHeight: designRpx(32), textAlign: 'center', boxSizing: 'border-box' }}>{privateBadge}</Text> : null}
+        {privateBadge ? <NotificationBadge value={privateBadge} style={{ position: 'absolute', zIndex: 3, right: designRpx(16), top: designRpx(16) }} /> : null}
       </View>
     </View>
   )
@@ -274,7 +275,7 @@ function HomeRowAvatar({ row }: { row: HomeViewRow }) {
   return (
     <View style={{ position: 'relative', width: designRpx(100), height: designRpx(100), flexShrink: 0 }}>
       <Image src={source} mode="aspectFill" style={{ width: designRpx(100), height: designRpx(100), borderRadius: '50%' }} />
-      {badge ? <Text style={{ position: 'absolute', right: designRpx(-1), top: designRpx(-1), minWidth: designRpx(20), height: designRpx(20), padding: `0 ${designRpx(4)}`, border: `${designRpx(2)} solid #FFFFFF`, borderRadius: designRpx(13), background: '#EE2525', color: '#FFFFFF', fontSize: designRpx(16), lineHeight: designRpx(20), textAlign: 'center', boxSizing: 'border-box' }}>{row.type === 'liked' ? '' : badge}</Text> : null}
+      {badge ? <NotificationBadge value={badge} bordered style={{ position: 'absolute', right: designRpx(-1), top: designRpx(-1) }} /> : null}
     </View>
   )
 }

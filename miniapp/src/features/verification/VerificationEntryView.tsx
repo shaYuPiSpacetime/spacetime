@@ -1,6 +1,7 @@
 import { Image, Text, View } from '@tarojs/components'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
+import NotificationBadge from '@/components/NotificationBadge'
 import { getQianxunHeaderMetrics } from '@/features/qianxun/QianxunHeader'
 
 export interface VerificationEntryViewProps {
@@ -187,11 +188,7 @@ function TopTabs({ unreadCount }: { unreadCount: number }) {
     <View style={{ position: 'absolute', left: '0', top: `${metrics.primaryTop - 22}rpx`, width: '750rpx', height: '88rpx' }}>
       <Text style={{ position: 'absolute', left: '32rpx', top: '22rpx', color: '#0C285A', fontSize: '32rpx', fontWeight: 500, lineHeight: '45rpx' }}>成家</Text>
       <View style={{ position: 'absolute', left: '32rpx', top: '67rpx', width: '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} />
-      {unreadCount > 0 ? (
-        <View style={{ position: 'absolute', left: '76rpx', top: '11rpx', minWidth: '28rpx', height: '28rpx', borderRadius: '14rpx', border: '2rpx solid #FFFFFF', background: '#EE2525', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4rpx', boxSizing: 'border-box' }}>
-          <Text style={{ color: '#FFFFFF', fontSize: '18rpx', fontWeight: 500, lineHeight: '25rpx' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-        </View>
-      ) : null}
+      <NotificationBadge value={unreadCount} bordered style={{ position: 'absolute', left: '76rpx', top: '11rpx' }} />
       <Text style={{ position: 'absolute', left: '123rpx', top: '31rpx', color: '#7F8494', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>时空邂逅</Text>
       <Text style={{ position: 'absolute', left: '285rpx', top: '31rpx', color: '#7F8494', fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>立业</Text>
     </View>

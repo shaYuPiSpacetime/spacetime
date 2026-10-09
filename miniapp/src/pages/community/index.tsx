@@ -2,6 +2,7 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import HeartMessageHeader, { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
+import NotificationBadge from '@/components/NotificationBadge'
 import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
 import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -506,11 +507,7 @@ function HeartTabButton({ label, count, active, onClick }: { label: string; coun
     <View onClick={onClick} style={{ position: 'relative', width: `${width}rpx`, height: '56rpx', display: 'flex', justifyContent: 'center' }}>
       {active ? <View style={{ position: 'absolute', left: 0, bottom: '3rpx', width: `${width}rpx`, height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} /> : null}
       <Text style={{ position: 'relative', zIndex: 1, color: active ? '#0C285A' : '#7F8494', fontSize: active ? '32rpx' : '28rpx', fontWeight: active ? 500 : 400, lineHeight: '45rpx', whiteSpace: 'nowrap' }}>{label}</Text>
-      {badge ? (
-        <View id={`relation-${label.includes('访客') ? 'visitors' : 'likes'}-badge`} style={{ position: 'absolute', right: '-8rpx', top: '-13rpx', minWidth: '28rpx', height: '28rpx', padding: '0 5rpx', borderRadius: '14rpx', background: '#EE2525', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-          <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '22rpx' }}>{badge}</Text>
-        </View>
-      ) : null}
+      {badge ? <NotificationBadge id={`relation-${label.includes('访客') ? 'visitors' : 'likes'}-badge`} value={badge} style={{ position: 'absolute', right: '-8rpx', top: '-13rpx' }} /> : null}
     </View>
   )
 }

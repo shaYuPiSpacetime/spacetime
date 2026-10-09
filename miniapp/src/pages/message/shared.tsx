@@ -2,6 +2,7 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
 import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
+import NotificationBadge from '@/components/NotificationBadge'
 import { miniappOssIcons } from '@/constants/ossIcons'
 
 export const MESSAGE_AVATAR = miniappOssIcons.messageAvatarXiaoming
@@ -107,7 +108,7 @@ export function MessageAvatar({
   return (
     <View className="message-avatar-wrap" style={{ width: `${size}px`, height: `${size}px` }}>
       <Image className="message-avatar" src={src} mode="aspectFill" />
-      {unread ? <Text className="message-unread">{unread}</Text> : null}
+      <NotificationBadge value={unread || 0} bordered style={{ position: 'absolute', top: '-4rpx', right: '-4rpx' }} />
     </View>
   )
 }

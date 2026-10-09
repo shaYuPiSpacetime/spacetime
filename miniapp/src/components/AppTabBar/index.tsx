@@ -12,6 +12,7 @@ import tabMessageActiveIcon from '@/assets/icons/tab-message-active.png'
 import tabProfileIcon from '@/assets/icons/tab-profile.png'
 import tabProfileActiveIcon from '@/assets/icons/tab-profile-active.png'
 import type { NativeNavigationMetrics } from '@/components/NativeNavigation'
+import NotificationBadge from '@/components/NotificationBadge'
 import { formatMessageBadge } from '@/domain/messageRuntime'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -194,7 +195,12 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
                   height: `${tab.iconHeight}rpx`,
                 }}
               />
-              {visibleRecommendCount > 0 ? <Text id="app-tab-recommend-badge" style={{ position: 'absolute', right: '5rpx', top: '5rpx', minWidth: '30rpx', height: '30rpx', padding: '0 5rpx', border: '2rpx solid #FFFFFF', borderRadius: '18rpx', background: '#EE2525', color: '#FFFFFF', fontSize: '18rpx', lineHeight: '28rpx', textAlign: 'center', boxSizing: 'border-box', zIndex: 3 }}>{visibleRecommendCount > 99 ? '99+' : visibleRecommendCount}</Text> : null}
+              <NotificationBadge
+                id="app-tab-recommend-badge"
+                value={visibleRecommendCount}
+                bordered
+                style={{ position: 'absolute', right: '5rpx', top: '5rpx', zIndex: 3 }}
+              />
               <Text
                 id="app-tab-recommend-label"
                 style={{
@@ -252,27 +258,12 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
                 }}
               />
               {tab.key === 'chat' && messageBadge ? (
-                <Text
+                <NotificationBadge
                   id="app-tab-message-unread"
-                  style={{
-                    position: 'absolute',
-                    left: '27rpx',
-                    top: '-10rpx',
-                    minWidth: '26rpx',
-                    height: '26rpx',
-                    padding: '0 6rpx',
-                    border: '2rpx solid #FFFFFF',
-                    borderRadius: '15rpx',
-                    background: '#EE2525',
-                    color: '#FFFFFF',
-                    fontSize: '16rpx',
-                    lineHeight: '24rpx',
-                    textAlign: 'center',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  {messageBadge}
-                </Text>
+                  value={messageBadge}
+                  bordered
+                  style={{ position: 'absolute', left: '27rpx', top: '-10rpx' }}
+                />
               ) : null}
             </View>
             <Text

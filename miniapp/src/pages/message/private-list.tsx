@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { messageService, mockMessageService } from '@/services/message'
 import type { MessageConversationItem } from '@/types/message'
 import { MESSAGE_AVATAR, MessageNav } from './shared'
+import NotificationBadge from '@/components/NotificationBadge'
 import { applyConversationReadCache } from '@/domain/conversationReadCache'
 import './message.scss'
 
@@ -75,7 +76,7 @@ export default function PrivateListPage() {
           >
             <View style={{ position: 'relative' }}>
               <Image className="private-list-avatar" src={row.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" />
-              {row.unreadCount ? <Text className="message-unread">{row.unreadCount > 99 ? '99+' : row.unreadCount}</Text> : null}
+              <NotificationBadge value={row.unreadCount} bordered style={{ position: 'absolute', top: '-4rpx', right: '-4rpx' }} />
             </View>
             <View className="private-list-copy">
               <Text className="private-list-name">{row.peerUser.nickname || '用户已注销'}</Text>
