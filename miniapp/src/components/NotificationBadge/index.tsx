@@ -23,7 +23,7 @@ function designUnit(value: number): string {
 }
 
 /**
- * 全局数字消息角标：单/双位数字固定为 28rpx 圆形，99+ 按内容自适应宽度。
+ * 全局数字消息角标：单/双位数字固定为 32rpx 圆形，99+ 按内容自适应宽度。
  */
 export default function NotificationBadge({
   value,
@@ -42,16 +42,16 @@ export default function NotificationBadge({
       data-role="notification-badge"
       data-notification-value={label}
       style={{
-        minWidth: designUnit(28),
-        height: designUnit(28),
+        minWidth: designUnit(32),
+        height: designUnit(32),
         padding: label.length > 2 ? `0 ${designUnit(5)}` : '0',
         border: bordered ? `${designUnit(2)} solid #FFFFFF` : 'none',
-        borderRadius: designUnit(14),
+        borderRadius: designUnit(16),
         background: '#EE2525',
         color: '#FFFFFF',
-        fontSize: designUnit(18),
+        fontSize: designUnit(22),
         fontWeight: 500,
-        lineHeight: designUnit(28),
+        lineHeight: designUnit(32),
         textAlign: 'center',
         whiteSpace: 'nowrap',
         display: 'flex',

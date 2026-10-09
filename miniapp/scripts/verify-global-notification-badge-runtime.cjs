@@ -43,11 +43,11 @@ const outputPath = path.resolve(
 
   assert.ok(metrics.length >= 4, `消息首页数字角标数量不足：${metrics.length}`)
   for (const metric of metrics) {
-    assert.equal(metric.height, 14, `角标 ${metric.value} 高度不是 14px（微信端对应 28rpx）`)
+    assert.equal(metric.height, 16, `角标 ${metric.value} 高度不是 16px（微信端对应 32rpx）`)
     if ((metric.value || '').length <= 2) {
-      assert.equal(metric.width, 14, `角标 ${metric.value} 宽度不是 14px（微信端对应 28rpx）`)
+      assert.equal(metric.width, 16, `角标 ${metric.value} 宽度不是 16px（微信端对应 32rpx）`)
     }
-    assert.equal(metric.fontSize, '9px', `角标 ${metric.value} 字号不是 9px（微信端对应 18rpx）`)
+    assert.equal(metric.fontSize, '11px', `角标 ${metric.value} 字号不是 11px（微信端对应 22rpx）`)
     assert.equal(metric.backgroundColor, 'rgb(238, 37, 37)', `角标 ${metric.value} 背景色错误`)
   }
 
