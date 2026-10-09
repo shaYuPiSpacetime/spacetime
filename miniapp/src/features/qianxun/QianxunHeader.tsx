@@ -5,15 +5,17 @@ import { getWindowMetrics } from '@/utils/system'
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
 const QIANXUN_SECONDARY_TAB_OFFSET = 70
-const PROFILE_TOUCH_SIZE = 88
-const PROFILE_MENU_GAP = 18
-const PROFILE_MIN_LEFT = 391
+const PROFILE_TOUCH_SIZE = 64
+const PROFILE_MENU_GAP = 12
+const PROFILE_MIN_LEFT = 379
 
 export type QianxunPrimaryTab = 'FAMILY' | 'KINDRED' | 'CAREER'
 
 export interface QianxunHeaderMetrics {
   primaryTop: number
   avatarLeft: number
+  avatarAnchorLeft?: number
+  avatarCenterTop?: number
   secondaryTop: number
   contentTop: number
 }
@@ -30,13 +32,17 @@ export function getQianxunHeaderMetrics(): QianxunHeaderMetrics {
   const menuLeft = menu ? menu.left * scale : 598
   const validMenu = menu && Number.isFinite(menu.top) && menu.top >= 0 &&
     Number.isFinite(menu.height) && menu.height > 0 && menu.width > 0 &&
-    menu.right <= system.windowWidth &&
+    Number.isFinite(menu.left) && menu.left < system.windowWidth && menu.right > menu.left &&
     menuLeft >= PROFILE_MIN_LEFT + PROFILE_TOUCH_SIZE + PROFILE_MENU_GAP
   if (!validMenu) menu = undefined
   const primaryTop = menu ? menu.top * scale + (menu.height * scale - 45) / 2 : 90
   const avatarLeft = (menu ? menuLeft : 598) - PROFILE_TOUCH_SIZE - PROFILE_MENU_GAP
   const secondaryTop = primaryTop + QIANXUN_SECONDARY_TAB_OFFSET
-  return { primaryTop, avatarLeft, secondaryTop, contentTop: secondaryTop + 82 }
+  return {
+    primaryTop, avatarLeft, secondaryTop, contentTop: secondaryTop + 82,
+    avatarAnchorLeft: menu?.left,
+    avatarCenterTop: menu ? menu.top + menu.height / 2 : undefined,
+  }
 }
 
 interface QianxunHeaderProps {
@@ -54,6 +60,9 @@ const primaryTabs: Array<{ id: string; tab: QianxunPrimaryTab; label: string; le
 ]
 
 export function QianxunHeader({ active, avatar, metrics, onChange, onProfile }: QianxunHeaderProps) {
+  // 头像直接锚定原生胶囊像素坐标，避免窗口宽度兜底导致 rpx 换算后重叠。
+  const profileLeft = metrics.avatarAnchorLeft === undefined ? `${metrics.avatarLeft}rpx` : `calc(${metrics.avatarAnchorLeft}px - ${PROFILE_TOUCH_SIZE + PROFILE_MENU_GAP}rpx)`
+  const profileTop = metrics.avatarCenterTop === undefined ? `${metrics.primaryTop + (45 - PROFILE_TOUCH_SIZE) / 2}rpx` : `calc(${metrics.avatarCenterTop}px - ${PROFILE_TOUCH_SIZE / 2}rpx)`
   return (
     <View style={{ position: 'relative', width: '750rpx', height: `${metrics.contentTop}rpx` }}>
       {primaryTabs.map(item => {
@@ -70,8 +79,8 @@ export function QianxunHeader({ active, avatar, metrics, onChange, onProfile }: 
           </View>
         )
       })}
-      <View id="qianxun-profile-entry" onClick={onProfile} style={{ position: 'absolute', left: `${metrics.avatarLeft}rpx`, top: `${metrics.primaryTop - 16}rpx`, width: '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Image src={avatar} mode="aspectFill" style={{ width: '58rpx', height: '58rpx', borderRadius: '29rpx', background: '#EEF3F8' }} />
+      <View id="qianxun-profile-entry" onClick={onProfile} style={{ position: 'absolute', left: profileLeft, top: profileTop, width: `${PROFILE_TOUCH_SIZE}rpx`, height: `${PROFILE_TOUCH_SIZE}rpx`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Image src={avatar} mode="aspectFill" style={{ width: '48rpx', height: '48rpx', borderRadius: '24rpx', background: '#EEF3F8' }} />
       </View>
     </View>
   )
