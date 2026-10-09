@@ -1,0 +1,63 @@
+name: ops-set-non-member-20261009
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'deploy/sql/prod/109_ops_set_non_member_20261009.sql'
+      - '.github/workflows/ops-set-non-member-20261009.yml'
+
+concurrency:
+  group: spacetime-prod-data-ops
+  cancel-in-progress: false
+
+jobs:
+  set-non-member:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout operation files
+        uses: actions/checkout@v4
+
+      - name: Copy one-time SQL to production host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'deploy/sql/prod/109_ops_set_non_member_20261009.sql'
+          target: '/mnt/data/spacetime-prod'
+
+      - name: Execute guarded membership change
+        id: membership
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script: |
+            set +e
+            cd /mnt/data/spacetime-prod
+            membership_output="$(bash deploy/scripts/migrate-prod-db.sh \
+              deploy/sql/prod/109_ops_set_non_member_20261009.sql 2>&1)"
+            membership_status=$?
+            membership_tail="$(printf '%s\n' "$membership_output" | tail -n 20 | base64 -w0)"
+            printf 'OPS_RESULT|%s|%s\n' "$membership_status" "$membership_tail"
+            exit 0
+
+      - name: Publish guarded membership result
+        if: always()
+        env:
+          MEMBERSHIP_OUTCOME: ${{ steps.membership.outcome }}
+          MEMBERSHIP_STDOUT: ${{ steps.membership.outputs.stdout }}
+        run: |
+          result_line="$(printf '%s\n' "$MEMBERSHIP_STDOUT" | grep '^OPS_RESULT|' | tail -n 1)"
+          membership_status="$(printf '%s' "$result_line" | cut -d'|' -f2)"
+          encoded_summary="$(printf '%s' "$result_line" | cut -d'|' -f3)"
+          summary="$(printf '%s' "$encoded_summary" | base64 -d 2>/dev/null | tr '\n' ' ' | cut -c1-900)"
+          if [ "$MEMBERSHIP_OUTCOME" != 'success' ] || [ "$membership_status" != '0' ]; then
+            echo "::error title=Guarded membership change failed::${summary:-no diagnostic captured}"
+            exit 1
+          fi
+          echo "::notice title=Guarded membership change completed::${summary:-completed without stdout}"
