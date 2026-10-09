@@ -641,9 +641,6 @@ function UnlockSheet({ visible = true, stage, card, quote, result, submitting, s
         <View style={{ position: 'relative', height: '170rpx', padding: '44rpx 28rpx 0', background: success ? 'linear-gradient(105deg,#FFF3F3,#FFE9F1)' : 'linear-gradient(105deg,#E7F5FF,#EDF4FF)', boxSizing: 'border-box' }}>
           <Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', fontWeight: 600, lineHeight: '45rpx' }}>{title}</Text>
           <Text style={{ display: 'block', marginTop: '8rpx', color: '#7F8494', fontSize: '24rpx', lineHeight: '33rpx' }}>{subtitle}</Text>
-          <View style={{ position: 'absolute', right: '-18rpx', top: '34rpx', width: '170rpx', height: '120rpx', borderRadius: '80rpx', background: success ? 'rgba(255,143,165,0.18)' : 'rgba(96,165,250,0.12)' }}>
-            <Text style={{ position: 'absolute', left: '48rpx', top: '24rpx', color: success ? '#FF8CA6' : '#7EB4F4', fontSize: '62rpx', lineHeight: '70rpx' }}>{success ? '♥' : '▣'}</Text>
-          </View>
         </View>
         <View style={{ height: '128rpx', margin: '10rpx 28rpx 0', padding: '0 20rpx', border: success ? '1rpx solid #F4F4F4' : '0', borderRadius: '12rpx', background: success ? '#FFFFFF' : '#E3F1FE', display: 'flex', flexDirection: 'row', alignItems: 'center', boxSizing: 'border-box' }}>
           <Image src={success ? (card?.avatar || personImage) : (card?.avatar || blurredPersonImage)} mode="aspectFill" style={{ width: '92rpx', height: '92rpx', borderRadius: '50%', filter: success ? 'none' : 'blur(8rpx)' }} />
