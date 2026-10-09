@@ -4,6 +4,7 @@ import { useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat } from '@/components/QianxunCommunityIcons'
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
+import QianxunPublishFailureDialog from '@/components/QianxunPublishFailureDialog'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
@@ -180,7 +181,7 @@ export default function QianxunMyPostsPage() {
       </View>
       <PostActionSheet visible={sheetVisible && selected !== undefined} editable={selected ? selected.status === 'rejected' : false} onEdit={() => void editSelected()} onDelete={requestDeleteSelected} onClose={() => setSheetVisible(false)} />
       <DeleteConfirmDialog visible={deleteReceipt !== undefined} onCancel={() => setDeleteReceipt(undefined)} onConfirm={() => void confirmDelete()} />
-      <PublishFailureDialog visible={failureReceipt !== undefined} receipt={failureReceipt} config={config} onClose={() => setFailureReceipt(undefined)} />
+      <QianxunPublishFailureDialog visible={failureReceipt !== undefined} failureMessage={failureReceipt?.failureMessage} config={config} onClose={() => setFailureReceipt(undefined)} />
     </View>
   )
 }
@@ -266,7 +267,6 @@ function MyPostCard({ receipt, liking, config, onMore, onFailure, onLike }: { re
             <View style={{ width: '30rpx' }} />
             <QianxunActionStat kind="like" count={receipt.likeCount} active={receipt.liked} onClick={receipt.postId && receipt.status === 'published' && !liking ? onLike : undefined} />
           </View>
-          {receipt.status === 'rejected' && receipt.failureMessage ? <View onClick={onFailure} style={{ minHeight: '52rpx', paddingTop: '12rpx' }}><Text style={{ color: '#D44747', fontSize: '22rpx' }}>{receipt.failureMessage}</Text></View> : null}
         </View>
       </View>
     </View>
@@ -324,22 +324,6 @@ function DeleteConfirmDialog({ visible = true, onCancel, onConfirm }: { visible?
           <View onClick={onCancel} style={{ width: '196rpx', height: '70rpx', borderRadius: '8rpx', background: '#FAFAFB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: NAVY, fontSize: '27rpx', fontWeight: 600 }}>取消</Text></View>
           <View onClick={onConfirm} style={{ width: '196rpx', height: '70rpx', borderRadius: '8rpx', background: BLUE, marginLeft: '28rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx', fontWeight: 600 }}>确定</Text></View>
         </View>
-      </View> : null}
-    </View>
-  )
-}
-
-function PublishFailureDialog({ visible = true, receipt, config, onClose }: { visible?: boolean; receipt?: MyPostReceipt; config?: CommunityConfig; onClose: () => void }) {
-  if (!receipt) {
-    return <View style={{ position: 'fixed', inset: 0, zIndex: 31, visibility: 'hidden', pointerEvents: 'none' }} />
-  }
-  return (
-    <View onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 31, display: 'flex', alignItems: 'center', justifyContent: 'center', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
-      {visible ? <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '46rpx 50rpx 28rpx', boxSizing: 'border-box' }}>
-        <View style={{ position: 'relative', height: '126rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Image src={miniappOssIcons.qianxunEmptyChart} mode="aspectFit" style={{ width: '180rpx', height: '126rpx', filter: 'grayscale(1)' }} /><View style={{ position: 'absolute', right: '176rpx', bottom: '17rpx', width: '42rpx', height: '42rpx', borderRadius: '21rpx', background: '#E60012', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '29rpx', fontWeight: 700 }}>!</Text></View></View>
-        <Text style={{ display: 'block', color: '#222222', fontSize: '31rpx', fontWeight: 600, textAlign: 'center', marginTop: '18rpx' }}>{resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishFailedTitle)}</Text>
-        <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '39rpx', marginTop: '18rpx' }}>{resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.publishRejectedDefault, receipt.failureMessage)}</Text>
-        <View onClick={onClose} style={{ height: '70rpx', borderRadius: '7rpx', background: BLUE, marginTop: '38rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx' }}>我知道了</Text></View>
       </View> : null}
     </View>
   )

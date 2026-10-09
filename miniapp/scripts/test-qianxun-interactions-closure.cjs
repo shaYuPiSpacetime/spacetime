@@ -65,7 +65,7 @@ test('互动页消费真实 viewed 互动接口并保留关联动态和互动时
   assert.match(communityService, /toggleCommunityFollow\s*=\s*\(targetUserId:\s*number\)/, '关注接口类型必须限制为数字用户 ID')
 })
 
-test('我的动态待人工复核状态统一展示为蓝湖审核中标签', () => {
+test('我的动态审核与失败状态按蓝湖统一展示并通过弹窗反馈原因', () => {
   const communityService = read('src/services/community.ts')
   const interactions = read('src/pages/qianxun/interactions.tsx')
   const myPosts = read('src/pages/qianxun/my-posts.tsx')
@@ -73,17 +73,28 @@ test('我的动态待人工复核状态统一展示为蓝湖审核中标签', ()
 
   assert.match(
     communityService,
-    /if \(status === 'pending_manual'\) return '审核中'[\s\S]*const serverLabel/,
+    /if \(status === 'pending_manual'\) return '审核中'[\s\S]*if \(status === 'rejected'\) return '发布失败'[\s\S]*const serverLabel/,
     'pending_manual 必须优先覆盖服务端“待人工复核”文案',
   )
   assert.doesNotMatch(communityService, /return '待审核'/, '前端不得继续展示旧文案“待审核”')
   assert.match(interactions, /<QianxunPostStatusBadge config=\{config\} status=\{item\.status\}/, '互动内我的动态必须使用统一状态标签')
   assert.match(myPosts, /<QianxunPostStatusBadge config=\{config\} status=\{receipt\.status\}/, '独立我的动态必须使用统一状态标签')
-  assert.match(statusBadge, /minWidth: rejected \? '96rpx' : '88rpx'/, '待审标签宽度必须按蓝湖画板还原')
-  assert.match(statusBadge, /height: rejected \? '50rpx' : '48rpx'/, '待审标签高度必须按蓝湖画板还原')
-  assert.match(statusBadge, /background: rejected \? '#E83333' : '#F9FAFB'/, '待审标签底色必须按蓝湖画板还原')
+  assert.match(statusBadge, /width: '88rpx'/, '审核与失败标签宽度必须按蓝湖画板还原')
+  assert.match(statusBadge, /height: '48rpx'/, '审核与失败标签高度必须按蓝湖画板还原')
+  assert.match(statusBadge, /background: rejected \? '#EF0000' : '#F8F9FB'/, '审核与失败标签底色必须按蓝湖画板还原')
   assert.match(statusBadge, /color: rejected \? '#FFFFFF' : '#2876FF'/, '待审标签文字颜色必须按蓝湖画板还原')
-  assert.match(statusBadge, /fontSize: '23rpx'/, '待审标签字号必须按蓝湖画板还原')
+  assert.match(statusBadge, /fontSize: '20rpx'/, '状态标签字号必须按蓝湖画板还原')
+  assert.match(statusBadge, /event\.stopPropagation\(\)/, '点击发布失败必须阻止卡片点击冒泡')
+  const failureDialog = read('src/components/QianxunPublishFailureDialog.tsx')
+  assert.match(failureDialog, /width: '620rpx'[\s\S]*height: '538rpx'/, '发布失败弹窗尺寸必须按蓝湖画板还原')
+  assert.match(failureDialog, /id="qianxun-publish-failure-reason"/, '发布失败弹窗必须展示服务端失败原因')
+  assert.match(failureDialog, /miniappOssIcons\.qianxunPublishFailure/, '发布失败弹窗必须使用蓝湖书本失败插画')
+  assert.doesNotMatch(failureDialog, /qianxunEmptyChart/, '发布失败弹窗禁止复用饼图空态素材')
+  assert.match(interactions, /onFailure=\{setFailurePost\}/, '互动内我的动态必须能打开发布失败弹窗')
+  assert.match(interactions, /<QianxunPublishFailureDialog[^>]*failureMessage=\{failurePost\?\.failureMessage\}/, '互动页必须使用共享失败弹窗')
+  assert.match(myPosts, /<QianxunPublishFailureDialog[^>]*failureMessage=\{failureReceipt\?\.failureMessage\}/, '独立我的动态页必须使用共享失败弹窗')
+  assert.doesNotMatch(interactions, /item\.status === 'rejected' && item\.failureMessage/, '互动内我的动态不得内联展示大段失败原因')
+  assert.doesNotMatch(myPosts, /receipt\.status === 'rejected' && receipt\.failureMessage/, '独立我的动态不得内联展示大段失败原因')
   assert.match(
     interactions,
     /showToast\(\{ title: resolveCommunityStatusLabel\(config, item\.status, item\.statusName\)/,

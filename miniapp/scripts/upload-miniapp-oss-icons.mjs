@@ -123,6 +123,7 @@ const ICON_ASSETS = Object.freeze({
   qianxunLike: 'src/assets/lanhu/qianxun-community/like.png',
   qianxunLikeActive: 'src/assets/lanhu/qianxun-community/like-active.png',
   qianxunYuemuHeart: 'src/assets/lanhu/qianxun-community/yuemu-heart.png',
+  qianxunPublishFailure: 'src/assets/lanhu/qianxun-community/publish-failure-illustration.png',
   qianxunComposePhoto: 'src/assets/qianxun/compose-toolbar/photo.png',
   qianxunComposeVideo: 'src/assets/qianxun/compose-toolbar/video.png',
   qianxunComposeSmile: 'src/assets/qianxun/compose-toolbar/smile.png',

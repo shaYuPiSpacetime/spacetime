@@ -23,15 +23,18 @@ export default function QianxunPostStatusBadge({
   const rejected = status === 'rejected'
   return (
     <View
+      className={`qianxun-my-post-status${rejected ? ' qianxun-my-post-status-rejected' : ''}`}
       data-role="qianxun-my-post-status"
       data-status={status}
-      onClick={rejected ? onFailure : undefined}
+      onClick={rejected && onFailure ? event => {
+        event.stopPropagation()
+        onFailure()
+      } : undefined}
       style={{
-        minWidth: rejected ? '96rpx' : '88rpx',
-        height: rejected ? '50rpx' : '48rpx',
+        width: '88rpx',
+        height: '48rpx',
         borderRadius: rejected ? '8rpx' : '6rpx',
-        padding: rejected ? '0 11rpx' : '0 10rpx',
-        background: rejected ? '#E83333' : '#F9FAFB',
+        background: rejected ? '#EF0000' : '#F8F9FB',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -42,8 +45,8 @@ export default function QianxunPostStatusBadge({
         data-role="qianxun-my-post-status-label"
         style={{
           color: rejected ? '#FFFFFF' : '#2876FF',
-          fontSize: '23rpx',
-          lineHeight: '32rpx',
+          fontSize: '20rpx',
+          lineHeight: '28rpx',
           whiteSpace: 'nowrap',
         }}
       >

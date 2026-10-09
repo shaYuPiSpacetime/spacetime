@@ -101,6 +101,7 @@ export const miniappOssIcons = Object.freeze({
   qianxunLike: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8b3c6eaa21d36473/like.png',
   qianxunLikeActive: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c2e53b1f343f7138/like-active.png',
   qianxunYuemuHeart: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/c1afc7dde639e388/yuemu-heart.png',
+  qianxunPublishFailure: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/0e67a49faa6c8627/publish-failure-illustration.png',
   qianxunComposePhoto: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8d4affd61206944d/photo.png',
   qianxunComposeVideo: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/9a1a6d65921df4c7/video.png',
   qianxunComposeSmile: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/8e49176173422fd3/smile.png',

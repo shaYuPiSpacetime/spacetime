@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
+import QianxunPublishFailureDialog from '@/components/QianxunPublishFailureDialog'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
@@ -124,6 +125,7 @@ export default function QianxunInteractionsPage() {
   const [restoringAuthorIds, setRestoringAuthorIds] = useState<number[]>([])
   const [likingPostIds, setLikingPostIds] = useState<number[]>([])
   const [config, setConfig] = useState<CommunityConfig>()
+  const [failurePost, setFailurePost] = useState<MyPostSnapshot>()
 
   useLoad(options => {
     if (['interaction', 'history', 'mine'].includes(String(options.section))) {
@@ -405,11 +407,12 @@ export default function QianxunInteractionsPage() {
           </ScrollView>
         </View>
         <View id="qianxun-interactions-panel-mine" data-section-panel="mine" style={sectionPanelStyle(section === 'mine')}>
-          <MinePanel loading={myPostsLoading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} onManagePost={item => void manageMyPost(item)} onManageHiddenAuthors={() => void openHiddenAuthors()} />
+          <MinePanel loading={myPostsLoading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} onManagePost={item => void manageMyPost(item)} onFailure={setFailurePost} onManageHiddenAuthors={() => void openHiddenAuthors()} />
         </View>
       </View>
       {likeSummaryVisible ? <LikeSummary count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} /> : null}
       {hiddenAuthorsVisible ? <HiddenAuthorsSheet users={hiddenAuthors} loading={hiddenAuthorsLoading} restoringUserIds={restoringAuthorIds} onRestore={user => void restoreHiddenAuthor(user)} onClose={() => setHiddenAuthorsVisible(false)} /> : null}
+      <QianxunPublishFailureDialog visible={failurePost !== undefined} failureMessage={failurePost?.failureMessage} config={config} onClose={() => setFailurePost(undefined)} />
     </View>
   )
 }
@@ -484,9 +487,9 @@ function sectionPanelStyle(active: boolean) {
   }
 }
 
-function MinePanel({ loading, posts, likingPostIds, config, onLike, onManagePost, onManageHiddenAuthors }: { loading: boolean; posts: MyPostSnapshot[]; likingPostIds: number[]; config?: CommunityConfig; onLike: (item: MyPostSnapshot) => void; onManagePost: (item: MyPostSnapshot) => void; onManageHiddenAuthors: () => void }) {
+function MinePanel({ loading, posts, likingPostIds, config, onLike, onManagePost, onFailure, onManageHiddenAuthors }: { loading: boolean; posts: MyPostSnapshot[]; likingPostIds: number[]; config?: CommunityConfig; onLike: (item: MyPostSnapshot) => void; onManagePost: (item: MyPostSnapshot) => void; onFailure: (item: MyPostSnapshot) => void; onManageHiddenAuthors: () => void }) {
   return (
-    <ScrollView scrollY style={{ height: '100%' }} showScrollbar={false}>
+    <ScrollView id="qianxun-mine-scroll" scrollY style={{ height: '100%' }} showScrollbar={false}>
       <View style={{ padding: '6rpx 26rpx 54rpx' }}>
         <View id="qianxun-hidden-authors-entry" onClick={onManageHiddenAuthors} style={{ height: '82rpx', marginBottom: '18rpx', padding: '0 24rpx', borderRadius: '12rpx', background: '#F5F8FC', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ color: '#333333', fontSize: '25rpx' }}>不看 TA 动态的用户</Text>
@@ -497,7 +500,7 @@ function MinePanel({ loading, posts, likingPostIds, config, onLike, onManagePost
           <Text style={{ position: 'absolute', left: '45rpx', top: '42rpx', color: '#999999', fontSize: '27rpx', lineHeight: '40rpx' }}>记录美好生活 遇上另一半</Text>
           <View onClick={() => void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'absolute', left: '45rpx', top: '102rpx', width: '130rpx', height: '50rpx', borderRadius: '7rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '25rpx', fontWeight: 500 }}>发动态</Text></View>
         </View>
-        {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} liking={Boolean(item.postId && likingPostIds.includes(item.postId))} config={config} onLike={() => onLike(item)} onManage={() => onManagePost(item)} />) : <MineEmpty config={config} />}
+        {loading ? <LoadingRows /> : posts.length ? posts.map(item => <MyPostSnapshotCard key={item.id} item={item} liking={Boolean(item.postId && likingPostIds.includes(item.postId))} config={config} onLike={() => onLike(item)} onManage={() => onManagePost(item)} onFailure={() => onFailure(item)} />) : <MineEmpty config={config} />}
       </View>
     </ScrollView>
   )
@@ -530,7 +533,7 @@ function HiddenAuthorsSheet({ users, loading, restoringUserIds, onRestore, onClo
   )
 }
 
-function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: MyPostSnapshot; liking: boolean; config?: CommunityConfig; onLike: () => void; onManage: () => void }) {
+function MyPostSnapshotCard({ item, liking, config, onLike, onManage, onFailure }: { item: MyPostSnapshot; liking: boolean; config?: CommunityConfig; onLike: () => void; onManage: () => void; onFailure: () => void }) {
   const date = splitMyPostDate(item.createdAt)
   const [expanded, setExpanded] = useState(false)
   const [comments, setComments] = useState<CommunityCommentVO[]>([])
@@ -556,7 +559,7 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: 
   return (
     <View onClick={open} style={{ padding: '30rpx 0 24rpx', borderBottom: '2rpx solid #EEF3F8' }}>
       <View style={{ display: 'flex', alignItems: 'flex-start' }}>
-        <View style={{ width: '112rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
+        <View style={{ width: '130rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <InteractionPostExcerpt
             content={item.content}
@@ -564,17 +567,22 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: 
             measureKey={`mine-${item.id}`}
             color="#333333"
           />
+        </View>
+      </View>
+      <View style={{ display: 'flex', alignItems: 'flex-start', marginTop: '18rpx' }}>
+        <View style={{ width: '130rpx', flexShrink: 0 }}>
+          <QianxunPostStatusBadge config={config} status={item.status} statusName={item.statusName} onFailure={onFailure} />
+        </View>
+        <View style={{ width: '512rpx', minWidth: 0 }}>
           <MyPostImages images={item.imageUrls} />
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
-            <QianxunPostStatusBadge config={config} status={item.status} statusName={item.statusName} />
             <View style={{ flex: 1 }} />
             <View onClick={event => { event.stopPropagation(); onManage() }} style={{ width: '64rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '4rpx' }}>···</Text></View>
             <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? open : undefined} fontSize="21rpx" />
             <View style={{ width: '30rpx' }} />
             <QianxunActionStat kind="like" count={item.likeCount} active={item.liked} onClick={item.postId && item.status === 'published' && !liking ? onLike : undefined} fontSize="21rpx" />
           </View>
-          {item.status === 'rejected' && item.failureMessage ? <Text style={{ display: 'block', color: '#D44747', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '-8rpx' }}>{item.failureMessage}</Text> : null}
           {expanded ? <View style={{ marginTop: '8rpx', padding: '20rpx', borderRadius: '12rpx', background: '#F6F9FD' }}>
             <Text style={{ display: 'block', color: NAVY, fontSize: '24rpx', fontWeight: 600 }}>评论 {item.commentCount}</Text>
             {commentsLoading ? <Text style={{ display: 'block', marginTop: '14rpx', color: '#8F98A6', fontSize: '22rpx' }}>评论加载中…</Text> : null}
@@ -600,7 +608,7 @@ function MyPostImages({ images }: { images: string[] }) {
   const gap = 10
   const rows = Math.ceil(visible.length / columns)
   return (
-    <View style={{ display: 'flex', flexWrap: 'wrap', width: '512rpx', marginTop: '16rpx' }}>
+    <View style={{ display: 'flex', flexWrap: 'wrap', width: '512rpx' }}>
       {visible.map((url, index) => (
         <Image
           key={`${url}-${index}`}
