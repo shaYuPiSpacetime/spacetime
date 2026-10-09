@@ -4,10 +4,7 @@ import { useMemo, useRef, useState } from 'react'
 import DualRangeSlider from '@/components/DualRangeSlider'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
-import {
-  normalizeTwoLevelRegionSelection,
-  type TwoLevelRegionSelection,
-} from '@/domain/twoLevelRegionWheel'
+import { LanhuRegionSheet } from '@/pages/verification/components/LanhuPickerSheet'
 import { prd01Api } from '@/services/prd01'
 import {
   getRecommendPreferences,
@@ -15,6 +12,7 @@ import {
   type RecommendCityVO,
   type RecommendPreferenceVO,
 } from '@/services/recommend'
+import { usePrd01Store } from '@/stores/prd01Store'
 import type { DictOption, RegionTreeOption } from '@/types/prd01'
 
 const BLUE = '#2876FF'
@@ -49,16 +47,19 @@ function formatWeightLimit(value: number | null | undefined) {
 export default function RecommendPreferencePage() {
   const [model, setModel] = useState<RecommendPreferenceVO | null>(null)
   const [cities, setCities] = useState<RegionTreeOption[]>([])
-  const [cityPickerValue, setCityPickerValue] = useState<TwoLevelRegionSelection>([0, 0])
+  const [citySheetVisible, setCitySheetVisible] = useState(false)
+  const [citySheetSelection, setCitySheetSelection] = useState({
+    provinceCode: '',
+    cityCode: '',
+  })
   const [educationOptions, setEducationOptions] = useState<DictOption[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const loadDistricts = usePrd01Store(state => state.locations)
   const hasShownRef = useRef(false)
   const advancedGestureStartRef = useRef<{ x: number; y: number } | null>(null)
   const advancedGestureMovedRef = useRef(false)
   const cityOptions = useMemo(() => cities.flatMap(province => province.children), [cities])
-  const normalizedCityPickerValue = normalizeTwoLevelRegionSelection(cities, cityPickerValue)
-  const cityPickerRange = [cities, cities[normalizedCityPickerValue[0]]?.children || []]
   const load = async () => {
     try {
       const [preference, tree, options] = await Promise.all([
@@ -131,11 +132,42 @@ export default function RecommendPreferencePage() {
     setModel(current => (current ? { ...current, ...value } : current))
   const patchAdvanced = (value: Partial<typeof advanced>) =>
     patch({ advanced: { ...advanced, ...value } })
-  const addCity = (index: number) => {
-    const selected = cityOptions[index]
-    if (!selected || model.targetCities.length >= 3
-      || model.targetCities.some(item => item.code === selected.code)) return
-    patch({ targetCities: [...model.targetCities, { code: selected.code, name: selected.name }] })
+  const openCitySheet = () => {
+    if (!cities.length) {
+      void Taro.showToast({ title: '城市选项加载中，请稍后重试', icon: 'none' })
+      return
+    }
+    const recentCity = model.targetCities[model.targetCities.length - 1]
+    const province = cities.find(item =>
+      item.children.some(city => city.code === recentCity?.code)
+    ) || cities[0]
+    const city = province.children.find(item => item.code === recentCity?.code)
+      || province.children[0]
+    setCitySheetSelection({
+      provinceCode: province.code,
+      cityCode: city?.code || '',
+    })
+    setCitySheetVisible(true)
+  }
+  const confirmTargetCity = (provinceCode: string, cityCode: string) => {
+    const province = cities.find(item => item.code === provinceCode)
+    const city = province?.children.find(item => item.code === cityCode)
+    if (!city) {
+      void Taro.showToast({ title: '请选择城市', icon: 'none' })
+      return
+    }
+    if (model.targetCities.some(item => item.code === city.code)) {
+      void Taro.showToast({ title: '该城市已添加', icon: 'none' })
+      return
+    }
+    if (model.targetCities.length >= 3) {
+      void Taro.showToast({ title: '最多选择3个城市', icon: 'none' })
+      setCitySheetVisible(false)
+      return
+    }
+    patch({ targetCities: [...model.targetCities, { code: city.code, name: city.name }] })
+    setCitySheetSelection({ provinceCode, cityCode })
+    setCitySheetVisible(false)
   }
   const rememberAdvancedGestureStart = (event: any) => {
     const touch = event.touches?.[0]
@@ -152,25 +184,6 @@ export default function RecommendPreferencePage() {
       || Math.abs(Number(touch.clientY) - start.y) > 8) {
       advancedGestureMovedRef.current = true
     }
-  }
-  const updateCityPickerColumn = (column: number, value: number) => {
-    if (column === 0) {
-      setCityPickerValue(normalizeTwoLevelRegionSelection(cities, [value, 0]))
-      return
-    }
-    setCityPickerValue(current => {
-      const [provinceIndex] = normalizeTwoLevelRegionSelection(cities, current)
-      return normalizeTwoLevelRegionSelection(cities, [provinceIndex, value])
-    })
-  }
-  const confirmCityPicker = (value: number[]) => {
-    const selection = normalizeTwoLevelRegionSelection(cities, value)
-    setCityPickerValue(selection)
-    const [provinceIndex, cityIndex] = selection
-    const selected = cities[provinceIndex]?.children[cityIndex]
-    if (!selected) return
-    const selectedIndex = cityOptions.findIndex(city => city.code === selected.code)
-    if (selectedIndex >= 0) addCity(selectedIndex)
   }
   const save = async () => {
     if (saving) return
@@ -242,30 +255,23 @@ export default function RecommendPreferencePage() {
               />
             ))}
             {model.targetCities.length < 3 ? (
-              <Picker
-                mode="multiSelector"
-                range={cityPickerRange}
-                rangeKey="name"
-                value={normalizedCityPickerValue}
-                onColumnChange={event =>
-                  updateCityPickerColumn(event.detail.column, event.detail.value)
-                }
-                onChange={event => confirmCityPicker(event.detail.value)}
+              <View
+                id="recommend-city-sheet-trigger"
+                data-role="recommend-city-sheet-trigger"
+                onClick={openCitySheet}
+                hoverClass="btn-hover"
+                style={{
+                  width: '190rpx',
+                  height: '68rpx',
+                  borderRadius: '34rpx',
+                  background: '#F7F8FA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <View
-                  style={{
-                    width: '190rpx',
-                    height: '68rpx',
-                    borderRadius: '34rpx',
-                    background: '#F7F8FA',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text style={{ color: '#999999', fontSize: '34rpx' }}>＋</Text>
-                </View>
-              </Picker>
+                <Text style={{ color: '#999999', fontSize: '34rpx' }}>＋</Text>
+              </View>
             ) : null}
           </View>
           <SwitchRow
@@ -477,6 +483,19 @@ export default function RecommendPreferencePage() {
           </View>
         </View>
       </ScrollView>
+      {citySheetVisible ? (
+        <LanhuRegionSheet
+          title="居住地偏好"
+          regions={cities}
+          provinceCode={citySheetSelection.provinceCode}
+          cityCode={citySheetSelection.cityCode}
+          districtCode=""
+          includeDistrict={false}
+          loadDistricts={loadDistricts}
+          onConfirm={(provinceCode, cityCode) => confirmTargetCity(provinceCode, cityCode)}
+          onClose={() => setCitySheetVisible(false)}
+        />
+      ) : null}
     </View>
   )
 }

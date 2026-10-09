@@ -26,6 +26,7 @@ const onlyEmpty = process.env.PRD08_ONLY_EMPTY === 'true'
 const onlyWhisper = process.env.PRD08_ONLY_WHISPER === 'true'
 const onlyRecommend = process.env.PRD08_ONLY_RECOMMEND === 'true'
 const onlyPreferenceSlider = process.env.PRD08_ONLY_PREFERENCE_SLIDER === 'true'
+const onlyPreferenceCitySheet = process.env.PRD08_ONLY_PREFERENCE_CITY_SHEET === 'true'
 const privateCommunication = process.env.PRD08_PRIVATE_COMMUNICATION === 'true'
 const skipScreenshots = process.env.PRD08_SKIP_SCREENSHOTS === 'true'
 const outputRoot = path.resolve(
@@ -304,8 +305,27 @@ function responseFor(request) {
       },
     ]
   }
+  if (pathname === '/miniapp/config/prd01') {
+    return {
+      accessPolicy: { minAge: 18, maxAge: 60 },
+      initFields: [1, 2, 3, 4, 5].map(step => ({
+        step,
+        fieldId: `step-${step}`,
+        visible: true,
+        required: true,
+      })),
+      copywriting: {
+        common_confirm_action: { enabled: true, content: '确认' },
+      },
+    }
+  }
   if (pathname === '/miniapp/dict/profile-options') {
     return {
+      gender: [
+        { code: 'MALE', label: '男' },
+        { code: 'FEMALE', label: '女' },
+      ],
+      identity: [{ code: 'WORK', label: '职场人' }],
       educationLevel: [
         { code: 'MASTER', label: '硕士' },
         { code: 'BACHELOR', label: '本科' },
@@ -639,7 +659,7 @@ async function screenshot(miniProgram, outputDir, filename) {
         ...process.env,
         MINIAPP_E2E_MODE: 'true',
         MINIAPP_E2E_API_BASE_URL: `http://127.0.0.1:${mockPort}/api`,
-        ...(onlyPreferenceSlider ? {
+        ...(onlyPreferenceSlider || onlyPreferenceCitySheet ? {
           MINIAPP_DEV_FIXED_LOGIN: 'true',
           MINIAPP_DEV_FIXED_TOKEN: 'prd08-runtime-token',
         } : {}),
@@ -674,6 +694,22 @@ async function screenshot(miniProgram, outputDir, filename) {
   const system = await miniProgram.systemInfo()
   const outputDir = path.join(outputRoot, `微信运行-${system.windowWidth}x${system.windowHeight}`)
   fs.mkdirSync(outputDir, { recursive: true })
+
+  if (onlyPreferenceCitySheet) {
+    const page = await open(miniProgram, '/pages/prd08/recommend/preference/index', '偏好城市筛选')
+    const trigger = await waitForElement(page, '#recommend-city-sheet-trigger', '城市筛选入口')
+    await trigger.tap()
+    await page.waitFor(700)
+    const texts = await page.$$('text')
+    const labels = await Promise.all(texts.map(element => element.text()))
+    for (const expected of ['居住地偏好', '中国', '海外地区国家', '江苏', '南京', '确认']) {
+      assert.ok(labels.includes(expected), `城市筛选弹层缺少文案：${expected}`)
+    }
+    await screenshot(miniProgram, outputDir, '001-偏好设置城市筛选底部弹层.png')
+    assert.equal(exceptions.length, 0, `运行异常：${exceptions.join('；')}`)
+    console.log(`偏好设置城市筛选弹层截图完成：${outputDir}`)
+    return
+  }
 
   if (onlyPreferenceSlider) {
     const page = await open(miniProgram, '/pages/prd08/recommend/preference/index', '偏好双端滑块')
