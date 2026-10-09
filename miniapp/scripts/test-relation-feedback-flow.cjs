@@ -4,6 +4,8 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const test = require('node:test')
+const vm = require('node:vm')
+const ts = require('typescript')
 
 const miniappRoot = path.resolve(__dirname, '..')
 const domainPath = path.join(miniappRoot, 'src/domain/relationFeedbackFlow.ts')
@@ -17,6 +19,69 @@ async function loadDomainModule() {
   const source = fs.readFileSync(domainPath, 'utf8')
   return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
 }
+
+function renderUnlockSheet(tab) {
+  const navigations = []
+  const stateChanges = []
+  const apiCalls = []
+  const hooks = {
+    useEffect: () => {},
+    useRef: value => ({ current: value }),
+    useState: initial => [typeof initial === 'function' ? initial() : initial, value => stateChanges.push(value)],
+  }
+  const taro = {
+    useRouter: () => ({ params: { tab } }),
+    useDidShow: () => {},
+    getStorageSync: () => undefined,
+    navigateTo: options => navigations.push(options.url),
+  }
+  const makeElement = (type, props) => ({ type, props })
+  const transpiled = ts.transpileModule(read('src/pages/community/index.tsx'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+  }).outputText
+  const context = {
+    exports: {},
+    require: name => {
+      if (name === 'react') return hooks
+      if (name === 'react/jsx-runtime') return { jsx: makeElement, jsxs: makeElement }
+      if (name === '@tarojs/taro') return { ...taro, default: taro }
+      if (name === '@tarojs/components') return { View: 'View', Text: 'Text', Image: 'Image', ScrollView: 'ScrollView' }
+      if (name === '@/hooks/useAccessStatus') return { useAccessStatus: () => ({ status: { coreAccessStatus: 'CORE_ALLOWED' } }) }
+      if (name === '@/stores/authStore') return { useAuthStore: selector => selector({ userId: 1 }) }
+      if (name === '@/constants/ossIcons') return { miniappOssIcons: {} }
+      if (name === '@/services/relation') return new Proxy({}, { get: (_, method) => () => apiCalls.push(method) })
+      return {}
+    },
+  }
+  vm.runInNewContext(transpiled, context)
+  function find(node, predicate) {
+    if (!node || typeof node !== 'object') return undefined
+    if (predicate(node)) return node
+    return [node.props?.children].flat(Infinity).map(child => find(child, predicate)).find(Boolean)
+  }
+  const page = context.exports.default()
+  const sheet = find(page, node => node.type?.name === 'UnlockSheet')
+  const rendered = sheet.type({ ...sheet.props, visible: true, stage: 'confirm' })
+  return { rendered, find, navigations, stateChanges, apiCalls }
+}
+
+for (const [tab, sourceScene] of [['likes', 'likes_unlock_one'], ['visitors', 'viewers_unlock_one']]) {
+  test(`只看ta直接进入充值页并保留来源 ${sourceScene}`, () => {
+    const { rendered, find, navigations, stateChanges, apiCalls } = renderUnlockSheet(tab)
+    find(rendered, node => node.props?.id === 'unlock-one-button').props.onClick()
+    assert.deepEqual(navigations, [`/pages/coins/unlock-recharge?sourceScene=${sourceScene}`])
+    assert.ok(stateChanges.includes('closed'), '跳转时必须关闭弹窗')
+    assert.deepEqual(apiCalls, [], '点击只看ta不得调用报价或扣费接口')
+  })
+}
+
+test('解锁全部仍进入会员解锁页', () => {
+  const { rendered, find, navigations, apiCalls } = renderUnlockSheet('likes')
+  const label = find(rendered, node => node.props?.children === '解锁全部')
+  find(rendered, node => Array.isArray(node.props?.children) ? node.props.children.includes(label) : node.props?.children === label).props.onClick()
+  assert.deepEqual(navigations, ['/pages/heart/membership-unlock'])
+  assert.deepEqual(apiCalls, [])
+})
 
 test('展示状态是强身份字段的唯一可见依据', async () => {
   const { isIdentityVisible } = await loadDomainModule()
