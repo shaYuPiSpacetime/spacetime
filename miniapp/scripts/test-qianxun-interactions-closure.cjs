@@ -65,22 +65,29 @@ test('互动页消费真实 viewed 互动接口并保留关联动态和互动时
   assert.match(communityService, /toggleCommunityFollow\s*=\s*\(targetUserId:\s*number\)/, '关注接口类型必须限制为数字用户 ID')
 })
 
-test('我的动态待人工复核状态统一展示为待审核', () => {
+test('我的动态待人工复核状态统一展示为蓝湖审核中标签', () => {
   const communityService = read('src/services/community.ts')
   const interactions = read('src/pages/qianxun/interactions.tsx')
   const myPosts = read('src/pages/qianxun/my-posts.tsx')
+  const statusBadge = read('src/components/QianxunPostStatusBadge.tsx')
 
   assert.match(
     communityService,
-    /if \(status === 'pending_manual'\) return '待审核'[\s\S]*const serverLabel/,
+    /if \(status === 'pending_manual'\) return '审核中'[\s\S]*const serverLabel/,
     'pending_manual 必须优先覆盖服务端“待人工复核”文案',
   )
-  assert.match(interactions, /resolveCommunityStatusLabel\(config, item\.status, item\.statusName\)/, '互动内我的动态必须使用统一状态文案')
-  assert.match(myPosts, /resolveCommunityStatusLabel\(config, receipt\.status, receipt\.statusName\)/, '独立我的动态必须使用统一状态文案')
+  assert.doesNotMatch(communityService, /return '待审核'/, '前端不得继续展示旧文案“待审核”')
+  assert.match(interactions, /<QianxunPostStatusBadge config=\{config\} status=\{item\.status\}/, '互动内我的动态必须使用统一状态标签')
+  assert.match(myPosts, /<QianxunPostStatusBadge config=\{config\} status=\{receipt\.status\}/, '独立我的动态必须使用统一状态标签')
+  assert.match(statusBadge, /minWidth: rejected \? '96rpx' : '88rpx'/, '待审标签宽度必须按蓝湖画板还原')
+  assert.match(statusBadge, /height: rejected \? '50rpx' : '48rpx'/, '待审标签高度必须按蓝湖画板还原')
+  assert.match(statusBadge, /background: rejected \? '#E83333' : '#F9FAFB'/, '待审标签底色必须按蓝湖画板还原')
+  assert.match(statusBadge, /color: rejected \? '#FFFFFF' : '#2876FF'/, '待审标签文字颜色必须按蓝湖画板还原')
+  assert.match(statusBadge, /fontSize: '23rpx'/, '待审标签字号必须按蓝湖画板还原')
   assert.match(
     interactions,
     /showToast\(\{ title: resolveCommunityStatusLabel\(config, item\.status, item\.statusName\)/,
-    '点击待审核动态后的提示也必须使用统一状态文案',
+    '点击审核中动态后的提示也必须使用统一状态文案',
   )
 })
 

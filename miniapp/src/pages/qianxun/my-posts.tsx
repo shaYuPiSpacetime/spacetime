@@ -3,6 +3,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat } from '@/components/QianxunCommunityIcons'
+import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
@@ -14,7 +15,6 @@ import {
   getMyCommunityPosts,
   resolveCommunityCopy,
   resolveCommunityFeedback,
-  resolveCommunityStatusLabel,
   toggleCommunityLike,
   type CommunityConfig,
   type CommunityPostVO,
@@ -245,9 +245,6 @@ function PublishBanner() {
 }
 
 function MyPostCard({ receipt, liking, config, onMore, onFailure, onLike }: { receipt: MyPostReceipt; liking: boolean; config?: CommunityConfig; onMore: () => void; onFailure: () => void; onLike: () => void }) {
-  const status = receipt.status !== 'published'
-    ? { label: resolveCommunityStatusLabel(config, receipt.status, receipt.statusName), background: receipt.status === 'rejected' ? '#E83333' : '#E7F0FF', color: receipt.status === 'rejected' ? '#FFFFFF' : BLUE }
-    : undefined
   return (
     <View style={{ padding: '38rpx 0 28rpx', borderBottom: '2rpx solid #EEF3F8' }}>
       <View style={{ display: 'flex', alignItems: 'baseline' }}>
@@ -257,7 +254,7 @@ function MyPostCard({ receipt, liking, config, onMore, onFailure, onLike }: { re
       </View>
       <View style={{ display: 'flex', alignItems: 'flex-start', marginTop: '18rpx' }}>
         <View style={{ width: '130rpx', flexShrink: 0 }}>
-          {status ? <View onClick={receipt.status === 'rejected' ? onFailure : undefined} style={{ minWidth: '96rpx', height: '50rpx', borderRadius: '8rpx', padding: '0 11rpx', background: status.background, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: status.color, fontSize: '23rpx' }}>{status.label}</Text></View> : null}
+          <QianxunPostStatusBadge config={config} status={receipt.status} statusName={receipt.statusName} onFailure={onFailure} />
         </View>
         <View style={{ width: '452rpx' }}>
           <PostImages urls={receipt.imageUrls} />

@@ -3,6 +3,7 @@ import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
+import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
@@ -566,7 +567,7 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage }: { item: 
           <MyPostImages images={item.imageUrls} />
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
-            {item.status !== 'published' ? <Text style={{ color: item.status === 'rejected' ? '#D44747' : BLUE, fontSize: '21rpx' }}>{resolveCommunityStatusLabel(config, item.status, item.statusName)}</Text> : null}
+            <QianxunPostStatusBadge config={config} status={item.status} statusName={item.statusName} />
             <View style={{ flex: 1 }} />
             <View onClick={event => { event.stopPropagation(); onManage() }} style={{ width: '64rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '4rpx' }}>···</Text></View>
             <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? open : undefined} fontSize="21rpx" />
