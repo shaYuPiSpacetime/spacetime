@@ -79,6 +79,30 @@ public interface AppMessageWhisperMapper extends BaseMapper<AppMessageWhisper> {
     java.util.List<AppMessageWhisper> selectRefundedWithoutMessage(
             @Param("updatedAfter") LocalDateTime updatedAfter, @Param("limit") int limit);
 
+    @Select("SELECT w.* FROM app_message_whisper w "
+            + "INNER JOIN app_message_record m ON m.id=w.reply_message_id AND m.deleted=0 "
+            + "WHERE w.deleted=0 AND w.status='pending' AND w.reply_request_id IS NOT NULL "
+            + "AND w.reply_message_id IS NOT NULL AND m.send_status='sent' "
+            + "AND m.tim_message_id IS NOT NULL AND m.tim_message_id<>'' "
+            + "AND m.tim_msg_key IS NOT NULL AND m.tim_msg_key<>'' "
+            + "AND w.id>#{afterId} ORDER BY w.id LIMIT #{limit}")
+    java.util.List<AppMessageWhisper> selectReplyReservationsReadyToFinalize(
+            @Param("afterId") Long afterId,
+            @Param("limit") int limit);
+
+    @Select("SELECT DISTINCT w.* FROM app_message_whisper w "
+            + "INNER JOIN app_message_record m ON m.id=w.reply_message_id AND m.deleted=0 "
+            + "LEFT JOIN app_message_delivery_outbox o ON o.aggregate_id=w.reply_message_id "
+            + "AND o.aggregate_type='message' AND o.event_type='whisper_reply' AND o.deleted=0 "
+            + "WHERE w.deleted=0 AND w.status='pending' AND w.reply_request_id IS NOT NULL "
+            + "AND w.reply_message_id IS NOT NULL AND (m.send_status='failed' OR o.status='dead') "
+            + "AND NOT (m.send_status='sent' AND m.tim_message_id IS NOT NULL "
+            + "AND m.tim_message_id<>'' AND m.tim_msg_key IS NOT NULL AND m.tim_msg_key<>'') "
+            + "AND w.id>#{afterId} ORDER BY w.id LIMIT #{limit}")
+    java.util.List<AppMessageWhisper> selectReplyReservationsReadyToRelease(
+            @Param("afterId") Long afterId,
+            @Param("limit") int limit);
+
     @Update("UPDATE app_message_whisper SET reply_request_id=NULL, reply_message_id=NULL, "
             + "version=version+1, update_time=#{releasedAt} WHERE id=#{id} AND status='pending' "
             + "AND reply_request_id=#{requestId} AND reply_message_id=#{replyMessageId} AND deleted=0")
@@ -86,6 +110,22 @@ public interface AppMessageWhisperMapper extends BaseMapper<AppMessageWhisper> {
                                 @Param("requestId") String requestId,
                                 @Param("replyMessageId") Long replyMessageId,
                                 @Param("releasedAt") LocalDateTime releasedAt);
+
+    @Update("UPDATE app_message_whisper w "
+            + "INNER JOIN app_message_record m ON m.id=w.reply_message_id AND m.deleted=0 "
+            + "SET w.reply_request_id=NULL, w.reply_message_id=NULL, "
+            + "w.version=w.version+1, w.update_time=#{releasedAt} "
+            + "WHERE w.id=#{id} AND w.status='pending' AND w.reply_request_id=#{requestId} "
+            + "AND w.reply_message_id=#{replyMessageId} AND w.deleted=0 "
+            + "AND (m.send_status='failed' OR EXISTS (SELECT 1 FROM app_message_delivery_outbox o "
+            + "WHERE o.aggregate_id=m.id AND o.aggregate_type='message' "
+            + "AND o.event_type='whisper_reply' AND o.status='dead' AND o.deleted=0)) "
+            + "AND NOT (m.send_status='sent' AND m.tim_message_id IS NOT NULL "
+            + "AND m.tim_message_id<>'' AND m.tim_msg_key IS NOT NULL AND m.tim_msg_key<>'')")
+    int releaseFailedReplyReservation(@Param("id") Long id,
+                                      @Param("requestId") String requestId,
+                                      @Param("replyMessageId") Long replyMessageId,
+                                      @Param("releasedAt") LocalDateTime releasedAt);
 
     @Update("UPDATE app_message_whisper w "
             + "LEFT JOIN app_message_rule_version r ON r.version_no=w.config_version AND r.deleted=0 "

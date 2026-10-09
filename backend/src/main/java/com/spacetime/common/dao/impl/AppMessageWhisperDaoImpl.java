@@ -92,6 +92,20 @@ public class AppMessageWhisperDaoImpl implements AppMessageWhisperDao {
     }
 
     @Override
+    public List<AppMessageWhisper> selectReplyReservationsReadyToFinalize(Long afterId, int limit) {
+        return mapper.selectReplyReservationsReadyToFinalize(
+                afterId == null ? 0L : Math.max(0L, afterId),
+                Math.max(1, Math.min(limit, 500)));
+    }
+
+    @Override
+    public List<AppMessageWhisper> selectReplyReservationsReadyToRelease(Long afterId, int limit) {
+        return mapper.selectReplyReservationsReadyToRelease(
+                afterId == null ? 0L : Math.max(0L, afterId),
+                Math.max(1, Math.min(limit, 500)));
+    }
+
+    @Override
     public List<AppMessageWhisper> selectPending(Long userId, String direction, Long cursorId,
                                                   int size, LocalDateTime now) {
         return selectVisible(userId, direction, "pending", cursorId, size, now);
@@ -252,6 +266,13 @@ public class AppMessageWhisperDaoImpl implements AppMessageWhisperDao {
     public int releaseReplyReservation(Long id, String requestId, Long replyMessageId,
                                        LocalDateTime releasedAt) {
         return mapper.releaseReplyReservation(id, requestId, replyMessageId, releasedAt);
+    }
+
+    @Override
+    public int releaseFailedReplyReservation(Long id, String requestId, Long replyMessageId,
+                                              LocalDateTime releasedAt) {
+        return mapper.releaseFailedReplyReservation(
+                id, requestId, replyMessageId, releasedAt);
     }
 
     @Override

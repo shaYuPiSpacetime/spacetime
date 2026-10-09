@@ -260,6 +260,7 @@ class ProfileServiceImplTest {
         user.setFirstLoginCompleted(1);
         user.setGender("FEMALE");
         user.setBirthday(LocalDate.of(1997, 3, 6));
+        user.setZodiac("水瓶座");
         user.setIdentity("WORKER");
         user.setEducationLevel("BACHELOR");
         user.setIndustry("INTERNET");
@@ -275,6 +276,7 @@ class ProfileServiceImplTest {
         assertThat(result.getIdentity()).isEqualTo("WORKER");
         assertThat(result.getIndustry()).isEqualTo("INTERNET");
         assertThat(result.getAge()).isEqualTo(new ProfileScoreConfig().calculateAge(user.getBirthday()));
+        assertThat(result.getZodiac()).isEqualTo("双鱼座");
         assertThat(result.getMinAge()).isEqualTo(18);
         assertThat(result.getMaxAge()).isEqualTo(60);
         assertThat(result.getMissingRequiredFields()).isEmpty();

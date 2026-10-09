@@ -59,12 +59,15 @@ export function buildProfilePreviewAboutSummary(
  * 未填写任何内容时展示蓝湖默认三项；已有填写时按接口顺序展示全部已填写条目。
  */
 export function buildProfileAboutSummary(
-  questions: Array<Pick<AboutMeQuestion, 'questionKey' | 'title' | 'placeholder' | 'latestContent' | 'effectiveContent'>> = []
+  questions: Array<Pick<AboutMeQuestion, 'questionKey' | 'title' | 'placeholder' | 'latestContent' | 'effectiveContent'>> = [],
+  visibleFieldKeys?: string[]
 ): ProfileAboutSummaryItem[] {
+  const visibleKeys = visibleFieldKeys ? new Set(visibleFieldKeys) : null
   const definitionByKey = new Map<string, (typeof PROFILE_ABOUT_SUMMARY_DEFINITIONS)[number]>(
     PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(item => [item.key, item])
   )
   const filled = questions.flatMap(question => {
+    if (visibleKeys && !visibleKeys.has(question.questionKey)) return []
     const value = resolveOwnerVisibleText(question)
     if (!value) return []
     const definition = definitionByKey.get(question.questionKey)
@@ -76,5 +79,7 @@ export function buildProfileAboutSummary(
     }]
   })
   if (filled.length) return filled
-  return PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(definition => ({ ...definition, value: '' }))
+  return PROFILE_ABOUT_SUMMARY_DEFINITIONS
+    .filter(definition => !visibleKeys || visibleKeys.has(definition.key))
+    .map(definition => ({ ...definition, value: '' }))
 }

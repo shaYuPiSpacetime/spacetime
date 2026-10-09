@@ -115,6 +115,16 @@ test('同一报价重试复用 requestId，新报价生成新 requestId', async 
   assert.equal(nextQuote.requestId, 'request-2')
 })
 
+test('喜欢记录解锁请求幂等键不超过后端数据库 64 字符限制', async () => {
+  const { createUnlockRequestId } = await loadDomainModule()
+  for (const bizNo of ['LIK-FBD19B7D63CD40048395DB0027158CB6', 'VIS-FBD19B7D63CD40048395DB0027158CB6']) {
+    const id = createUnlockRequestId(bizNo, 1789632000000, '12345678')
+    assert.ok(id.length <= 64, `requestId 长度 ${id.length} 超过 64`)
+    assert.match(id, /^unlock-/)
+    assert.match(id, new RegExp(bizNo))
+  }
+})
+
 test('测试 API 只能显式切到本地回环地址', async () => {
   const { resolveRelationApiBaseUrl } = await loadDomainModule()
   const production = 'https://admin.shikongxiehou.com/api'

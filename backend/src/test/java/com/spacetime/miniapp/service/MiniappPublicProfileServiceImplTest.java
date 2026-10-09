@@ -108,8 +108,9 @@ class MiniappPublicProfileServiceImplTest {
         AppUser target = user(8L, "目标用户");
         target.setGender("female");
         target.setAge(25);
+        target.setBirthday(LocalDate.of(2003, 5, 28));
         target.setHeight(165);
-        target.setZodiac("双鱼座");
+        target.setZodiac("水瓶座");
         target.setLocationCity("330100");
         target.setHometownCity("410100");
         target.setSchool("浙江大学");
@@ -165,6 +166,7 @@ class MiniappPublicProfileServiceImplTest {
         assertThat(result.getAvatar()).isEqualTo("https://cdn.test/avatar.jpg");
         assertThat(result.getHeroPhoto()).isEqualTo("https://cdn.test/hero.jpg");
         assertThat(result.getPhotos()).containsExactly("https://cdn.test/album.jpg");
+        assertThat(result.getZodiac()).isEqualTo("双子座");
         assertThat(result.getCurrentCity()).isEqualTo("杭州市");
         assertThat(result.getHometownCity()).isEqualTo("郑州市");
         assertThat(result.getIdentityLabel()).isEqualTo("职场人");

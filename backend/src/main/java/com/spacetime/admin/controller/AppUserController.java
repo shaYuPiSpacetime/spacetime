@@ -228,7 +228,7 @@ public class AppUserController {
 
     private List<String> parseSharedStrings(byte[] xml) throws IOException {
         Document document = parseXml(xml);
-        NodeList items = document.getElementsByTagName("si");
+        NodeList items = document.getElementsByTagNameNS("*", "si");
         List<String> values = new ArrayList<>();
         for (int i = 0; i < items.getLength(); i++) {
             values.add(items.item(i).getTextContent());
@@ -238,11 +238,11 @@ public class AppUserController {
 
     private String parseSheetToCsv(byte[] sheetXml, List<String> sharedStrings) throws IOException {
         Document document = parseXml(sheetXml);
-        NodeList rowNodes = document.getElementsByTagName("row");
+        NodeList rowNodes = document.getElementsByTagNameNS("*", "row");
         List<String> lines = new ArrayList<>();
         for (int i = 0; i < rowNodes.getLength(); i++) {
             Element row = (Element) rowNodes.item(i);
-            NodeList cellNodes = row.getElementsByTagName("c");
+            NodeList cellNodes = row.getElementsByTagNameNS("*", "c");
             Map<Integer, String> values = new HashMap<>();
             int maxIndex = -1;
             for (int j = 0; j < cellNodes.getLength(); j++) {
@@ -264,10 +264,10 @@ public class AppUserController {
 
     private String readCellValue(Element cell, List<String> sharedStrings) {
         if ("inlineStr".equals(cell.getAttribute("t"))) {
-            NodeList inlineStrings = cell.getElementsByTagName("is");
+            NodeList inlineStrings = cell.getElementsByTagNameNS("*", "is");
             return inlineStrings.getLength() == 0 ? "" : inlineStrings.item(0).getTextContent();
         }
-        NodeList valueNodes = cell.getElementsByTagName("v");
+        NodeList valueNodes = cell.getElementsByTagNameNS("*", "v");
         String raw = valueNodes.getLength() == 0 ? "" : valueNodes.item(0).getTextContent();
         if ("s".equals(cell.getAttribute("t")) && !raw.isBlank()) {
             int index = Integer.parseInt(raw);
@@ -291,6 +291,7 @@ public class AppUserController {
     private Document parseXml(byte[] xml) throws IOException {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
             factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);

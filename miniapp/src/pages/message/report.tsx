@@ -7,6 +7,7 @@ import {
   type MessageReportReasonCode,
 } from '@/services/message'
 import { uploadDirectToOss } from '@/services/ossUpload'
+import { getApiErrorCode } from '@/services/request'
 import { MessageNav } from './shared'
 import './message.scss'
 
@@ -124,12 +125,19 @@ export default function MessageReportPage() {
     try {
       const sourceType = router.params.sourceType === 'whisper' || router.params.whisperNo
         ? 'whisper'
-        : 'private_chat'
-      const targetId = router.params.targetId
-        || router.params.targetBizNo
-        || router.params.targetNo
-        || (sourceType === 'whisper' ? router.params.whisperNo : router.params.conversationNo)
-        || (isDesignForm ? 'mock-whisper' : '')
+        : router.params.sourceType === 'message' || router.params.messageNo
+          ? 'message'
+          : 'private_chat'
+      const targetId = sourceType === 'message'
+        ? router.params.messageNo
+          || router.params.targetId
+          || router.params.timMessageId
+          || router.params.timMsgKey
+        : router.params.targetId
+          || router.params.targetBizNo
+          || router.params.targetNo
+          || (sourceType === 'whisper' ? router.params.whisperNo : router.params.conversationNo)
+          || (isDesignForm ? 'mock-whisper' : '')
       if (!targetId) throw new Error('举报入口已失效，请返回后重试')
       await service.report({
         clientReportId,
@@ -148,6 +156,10 @@ export default function MessageReportPage() {
       })
       setSuccess(true)
     } catch (error) {
+      if (getApiErrorCode(error) === 505008) {
+        setSuccess(true)
+        return
+      }
       void Taro.showToast({
         title:
           router.params.blocked === '1'

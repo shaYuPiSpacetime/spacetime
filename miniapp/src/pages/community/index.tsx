@@ -10,6 +10,7 @@ import { useAccessStatus } from '@/hooks/useAccessStatus'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import {
+  createUnlockRequestId,
   ensureUnlockAttempt,
   formatRelationBadge,
   groupRecentVisitors,
@@ -58,10 +59,6 @@ function readRequestedTab(): HeartTab | undefined {
 
 const background =
   'linear-gradient(90deg, rgba(233,253,251,0.6) 0%, rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6) 100%)'
-
-function createRequestId(prefix: string, bizNo: string): string {
-  return `${prefix}-${bizNo}-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`
-}
 
 function resolveState(records: unknown[]): LoadState {
   return records.length ? 'ready' : 'empty'
@@ -312,7 +309,7 @@ export default function CommunityPage() {
     const attempt = ensureUnlockAttempt(
       unlockAttemptRef.current,
       unlockQuote.quoteToken,
-      () => createRequestId('unlock', unlockQuote.targetBizNo),
+      () => createUnlockRequestId(unlockQuote.targetBizNo),
     )
     unlockAttemptRef.current = attempt
     setUnlockSubmitting(true)

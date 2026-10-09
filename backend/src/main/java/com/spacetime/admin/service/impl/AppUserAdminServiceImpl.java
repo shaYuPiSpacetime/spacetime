@@ -47,6 +47,7 @@ import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.common.service.MiniappTokenSessionService;
 import com.spacetime.common.service.RelationLifecycleService;
+import com.spacetime.common.util.ProfileZodiac;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -816,7 +817,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                     text(user.getFavoriteSongArtist()),
                     text(user.getFavoriteSongCoverUrl()),
                     text(user.getMbtiType()),
-                    text(user.getZodiac()),
+                    text(ProfileZodiac.resolve(user)),
                     text(avatar == null ? null : avatar.getMediaUrl()),
                     auditStatusLabel(statusOf(avatar)),
                     auditSourceLabel(avatar == null ? null : avatar.getAuditSource()),
@@ -1033,7 +1034,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setVoiceIntroDuration(voice == null ? null : voice.getDuration());
         vo.setVoiceIntroAuditStatus(statusOf(voice));
         vo.setMbtiType(user.getMbtiType());
-        vo.setZodiac(user.getZodiac());
+        vo.setZodiac(ProfileZodiac.resolve(user));
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted());
         vo.setProfileScore(profileCompletenessCalculator.calculate(
                 user, completenessRules, audits, effectiveAuditTypes, effectiveProfileQaQuestionKeys));
@@ -1372,7 +1373,9 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         user.setFavoriteSongArtist(value(rowData, "favoriteSongArtist"));
         user.setFavoriteSongCoverUrl(value(rowData, "favoriteSongCoverUrl"));
         user.setMbtiType(value(rowData, "mbtiType"));
-        user.setZodiac(value(rowData, "zodiac"));
+        user.setZodiac(user.getBirthday() == null
+                ? value(rowData, "zodiac")
+                : ProfileZodiac.calculate(user.getBirthday()));
         return user;
     }
 
@@ -1691,7 +1694,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setVoiceIntroAuditStatus(statusOf(voice));
         vo.setVoiceIntroRejectReason(reason(voice));
         vo.setMbtiType(user.getMbtiType());
-        vo.setZodiac(user.getZodiac());
+        vo.setZodiac(ProfileZodiac.resolve(user));
         vo.setProfileScore(profileCompletenessCalculator.calculate(user));
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted());
         vo.setRegisterTime(user.getRegisterTime() != null ? user.getRegisterTime().format(FMT) : null);

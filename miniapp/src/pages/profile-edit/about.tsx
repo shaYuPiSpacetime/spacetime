@@ -3,23 +3,20 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import LanhuSubNav from '@/components/LanhuSubNav'
 import { resolveOwnerVisibleText } from '@/domain/profileAboutPresentation'
+import {
+  buildVisibleAboutTabs,
+  filterVisibleAboutQuestions,
+} from '@/domain/profileAboutVisibility'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { AboutMeQuestion } from '@/types/prd01'
 import { navigateBackOrRedirect } from '@/utils/navigation'
 import { emitProfileUpdated } from '@/utils/profileEditEvents'
 
-const aboutTabs = [
-  { key: 'all', title: '全部', questionKeys: [] },
-  { key: 'self', title: '我是谁', questionKeys: ['housingStatus', 'carStatus', 'hasChild', 'religion'] },
-  { key: 'daily', title: '我的日常', questionKeys: ['smoking', 'drinking', 'pets'] },
-  { key: 'story', title: '我的故事', questionKeys: ['childrenPlan', 'marriagePlan'] },
-  { key: 'love', title: '我热爱的', questionKeys: ['meetingPreference', 'preferredActivities'] },
-]
-
 export default function ProfileEditAboutPage() {
   const router = useRouter()
   const bootstrap = usePrd01Store(state => state.bootstrap)
+  const config = usePrd01Store(state => state.config)
   const [questions, setQuestions] = useState<AboutMeQuestion[]>([])
   const [activeCategoryKey, setActiveCategoryKey] = useState('all')
   const [activeTopicKey, setActiveTopicKey] = useState(String(router.params.topic || 'all'))
@@ -32,7 +29,11 @@ export default function ProfileEditAboutPage() {
         await bootstrap()
         const next = (await prd01Api.getAboutMe()).questions || []
         setQuestions(next)
-        const initial = next.find(question => question.questionKey === String(router.params.topic || ''))
+        const configuredNext = filterVisibleAboutQuestions(
+          next,
+          usePrd01Store.getState().config?.fieldSettings || []
+        )
+        const initial = configuredNext.find(question => question.questionKey === String(router.params.topic || ''))
         if (initial) setContent(resolveOwnerVisibleText(initial))
         else setActiveTopicKey('all')
       } catch (error) {
@@ -41,13 +42,30 @@ export default function ProfileEditAboutPage() {
     })()
   }, [])
 
+  const configuredQuestions = useMemo(
+    () => filterVisibleAboutQuestions(questions, config?.fieldSettings || []),
+    [config?.fieldSettings, questions]
+  )
+  const visibleTabs = useMemo(() => buildVisibleAboutTabs(configuredQuestions), [configuredQuestions])
   const isAllTopic = activeTopicKey === 'all'
-  const activeQuestion = questions.find(question => question.questionKey === activeTopicKey)
+  const activeQuestion = configuredQuestions.find(question => question.questionKey === activeTopicKey)
   const visibleQuestions = useMemo(() => {
-    const tab = aboutTabs.find(item => item.key === activeCategoryKey)
-    if (!tab || tab.key === 'all') return questions
-    return questions.filter(question => tab.questionKeys.includes(question.questionKey))
-  }, [activeCategoryKey, questions])
+    const tab = visibleTabs.find(item => item.key === activeCategoryKey)
+    if (!tab || tab.key === 'all') return configuredQuestions
+    return configuredQuestions.filter(question =>
+      tab.questionKeys.some(questionKey => questionKey === question.questionKey)
+    )
+  }, [activeCategoryKey, configuredQuestions, visibleTabs])
+
+  useEffect(() => {
+    if (visibleTabs.length > 0 && !visibleTabs.some(tab => tab.key === activeCategoryKey)) {
+      setActiveCategoryKey(visibleTabs[0].key)
+    }
+    if (!isAllTopic && !activeQuestion) {
+      setActiveTopicKey('all')
+      setContent('')
+    }
+  }, [activeCategoryKey, activeQuestion, isAllTopic, visibleTabs])
 
   const select = (question: AboutMeQuestion) => {
     setActiveTopicKey(question.questionKey)
@@ -86,7 +104,7 @@ export default function ProfileEditAboutPage() {
         <>
           <ScrollView scrollX style={{ width: '750rpx', height: '96rpx', whiteSpace: 'nowrap' }} showScrollbar={false}>
             <View style={{ display: 'inline-flex', height: '96rpx', padding: '0 28rpx', alignItems: 'center' }}>
-              {aboutTabs.map(tab => (
+              {visibleTabs.map(tab => (
                 <View key={tab.key} onClick={() => setActiveCategoryKey(tab.key)} style={{ position: 'relative', height: '58rpx', minWidth: '104rpx', borderRadius: '12rpx', background: activeCategoryKey === tab.key ? '#2876FF' : '#E3F1FE', padding: '0 24rpx', marginRight: '10rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
                   <Text style={{ color: activeCategoryKey === tab.key ? '#FFFFFF' : '#7D8799', fontSize: '27rpx', fontWeight: activeCategoryKey === tab.key ? 700 : 400 }}>{tab.title}</Text>
                   {activeCategoryKey === tab.key ? <View style={{ position: 'absolute', left: '50%', bottom: '-10rpx', width: 0, height: 0, borderLeft: '10rpx solid transparent', borderRight: '10rpx solid transparent', borderTop: '12rpx solid #2876FF', transform: 'translateX(-50%)' }} /> : null}

@@ -34,6 +34,41 @@ export interface KeyedSingleFlight {
   run<T>(key: string, task: () => Promise<T>): Promise<T>
 }
 
+type MiniappRoutePage = {
+  route?: string
+  options?: Record<string, unknown>
+}
+
+type ChatScrollRect = {
+  top: number
+  bottom: number
+}
+
+/** 原生 ScrollView 完成定位后，末尾锚点应落在可视区域内。 */
+export function isChatScrollTargetSettled(
+  viewport: ChatScrollRect | null | undefined,
+  target: ChatScrollRect | null | undefined,
+  tolerance = 2,
+): boolean {
+  if (!viewport || !target) return false
+  if (![viewport.top, viewport.bottom, target.top, target.bottom].every(Number.isFinite)) return false
+  return target.top <= viewport.bottom + tolerance
+    && target.bottom >= viewport.top - tolerance
+}
+
+/** 从私信头像进入用户主页后，复用栈内原会话，避免再压入一个重复聊天页。 */
+export function shouldReturnToPreviousPrivateChat(
+  pages: readonly MiniappRoutePage[],
+  conversationNo: string,
+): boolean {
+  const previous = pages.length > 1 ? pages[pages.length - 2] : undefined
+  if (!previous) return false
+  const route = String(previous.route || '').replace(/^\/+/, '')
+  const previousConversationNo = String(previous.options?.conversationNo || '')
+  return route === 'pages/message/private-chat'
+    && previousConversationNo === String(conversationNo || '')
+}
+
 /** 为外部消息能力设置可恢复的等待上限，避免第三方 Promise 无限占用页面状态。 */
 export function withMessageTimeout<T>(
   promise: Promise<T>,
@@ -175,6 +210,9 @@ const SAFE_MINIAPP_PAGES = new Set([
   '/pages/chat/index',
 ])
 
+const COMMUNITY_RULES_PAGE = '/pages/message/community-rules'
+const LEGACY_MESSAGE_CENTER_HELP_PAGE = '/pages/help/message-center'
+
 export function formatMessageBadge(count: number): string {
   if (!Number.isFinite(count) || count <= 0) return ''
   return count > 99 ? '99+' : String(Math.floor(count))
@@ -193,6 +231,16 @@ export function isSafeSystemJump(type: unknown, value?: unknown): boolean {
   if (type !== 'miniapp_page' || typeof value !== 'string') return false
   const page = value.split('?')[0]
   return SAFE_MINIAPP_PAGES.has(page)
+}
+
+/** 历史助手模板的 help 目标未注册页面，统一落到现有社区规则正文页。 */
+export function resolveAssistantActionPage(type: unknown, value?: unknown): string | null {
+  if (type === 'community_rules') return COMMUNITY_RULES_PAGE
+  if (type !== 'help' || typeof value !== 'string') return null
+  const page = value.trim().split('?')[0]
+  return page === LEGACY_MESSAGE_CENTER_HELP_PAGE || page === COMMUNITY_RULES_PAGE
+    ? COMMUNITY_RULES_PAGE
+    : null
 }
 
 export function resolveMessageError(error: unknown): MessageErrorResolution {

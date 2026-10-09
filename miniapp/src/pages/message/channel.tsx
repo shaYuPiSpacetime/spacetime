@@ -1,7 +1,7 @@
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
-import { isSafeSystemJump } from '@/domain/messageRuntime'
+import { isSafeSystemJump, resolveAssistantActionPage } from '@/domain/messageRuntime'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import type {
@@ -111,8 +111,11 @@ export default function MessageChannelPage() {
     const actionType = item.channel === 'assistant' ? item.value.actionType : item.value.jumpType
     const actionValue = item.channel === 'assistant' ? item.value.actionValue : item.value.jumpValue
     if (!actionType || actionType === 'none') return
-    if (actionType === 'community_rules') {
-      await Taro.navigateTo({ url: COMMUNITY_RULES_URL })
+    const assistantActionPage = item.channel === 'assistant'
+      ? resolveAssistantActionPage(actionType, actionValue)
+      : null
+    if (assistantActionPage) {
+      await Taro.navigateTo({ url: assistantActionPage })
       return
     }
     if (!isSafeSystemJump('miniapp_page', actionValue)) {

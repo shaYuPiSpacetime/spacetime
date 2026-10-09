@@ -40,6 +40,7 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.util.MunicipalityLocationCodes;
 import com.spacetime.common.util.ProfileAgeFilter;
+import com.spacetime.common.util.ProfileZodiac;
 import com.spacetime.common.util.CityNeighborDefaults;
 import com.spacetime.common.util.RecommendBrowseCycle;
 import com.spacetime.common.service.RelationAccessProjectionService;
@@ -400,7 +401,7 @@ public class RecommendServiceImpl implements RecommendService {
             profile.setGender(candidate.getGender());
             profile.setAge(ProfileAgeFilter.currentAge(candidate));
             profile.setHeight(candidate.getHeight());
-            profile.setZodiac(candidate.getZodiac());
+            profile.setZodiac(ProfileZodiac.resolve(candidate));
             profile.setCurrentCity(batchLabel(regionLabels, candidate.getLocationCity()));
             profile.setHometownCity(batchLabel(regionLabels, candidate.getHometownCity()));
             profile.setSchool(candidate.getSchool());

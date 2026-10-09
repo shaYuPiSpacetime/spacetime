@@ -70,6 +70,7 @@ import {
 } from '@/api/verification';
 import { getTwoLevelRegions, type RegionTreeVO } from '@/api/dict';
 import { usePermission } from '@/hooks/usePermission';
+import { formatProfileRegion } from './customerProfileLocation';
 
 type BadgeVariant = 'success' | 'destructive' | 'warning' | 'secondary';
 type TagTone = 'orange' | 'purple' | 'blue' | 'green';
@@ -107,6 +108,7 @@ interface AppUserFilters extends Record<string, string | undefined> {
 interface AdminUserCardItem extends AppUserListVO {
   phone: string;
   city: string;
+  hometown?: string;
   zodiac: string;
   identity: string;
   jobTitle: string;
@@ -806,6 +808,7 @@ function toCardItem(user: AppUserListVO): AdminUserCardItem {
     lastLoginTime: user.lastLoginTime || '-',
     phone: user.phone || '-',
     city: user.city || '-',
+    hometown: '-',
     zodiac: user.zodiac || '-',
     identity: user.identityLabel || user.identity || '-',
     identityCode: user.identityCode,
@@ -843,11 +846,22 @@ function toCardItem(user: AppUserListVO): AdminUserCardItem {
 function toDetailCardItem(detail: AppUserDetailVO, current?: AdminUserCardItem | null): AdminUserCardItem {
   const base = current ?? ({} as AdminUserCardItem);
   const verification = detail.verification;
-  const city = [
-    detail.locationProvinceLabel || detail.locationProvince,
-    detail.locationCityLabel || detail.locationCity,
-    detail.locationDistrictLabel || detail.locationDistrict,
-  ].filter(Boolean).join('') || '-';
+  const city = formatProfileRegion({
+    province: detail.locationProvince,
+    provinceLabel: detail.locationProvinceLabel,
+    city: detail.locationCity,
+    cityLabel: detail.locationCityLabel,
+    district: detail.locationDistrict,
+    districtLabel: detail.locationDistrictLabel,
+  });
+  const hometown = formatProfileRegion({
+    province: detail.hometownProvince,
+    provinceLabel: detail.hometownProvinceLabel,
+    city: detail.hometownCity,
+    cityLabel: detail.hometownCityLabel,
+    district: detail.hometownDistrict,
+    districtLabel: detail.hometownDistrictLabel,
+  });
   const tags = toTagPills(detail.tags);
   const accessStatus = detail.canMatch && detail.canBeExposed ? 'full_access' : detail.canBrowseCards ? 'browse_only' : 'blocked';
   const educationText = [detail.educationLevelLabel || detail.educationLevel, detail.school]
@@ -880,6 +894,7 @@ function toDetailCardItem(detail: AppUserDetailVO, current?: AdminUserCardItem |
     lastLoginTime: detail.lastLoginTime || '-',
     phone: detail.phone || base.phone || '-',
     city,
+    hometown,
     zodiac: detail.zodiac || '-',
     identity: detail.identityLabel || detail.identity || '-',
     identityCode: detail.identityCode,
@@ -2528,7 +2543,7 @@ function ProfileDrawer({
   const basicFields = [
     ['昵称', user?.nickname || '-'],
     ['身高/体重', heightWeight],
-    ['家乡/户口', user?.city || '-'],
+    ['家乡/户口', user?.hometown || '-'],
     ['行业/职业', `${industry} / ${user?.jobTitle || '-'}`],
     ['公司/年收入', `${user?.company || '-'} / ${annualIncome}`],
     ['婚姻状况', maritalStatus],

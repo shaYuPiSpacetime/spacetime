@@ -21,6 +21,8 @@ public interface AppMessageWhisperDao {
     long countPaidVipFree(Long senderUserId, LocalDate benefitDate);
     List<Long> selectRefundingIds(int limit);
     List<AppMessageWhisper> selectRefundedWithoutMessage(LocalDateTime updatedAfter, int limit);
+    List<AppMessageWhisper> selectReplyReservationsReadyToFinalize(Long afterId, int limit);
+    List<AppMessageWhisper> selectReplyReservationsReadyToRelease(Long afterId, int limit);
     List<AppMessageWhisper> selectPending(Long userId, String direction, Long cursorId,
                                           int size, LocalDateTime now);
     List<AppMessageWhisper> selectVisible(Long userId, String direction, String bucket,
@@ -43,6 +45,8 @@ public interface AppMessageWhisperDao {
                      LocalDateTime reservedAt);
     int releaseReplyReservation(Long id, String requestId, Long replyMessageId,
                                 LocalDateTime releasedAt);
+    int releaseFailedReplyReservation(Long id, String requestId, Long replyMessageId,
+                                      LocalDateTime releasedAt);
     int transitionToReplied(AppMessageWhisper entity, int expectedVersion);
     int confirmRequestDelivery(Long requestMessageId, LocalDateTime deliveredAt);
     int failRequestDelivery(Long requestMessageId, String reason, LocalDateTime failedAt);

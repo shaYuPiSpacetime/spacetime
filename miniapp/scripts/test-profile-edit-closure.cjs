@@ -20,6 +20,57 @@ function loadTypeScriptModule(relativePath) {
   return loaded.exports
 }
 
+test('关于我题目和分类按后台字段 visible 配置动态展示', () => {
+  const visibilityPath = 'src/domain/profileAboutVisibility.ts'
+  assert.ok(fs.existsSync(path.join(root, visibilityPath)), '缺少关于我字段可见性领域模型')
+
+  const {
+    filterVisibleAboutQuestions,
+    buildVisibleAboutTabs,
+    visibleAboutFieldKeys,
+  } = loadTypeScriptModule(visibilityPath)
+  const questions = [
+    { questionKey: 'housingStatus', title: '住房情况' },
+    { questionKey: 'carStatus', title: '购车情况' },
+    { questionKey: 'meetingPreference', title: '见面偏好' },
+    { questionKey: 'smoking', title: '吸烟情况' },
+  ]
+  const fieldSettings = [
+    { fieldId: 'housingStatus', visible: false },
+    { fieldId: 'meetingPreference', visible: true },
+    { fieldId: 'smoking', visible: false },
+  ]
+
+  const visibleQuestions = filterVisibleAboutQuestions(questions, fieldSettings)
+  assert.deepEqual(
+    visibleQuestions.map(item => item.questionKey),
+    ['carStatus', 'meetingPreference'],
+    '明确关闭的题目必须隐藏，配置缺失的题目必须兼容为展示'
+  )
+  assert.equal(visibleAboutFieldKeys(fieldSettings).includes('housingStatus'), false)
+  assert.equal(visibleAboutFieldKeys(fieldSettings).includes('carStatus'), true)
+  assert.deepEqual(
+    buildVisibleAboutTabs(visibleQuestions).map(item => item.key),
+    ['all', 'self', 'love'],
+    '没有可见题目的分类 Tab 必须隐藏'
+  )
+  assert.deepEqual(buildVisibleAboutTabs([]), [], '没有任何可见题目时不得展示空 Tab')
+})
+
+test('关于我编辑页消费运行配置并隐藏关闭题目和空分类', () => {
+  const aboutPage = read('src/pages/profile-edit/about.tsx')
+
+  assert.match(aboutPage, /usePrd01Store\(state => state\.config\)/, '页面必须读取后台运行配置')
+  assert.match(
+    aboutPage,
+    /filterVisibleAboutQuestions\(questions, config\?\.fieldSettings \|\| \[\]\)/,
+    '题目列表必须按 fieldSettings.visible 过滤'
+  )
+  assert.match(aboutPage, /buildVisibleAboutTabs\(configuredQuestions\)/, '分类 Tab 必须由可见题目动态生成')
+  assert.match(aboutPage, /visibleTabs\.map\(tab =>/, '页面只能渲染过滤后的分类 Tab')
+  assert.doesNotMatch(aboutPage, /aboutTabs\.map\(tab =>/, '禁止继续渲染固定完整分类 Tab')
+})
+
 test('主页预览无未定义组件且按产品要求隐藏 MBTI 模块', () => {
   const edit = read('src/pages/profile/edit.tsx')
   const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
@@ -27,6 +78,15 @@ test('主页预览无未定义组件且按产品要求隐藏 MBTI 模块', () =>
   assert.doesNotMatch(preview, /<EmptyText\b/, '主页预览禁止引用未定义的 EmptyText')
   assert.doesNotMatch(edit, /<MbtiSection\b/, '编辑资料页必须继续隐藏 MBTI 模块')
   assert.doesNotMatch(preview, /<ProfilePreviewMbti\b/, '主页预览必须继续隐藏 MBTI 模块')
+})
+
+test('主页预览只展示真实认证标签，不展示前端推算的可信度百分比', () => {
+  const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
+
+  assert.doesNotMatch(preview, /showTrustPercent/, '主页预览认证组件不应保留可信度展示开关')
+  assert.doesNotMatch(preview, /trustPercent|verifiedCount/, '禁止根据认证通过数量在前端推算可信度百分比')
+  assert.doesNotMatch(preview, />可信度</, '主页预览不得展示可信度文案')
+  assert.match(preview, /data-certification=\{item\.key\}/, '头像、实名、学历认证标签必须保留')
 })
 
 test('主页预览空内容和空图片不生成占位模块', () => {
@@ -122,6 +182,40 @@ test('关于我无填写默认三项，有填写时按真实填写条数回显',
   assert.equal(filled[0].value, '周末喝咖啡或一起散步', '无最新内容时使用已生效内容')
   assert.equal(filled[1].title, '购车情况', '额外已填写问题必须使用接口标题完整回显')
   assert.equal(filled[1].value, '已有代步车', '本人页优先回显最新填写内容')
+
+  const configuredDefaults = buildProfileAboutSummary([], ['housingStatus'])
+  assert.deepEqual(
+    configuredDefaults.map(item => item.key),
+    ['housingStatus'],
+    '默认摘要也必须排除后台关闭的字段'
+  )
+  assert.deepEqual(buildProfileAboutSummary([], []), [], '所有关于我字段关闭时不得生成默认摘要')
+})
+
+test('资料编辑页关于我摘要和入口同步后台字段显隐', () => {
+  const edit = read('src/pages/profile/edit.tsx')
+
+  assert.match(edit, /visibleAboutFieldKeys\(fieldSettings\)/, '主页面必须派生可见关于我字段集合')
+  assert.match(
+    edit,
+    /filterVisibleAboutQuestions\(aboutDetail\.questions, aboutFieldSettings\)/,
+    '首次加载摘要必须过滤后台关闭的题目'
+  )
+  assert.match(
+    edit,
+    /filterVisibleAboutQuestions\(update\.questions, fieldSettings\)/,
+    '子页面回传后仍必须按当前配置过滤'
+  )
+  assert.match(
+    edit,
+    /aboutVisibilityReady && visibleAboutKeys\.length > 0 \? \(/,
+    '配置加载完成前或全部字段关闭时必须隐藏关于我区块入口'
+  )
+  assert.match(
+    edit,
+    /aboutStoryPrompts\.filter\(item => visibleFieldKeys\.includes\(item\.fieldId\)\)/,
+    '摘要区固定推荐词也必须隐藏后台关闭的字段'
+  )
 })
 
 test('编辑资料地区优先展示接口标签，缺标签时按省市树回显中文', () => {
@@ -756,7 +850,8 @@ test('四个蓝湖二级页具备独立结构和首屏数据', () => {
   assert.match(certification, /data-role="certification-detail-card"/, '我的认证页缺少独立详情卡片')
   assert.match(tags, /data-role="selected-tag-drawer"/, '我的标签页缺少底部已选区')
   assert.match(tags, /width: '206rpx'/, '我的标签页必须为三列布局')
-  assert.match(about, /const aboutTabs/, '关于我页面缺少顶部分类')
+  assert.match(about, /buildVisibleAboutTabs\(configuredQuestions\)/, '关于我页面必须按可见题目生成顶部分类')
+  assert.match(about, /visibleTabs\.map\(tab =>/, '关于我页面缺少动态顶部分类')
   assert.match(about, /question\.placeholder/, '关于我卡片必须展示接口副标题')
   assert.match(songs, /placeholder="请输入你爱听的歌曲名称"/, '歌曲页必须提供手动名称输入框')
   assert.match(songs, /saveFavoriteSong\(\{ songName: normalized \}\)/, '歌曲页必须只保存用户输入的名称')
@@ -798,7 +893,10 @@ test('编辑资料二级页沿用渐变导航并严格使用蓝湖歌曲与关�
   assert.match(nav, /background="transparent"/, '二级导航必须透出页面渐变背景')
   assert.match(songs, /title="爱听的歌曲"/, '歌曲页标题必须与蓝湖一致')
   assert.doesNotMatch(songs, /song\.coverUrl/, '歌曲列表必须统一使用蓝湖音乐圆盘图标')
-  assert.match(edit, /const aboutStoryPrompts = \['购车情况\?', '是否想要孩子\?', '有无子女\?'\]/, '关于我补充项只能展示蓝湖明确的三项')
+  assert.match(edit, /fieldId: 'carStatus', label: '购车情况\?'/, '关于我补充项缺少购车情况配置映射')
+  assert.match(edit, /fieldId: 'childrenPlan', label: '是否想要孩子\?'/, '关于我补充项缺少生育计划配置映射')
+  assert.match(edit, /fieldId: 'hasChild', label: '有无子女\?'/, '关于我补充项缺少子女情况配置映射')
+  assert.match(edit, /aboutStoryPrompts\.filter\(item => visibleFieldKeys\.includes\(item\.fieldId\)\)/, '关于我补充项必须按后台字段配置动态展示')
   assert.match(edit, /function RightChevron/, '页面右箭头必须使用稳定图形组件')
   assert.match(edit, /function VoiceActionIcon/, '语音操作图标必须使用稳定图形组件')
 })

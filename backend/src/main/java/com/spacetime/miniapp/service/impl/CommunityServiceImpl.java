@@ -26,6 +26,7 @@ import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import com.spacetime.common.service.RelationDomainService;
 import com.spacetime.common.util.OssUtil;
+import com.spacetime.common.util.ProfileZodiac;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -2430,7 +2431,7 @@ public class CommunityServiceImpl implements CommunityService {
             vo.setAuthorGender(author.getGender());
             vo.setAuthorAge(author.getAge());
             vo.setAuthorCity(batchProfileLabel(batch.cityLabels(), author.getLocationCity()));
-            vo.setAuthorZodiac(author.getZodiac());
+            vo.setAuthorZodiac(ProfileZodiac.resolve(author));
             vo.setAuthorAnnualIncome(author.getAnnualIncome());
             vo.setAuthorProfession(batchProfileLabel(batch.occupationLabels(), author.getOccupation()));
         }
@@ -2498,7 +2499,7 @@ public class CommunityServiceImpl implements CommunityService {
             vo.setAuthorGender(author.getGender());
             vo.setAuthorAge(author.getAge());
             vo.setAuthorCity(profileLabel(ProfileDictType.CHINA_REGION, author.getLocationCity()));
-            vo.setAuthorZodiac(author.getZodiac());
+            vo.setAuthorZodiac(ProfileZodiac.resolve(author));
             vo.setAuthorAnnualIncome(author.getAnnualIncome());
             vo.setAuthorProfession(profileLabel(ProfileDictType.OCCUPATION, author.getOccupation()));
         }

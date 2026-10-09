@@ -24,6 +24,7 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.Prd01ProfileCompletenessCalculator;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.util.ProfileZodiac;
 import com.spacetime.common.util.DefaultNicknameGenerator;
 import com.spacetime.miniapp.dto.request.BasicProfileSaveReq;
 import com.spacetime.miniapp.dto.request.FavoriteSongSaveReq;
@@ -737,9 +738,7 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setPhotos(toJson(auditContentService.ownerAlbumPhotos(user.getId())));
         vo.setProfileBgImage(auditContentService.ownerProfileBackground(user.getId()));
         vo.setMbtiType(user.getMbtiType());
-        vo.setZodiac(user.getBirthday() == null
-                ? user.getZodiac()
-                : scoreConfig.calculateZodiac(user.getBirthday()));
+        vo.setZodiac(ProfileZodiac.resolve(user));
         vo.setProfileScore(profileCompletenessCalculator.calculate(user));
         vo.setFirstLoginCompleted(user.getFirstLoginCompleted() != null && user.getFirstLoginCompleted() == 1);
         if (includeAccessStatus) {
@@ -773,7 +772,7 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setGender(user.getGender());
         vo.setBirthday(user.getBirthday() == null ? null : user.getBirthday().toString());
         vo.setAge(user.getBirthday() == null ? user.getAge() : scoreConfig.calculateAge(user.getBirthday()));
-        vo.setZodiac(user.getZodiac());
+        vo.setZodiac(ProfileZodiac.resolve(user));
         vo.setHeight(user.getHeight());
         vo.setWeight(user.getWeight());
         vo.setIdentity(user.getIdentity());

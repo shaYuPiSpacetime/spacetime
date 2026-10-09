@@ -41,6 +41,7 @@ import com.spacetime.common.service.MiniappPresenceService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.common.service.RelationDomainService;
+import com.spacetime.common.util.ProfileZodiac;
 import com.spacetime.miniapp.dto.request.LikesMeReadReq;
 import com.spacetime.miniapp.dto.request.MatchPopupReadReq;
 import com.spacetime.miniapp.dto.request.RelationLikeCreateReq;
@@ -1028,8 +1029,9 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         if (sameText(current.getHometownCity(), target.getHometownCity())) {
             tags.add("同乡");
         }
-        if (StringUtils.hasText(target.getZodiac())) {
-            tags.add(target.getZodiac());
+        String zodiac = ProfileZodiac.resolve(target);
+        if (StringUtils.hasText(zodiac)) {
+            tags.add(zodiac);
         }
         return tags.stream().limit(2).toList();
     }

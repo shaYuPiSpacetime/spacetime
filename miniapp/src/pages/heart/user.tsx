@@ -7,6 +7,7 @@ import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { resolveReplayProfileStep } from '@/domain/recommendReplay'
+import { shouldReturnToPreviousPrivateChat } from '@/domain/messageRuntime'
 import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
 import { buildPublicProfileCertifications } from '@/domain/publicProfileCertification'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
@@ -269,6 +270,10 @@ export default function HeartUserPage() {
     }
     try {
       const conversation = await resolveConversationByPeerUserId(profile.userId)
+      if (shouldReturnToPreviousPrivateChat(Taro.getCurrentPages(), conversation.conversationNo)) {
+        await Taro.navigateBack({ delta: 1 })
+        return
+      }
       await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}` })
     } catch (error) {
       await Taro.showToast({ title: error instanceof Error ? error.message : '私信会话暂不可用，请刷新后重试', icon: 'none' })

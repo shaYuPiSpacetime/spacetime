@@ -118,7 +118,7 @@ export default function ProfilePreviewPage({
             {visibleContent.introduction ? <ProfilePreviewIntroduction introduction={visibleContent.introduction} /> : null}
             {visibleContent.photos[0] ? <ProfilePreviewPhoto url={visibleContent.photos[0]} /> : null}
             {(variant === 'public-profile' ? model.certifications.length > 0 : visibleContent.showCertification)
-              ? <ProfilePreviewCertification certifications={model.certifications} showTrustPercent={variant === 'owner-preview'} />
+              ? <ProfilePreviewCertification certifications={model.certifications} />
               : null}
             {visibleContent.photos[1] ? <ProfilePreviewPhoto url={visibleContent.photos[1]} /> : null}
             {visibleContent.favoriteSong ? <ProfilePreviewSong favoriteSong={visibleContent.favoriteSong} /> : null}
@@ -393,9 +393,7 @@ function ProfilePreviewPhoto({ url }: { url: string }) {
   )
 }
 
-function ProfilePreviewCertification({ certifications, showTrustPercent }: { certifications: ProfilePreviewModel['certifications']; showTrustPercent: boolean }) {
-  const verifiedCount = certifications.filter(item => item.passed).length
-  const trustPercent = certifications.length ? Math.round((verifiedCount / certifications.length) * 100) : 0
+function ProfilePreviewCertification({ certifications }: { certifications: ProfilePreviewModel['certifications'] }) {
   return (
     <View
       data-role="profile-preview-certifications"
@@ -438,15 +436,6 @@ function ProfilePreviewCertification({ certifications, showTrustPercent }: { cer
           </View>
         ))}
       </View>
-      {showTrustPercent ? <View style={{ position: 'absolute', right: '0', top: '0', width: '185rpx', height: '198rpx', background: 'linear-gradient(180deg, rgba(40,118,255,0.10) 0%, rgba(255,255,255,0.3) 100%)', clipPath: 'polygon(50% 0, 65% 12%, 100% 16%, 100% 55%, 86% 78%, 50% 100%, 14% 78%, 0 55%, 0 16%, 35% 12%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '39rpx' }}>
-          <View style={{ width: '22rpx', height: '22rpx', borderRadius: '11rpx', border: '2rpx solid #999999', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#999999', fontSize: '16rpx', lineHeight: '18rpx' }}>?</Text>
-          </View>
-          <Text style={{ color: mainBlue, fontSize: '22rpx', lineHeight: '30rpx', marginLeft: '8rpx' }}>可信度</Text>
-        </View>
-        <Text style={{ color: mainBlue, fontSize: '48rpx', lineHeight: '67rpx', fontWeight: 600, marginTop: '-3rpx' }}>{trustPercent}%</Text>
-      </View> : null}
     </View>
   )
 }

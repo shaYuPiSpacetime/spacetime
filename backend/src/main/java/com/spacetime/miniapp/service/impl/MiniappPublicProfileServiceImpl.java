@@ -26,6 +26,7 @@ import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
+import com.spacetime.common.util.ProfileZodiac;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.service.MiniappPublicProfileService;
 import com.spacetime.miniapp.service.RecommendReplayAccessService;
@@ -112,7 +113,7 @@ public class MiniappPublicProfileServiceImpl implements MiniappPublicProfileServ
         result.setGender(target.getGender());
         result.setAge(target.getAge());
         result.setHeight(target.getHeight());
-        result.setZodiac(target.getZodiac());
+        result.setZodiac(ProfileZodiac.resolve(target));
         result.setCurrentCity(profileLabel(ProfileDictType.CHINA_REGION, target.getLocationCity()));
         result.setHometownCity(profileLabel(ProfileDictType.CHINA_REGION, target.getHometownCity()));
         AppUserAuditRecord effectiveEducation = auditService.latestEffectiveRecord(

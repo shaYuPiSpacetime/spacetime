@@ -16,6 +16,11 @@ export function ensureUnlockAttempt(currentAttempt, quoteToken, createRequestId)
   }
 }
 
+/** 保留业务编号用于排查，同时确保请求键适配后端 varchar(64)。 */
+export function createUnlockRequestId(bizNo, timestamp = Date.now(), random = Math.random().toString(16).slice(2, 10)) {
+  return `unlock-${bizNo}-${timestamp.toString(36)}-${random}`
+}
+
 export function resolveRelationApiBaseUrl(productionUrl, e2eMode, e2eUrl) {
   if (e2eMode !== 'true' || !e2eUrl) return productionUrl
   const localHttpPattern = /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(?:\/|$)/

@@ -26,6 +26,8 @@ class MessageSchemaSqlTest {
             "deploy/sql/prod/075_prd03_tim_message_lookup_index.sql";
     private static final String IM_ACCOUNT_SDK_APP_OWNERSHIP =
             "deploy/sql/prod/076_prd03_im_account_sdk_app_id.sql";
+    private static final String WHISPER_REPLY_RECONCILE_INDEX =
+            "deploy/sql/prod/102_prd03_whisper_reply_reconcile_index.sql";
     private static final String BACKEND_DEPLOY_WORKFLOW =
             ".github/workflows/deploy-backend-prod.yml";
     private static final List<String> TABLES = List.of(
@@ -110,6 +112,20 @@ class MessageSchemaSqlTest {
                 .contains("INDEX `idx_message_record_tim_message_id` (`tim_message_id`)");
         assertThat(workflow)
                 .contains("deploy/sql/prod/075_prd03_tim_message_lookup_index.sql");
+    }
+
+    @Test
+    @DisplayName("悄悄话回复卡单扫描应具备生产索引")
+    void whisperReplyReconcileShouldHaveProductionIndex() throws IOException {
+        Path migrationPath = resolveProjectFile(WHISPER_REPLY_RECONCILE_INDEX);
+        String workflow = readProjectFile(BACKEND_DEPLOY_WORKFLOW);
+
+        assertThat(migrationPath).exists();
+        String migration = Files.readString(migrationPath, StandardCharsets.UTF_8);
+        assertThat(migration)
+                .contains("idx_message_whisper_reply_reconcile")
+                .contains("(`deleted`, `status`, `reply_request_id`, `id`)");
+        assertThat(workflow).contains(WHISPER_REPLY_RECONCILE_INDEX);
     }
 
     @Test

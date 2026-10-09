@@ -66,6 +66,47 @@ test('私信时间按本地日期和相邻消息十分钟间隔显示', () => {
   assert.match(styles, /\.chat-message-time\s*\{/)
 })
 
+test('私信连续数字和无空格长文本必须限制在消息气泡内换行', () => {
+  const privateChat = read('src/pages/message/private-chat.tsx')
+  const styles = read('src/pages/message/message.scss')
+
+  assert.match(
+    privateChat,
+    /<Text className="chat-bubble-text">\{message\.content\}<\/Text>/,
+    '消息正文必须有独立样式入口'
+  )
+  assert.match(
+    styles,
+    /\.chat-bubble\s*\{[\s\S]*?min-width:\s*0;/,
+    '气泡作为 flex 子项时必须允许收缩到最大宽度内'
+  )
+  assert.match(
+    styles,
+    /\.chat-bubble-text\s*\{[\s\S]*?word-break:\s*break-all;[\s\S]*?overflow-wrap:\s*anywhere;/,
+    '连续数字和无空格长文本必须在气泡边界内强制断行'
+  )
+})
+
+test('从聊天进入用户主页后再次点私信必须复用上一层同会话页面', () => {
+  const { shouldReturnToPreviousPrivateChat } = requireDomain('src/domain/messageRuntime.ts')
+  const profile = read('src/pages/heart/user.tsx')
+
+  assert.equal(shouldReturnToPreviousPrivateChat([
+    { route: 'pages/message/private-chat', options: { conversationNo: 'CV-1001' } },
+    { route: 'pages/heart/user', options: { targetUserId: '9' } },
+  ], 'CV-1001'), true)
+  assert.equal(shouldReturnToPreviousPrivateChat([
+    { route: 'pages/message/private-chat', options: { conversationNo: 'CV-OTHER' } },
+    { route: 'pages/heart/user', options: { targetUserId: '9' } },
+  ], 'CV-1001'), false)
+  assert.match(
+    profile,
+    /shouldReturnToPreviousPrivateChat\(Taro\.getCurrentPages\(\), conversation\.conversationNo\)/,
+    '用户主页应识别上一层是否已经是当前私信会话'
+  )
+  assert.match(profile, /await Taro\.navigateBack\(\{ delta: 1 \}\)/, '命中同会话时应直接返回复用原页面')
+})
+
 test('私信发送保留键盘，键盘弹出和发送后消息区露出最新消息', () => {
   const privateChat = read('src/pages/message/private-chat.tsx')
   assert.match(privateChat, /holdKeyboard/)
@@ -79,17 +120,42 @@ test('私信发送保留键盘，键盘弹出和发送后消息区露出最新�
   assert.doesNotMatch(privateChat, /setInputFocused\(false\)[\s\S]*?setTimeout\(\(\) => setInputFocused\(true\), 0\)/)
 })
 
+test('私信点击消息区域时显式收起键盘，但发送按钮仍保留键盘', () => {
+  const privateChat = read('src/pages/message/private-chat.tsx')
+  const dismissHandlers = privateChat.match(/const dismissKeyboard = \(\) => \{[\s\S]*?Taro\.hideKeyboard\(\)[\s\S]*?\n  \}/g) || []
+  const scrollDismissBindings = privateChat.match(/onClick=\{dismissKeyboard\}/g) || []
+
+  assert.equal(dismissHandlers.length, 2, '待回复私信和正式私信都要提供显式收起键盘处理')
+  assert.equal(scrollDismissBindings.length, 2, '两个私信消息滚动区域点击后都应收起键盘')
+  for (const handler of dismissHandlers) {
+    assert.match(handler, /setInputFocused\(false\)/)
+    assert.match(handler, /setKeyboardHeight\(0\)/)
+  }
+  assert.match(privateChat, /holdKeyboard/, '发送按钮交互仍需保留键盘')
+})
+
 test('私信历史首次加载完成后重新定位最新消息，加载更早记录不强制回底', () => {
   const privateChat = read('src/pages/message/private-chat.tsx')
+  const styles = read('src/pages/message/message.scss')
+  const { isChatScrollTargetSettled } = requireDomain('src/domain/messageRuntime.ts')
   const initialHistory = privateChat.match(/const revealInitial = \(items: ChatMessage\[\]\) => \{[\s\S]*?const localHistoryPromise/)?.[0] || ''
   const olderHistory = privateChat.match(/const loadEarlier = async \(\) => \{[\s\S]*?\n  \}/)?.[0] || ''
+  const timHistoryMerge = privateChat.match(/const page = await withMessageTimeout\([\s\S]*?revealInitial\(upsertMessages\(localHistory\.page\?\.list \|\| \[\], page\.list\)\)/)?.[0] || ''
 
+  assert.equal(isChatScrollTargetSettled({ top: 88, bottom: 700 }, { top: 699, bottom: 699 }), true)
+  assert.equal(isChatScrollTargetSettled({ top: 88, bottom: 700 }, { top: 904, bottom: 904 }), false)
   assert.match(privateChat, /scrollIntoView=\{scrollTarget\}/, '滚动目标不能在异步消息加载前固定为底部')
   assert.match(privateChat, /Taro\.nextTick\([\s\S]*?setScrollTarget/, '应等历史消息渲染后再改变滚动目标')
   assert.match(privateChat, /current === 'chat-bottom-a' \? 'chat-bottom-b' : 'chat-bottom-a'/, '重复打开会话时也应改变滚动目标')
   assert.match(privateChat, /id="chat-bottom-a"[\s\S]*?id="chat-bottom-b"/, '两个滚动锚点必须始终位于消息末尾')
-  assert.match(initialHistory, /requestScrollToLatest\(\)/, '首次历史记录就绪后必须滚到最新消息')
+  assert.doesNotMatch(initialHistory, /setTimeout\(/, '首屏揭示不能依赖固定延时，否则慢设备会先露出中间滚动位置')
+  assert.match(initialHistory, /requestScrollToLatest\(\(\) =>/, '首屏必须在滚动目标渲染完成后再揭示内容')
+  assert.match(privateChat, /Taro\.createSelectorQuery\(\)[\s\S]*?isChatScrollTargetSettled/, '必须确认微信原生滚动容器已真正定位到底部后再揭示首屏')
+  assert.match(privateChat, /private-chat-skeleton--hidden/, '加载层必须保留并淡出，不能在原生滚动完成时直接卸载造成闪白')
+  assert.match(styles, /\.private-chat-skeleton--hidden\s*\{[\s\S]*?opacity:\s*0;/, '加载层完成后应与稳定正文交叉淡出')
+  assert.match(privateChat, /if \(!hasCompletedInitialShowRef\.current\) \{[\s\S]*?hasCompletedInitialShowRef\.current = true[\s\S]*?return/, '首次进入只能由挂载加载一次，不能再被 useDidShow 重复触发')
   assert.match(privateChat, /revealInitial\(localHistory\.page\?\.list \|\| \[\]\)/, '本地历史完成后必须结束首屏定位')
+  assert.doesNotMatch(timHistoryMerge, /page\.list\.length > 0\) requestScrollToLatest\(\)/, 'TIM 历史合并不能在首屏揭示后再次强制跳到底部')
   assert.doesNotMatch(olderHistory, /requestScrollToLatest\(\)/, '上翻加载历史不能把用户拉回底部')
 })
 
@@ -121,6 +187,20 @@ test('未知会话状态、协议和系统跳转默认安全降级', () => {
   assert.equal(isSafeSystemJump('miniapp_page', '/pages/profile/index'), true)
   assert.equal(isSafeSystemJump('miniapp_page', 'https://evil.example'), false)
   assert.equal(isSafeSystemJump('future_jump', '/pages/profile/index'), false)
+})
+
+test('历史官方助手 help 动作跳转到社区规则正文页', () => {
+  const { resolveAssistantActionPage } = requireDomain('src/domain/messageRuntime.ts')
+
+  assert.equal(
+    resolveAssistantActionPage('help', '/pages/help/message-center'),
+    '/pages/message/community-rules',
+  )
+  assert.equal(
+    resolveAssistantActionPage('community_rules', null),
+    '/pages/message/community-rules',
+  )
+  assert.equal(resolveAssistantActionPage('help', 'https://evil.example'), null)
 })
 
 test('30001 至 30024 错误码返回明确且保守的页面动作', () => {
@@ -505,8 +585,10 @@ test('页面移除硬编码私信和退役悄悄话交互，接入受限态与�
   assert.match(privateChat, /cursor\.lastMessageNo/, '存在平台 messageNo 时应以平台编号推进已读')
   assert.match(privateChat, /cursor\.timMessageId/, '普通消息应使用 TIM 定位字段推进已读')
   assert.match(privateChat, /onLongPress/)
-  assert.match(privateChat, /sourceType=private_chat/)
-  assert.match(privateChat, /targetId=\$\{encodeURIComponent\(conversationNo\)\}/)
+  assert.match(privateChat, /reportSourceType\s*=\s*message\s*\?\s*'message'\s*:\s*'private_chat'/)
+  assert.match(privateChat, /reportTargetId\s*=\s*message\?\.messageNo/)
+  assert.match(privateChat, /sourceType=\$\{reportSourceType\}/)
+  assert.match(privateChat, /targetId=\$\{encodeURIComponent\(reportTargetId\)\}/)
   assert.match(whisperList, /readWhispers/)
   assert.match(channel, /readAck|acceptedNos/)
   assert.match(report, /已拉黑并提交举报/)
@@ -584,8 +666,12 @@ test('私信和悄悄话举报使用动态原因与统一 chat 契约', () => {
 
   assert.match(service, /\/miniapp\/community\/config/)
   assert.match(service, /evidenceImageUrls\?:\s*string\[\]/)
+  assert.match(service, /sourceType:\s*'message'\s*\|\s*'private_chat'\s*\|\s*'whisper'/)
   assert.match(report, /targetType:\s*'chat'/)
   assert.match(report, /targetId,/)
+  assert.match(report, /router\.params\.sourceType\s*===\s*'message'/)
+  assert.match(report, /getApiErrorCode\(error\)\s*===\s*505008/)
+  assert.match(report, /getApiErrorCode\(error\)\s*===\s*505008[\s\S]*setSuccess\(true\)/)
   assert.match(report, /getCommunityReportConfig/)
   assert.match(report, /report-evidence/)
   assert.match(report, /chooseMedia/)

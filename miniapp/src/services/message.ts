@@ -86,7 +86,7 @@ export interface MessageReportInput {
   reasonCode: MessageReportReasonCode
   extraText?: string
   evidenceImageUrls?: string[]
-  sourceType: 'private_chat' | 'whisper'
+  sourceType: 'message' | 'private_chat' | 'whisper'
   conversationNo?: string
   whisperNo?: string
   messageNo?: string
