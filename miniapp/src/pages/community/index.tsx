@@ -32,7 +32,6 @@ import {
   markLikesMeRead,
   markMatchPopupRead,
   markRecentViewersRead,
-  quoteRelationUnlock,
   type LikesMeItemVO,
   type LikesMePageVO,
   type MatchPopupAction,
@@ -308,47 +307,6 @@ export default function CommunityPage() {
     void Taro.navigateTo({ url: `/pages/coins/unlock-recharge?sourceScene=${currentUnlockScene}` })
   }
 
-  const requestUnlockQuote = async () => {
-    if (!selectedCard || unlockSubmitting) return
-    setUnlockSubmitting(true)
-    try {
-      const isVisitor = activeTab === 'visitors'
-      const quote = await quoteRelationUnlock(
-        isVisitor ? 'viewers_unlock_one' : 'likes_unlock_one',
-        isVisitor ? 'visit' : 'like',
-        selectedCard.recordNo,
-      )
-      setUnlockQuote(quote)
-      if (quote.alreadyUnlocked) {
-        await refreshActiveList()
-        setUnlockStage('success')
-        return
-      }
-      if (quote.coinBalance < quote.unitPrice) {
-        setUnlockStage('closed')
-        void Taro.navigateTo({
-          url: `/pages/coins/unlock-recharge?sourceScene=${currentUnlockScene}&cost=${quote.unitPrice}&balance=${quote.coinBalance}`,
-        })
-        return
-      }
-      if (!quote.quoteToken) throw new Error('报价已失效，请重试')
-      unlockAttemptRef.current = ensureUnlockAttempt(
-        undefined,
-        quote.quoteToken,
-        () => createRequestId('unlock', quote.targetBizNo),
-      )
-      setUnlockStage('quote')
-    } catch (error) {
-      if (isInsufficientCoinBalance(error)) {
-        goToRecharge()
-        return
-      }
-      await Taro.showToast({ title: error instanceof Error ? error.message : '获取报价失败', icon: 'none' })
-    } finally {
-      setUnlockSubmitting(false)
-    }
-  }
-
   const confirmUnlock = async () => {
     if (!unlockQuote?.quoteToken || unlockSubmitting) return
     const attempt = ensureUnlockAttempt(
@@ -483,7 +441,7 @@ export default function CommunityPage() {
         submitting={unlockSubmitting}
         sourceScene={activeTab === 'likes' ? 'likes_me' : 'recent_viewers'}
         onClose={() => !unlockSubmitting && setUnlockStage('closed')}
-        onQuote={() => void requestUnlockQuote()}
+        onQuote={goToRecharge}
         onConfirm={() => void confirmUnlock()}
       />
 
