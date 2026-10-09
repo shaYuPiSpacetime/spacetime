@@ -353,6 +353,12 @@ test('推荐身高和体重双滑块覆盖后端全量范围并可回显历史�
   assert.match(weightRange, /max=\{200\}/, '体重最大值必须与后端 200kg 一致')
   assert.match(weightRange, /low=\{advanced\.minWeight \?\? 30\}/, '必须回显历史体重下限')
   assert.match(weightRange, /high=\{advanced\.maxWeight \?\? 200\}/, '必须回显历史体重上限')
+  assert.match(source, /function formatWeightLimit[\s\S]{0,160}`\$\{value\}kg`/, '有效体重数字后必须追加 kg 单位')
+  assert.match(
+    weightRange,
+    /value=\{`\$\{formatWeightLimit\(advanced\.minWeight\)\}-\$\{formatWeightLimit\(advanced\.maxWeight\)\}`\}/,
+    '体重偏好必须展示为“下限kg-上限kg”',
+  )
 })
 
 test('理想型筛选、结果、报价、确认、历史和帮助形成完整闭环', () => {

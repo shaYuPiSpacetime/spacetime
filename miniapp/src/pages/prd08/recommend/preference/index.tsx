@@ -42,6 +42,10 @@ function normalizeOptionalRange(
   return { low: normalizedLow, high: normalizedHigh }
 }
 
+function formatWeightLimit(value: number | null | undefined) {
+  return value == null ? '不限' : `${value}kg`
+}
+
 export default function RecommendPreferencePage() {
   const [model, setModel] = useState<RecommendPreferenceVO | null>(null)
   const [cities, setCities] = useState<RegionTreeOption[]>([])
@@ -347,7 +351,7 @@ export default function RecommendPreferencePage() {
             />
             <RangeSection
               title="体重偏好"
-              value={`${advanced.minWeight ?? '不限'}-${advanced.maxWeight ?? '不限'}`}
+              value={`${formatWeightLimit(advanced.minWeight)}-${formatWeightLimit(advanced.maxWeight)}`}
               min={30}
               max={200}
               low={advanced.minWeight ?? 30}
