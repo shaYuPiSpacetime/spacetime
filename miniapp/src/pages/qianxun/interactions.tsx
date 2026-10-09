@@ -557,28 +557,24 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage, onFailure 
     }
   }
   return (
-    <View onClick={open} style={{ padding: '30rpx 0 24rpx', borderBottom: '2rpx solid #EEF3F8' }}>
+    <View className="qianxun-my-post-card" onClick={open} style={{ padding: '30rpx 0 24rpx', borderBottom: '2rpx solid #EEF3F8' }}>
       <View style={{ display: 'flex', alignItems: 'flex-start' }}>
-        <View style={{ width: '130rpx', display: 'flex', alignItems: 'baseline', flexShrink: 0 }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
-        <View style={{ flex: 1, minWidth: 0 }}>
+        <View data-role="qianxun-my-post-date-column" style={{ width: '130rpx', flexShrink: 0 }}>
+          <View className="qianxun-my-post-date" data-role="qianxun-my-post-date" style={{ height: '48rpx', display: 'flex', alignItems: 'baseline' }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
+          {item.status !== 'published' ? <View className="qianxun-my-post-status-slot" data-role="qianxun-my-post-status-slot" style={{ marginTop: '20rpx' }}><QianxunPostStatusBadge config={config} status={item.status} statusName={item.statusName} onFailure={onFailure} /></View> : null}
+        </View>
+        <View className="qianxun-my-post-content-column" data-role="qianxun-my-post-content-column" style={{ width: '512rpx', minWidth: 0 }}>
           <InteractionPostExcerpt
             content={item.content}
             postId={item.status === 'published' ? item.postId : undefined}
             measureKey={`mine-${item.id}`}
             color="#333333"
           />
-        </View>
-      </View>
-      <View style={{ display: 'flex', alignItems: 'flex-start', marginTop: '18rpx' }}>
-        <View style={{ width: '130rpx', flexShrink: 0 }}>
-          <QianxunPostStatusBadge config={config} status={item.status} statusName={item.statusName} onFailure={onFailure} />
-        </View>
-        <View style={{ width: '512rpx', minWidth: 0 }}>
-          <MyPostImages images={item.imageUrls} />
+          <View style={{ marginTop: '18rpx' }}><MyPostImages images={item.imageUrls} /></View>
           {item.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '22rpx', marginTop: '14rpx' }}># {item.topicName}</Text> : null}
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
+            <View className="qianxun-my-post-more" data-role="qianxun-my-post-more" onClick={event => { event.stopPropagation(); onManage() }} style={{ width: '64rpx', height: '64rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '4rpx' }}>···</Text></View>
             <View style={{ flex: 1 }} />
-            <View onClick={event => { event.stopPropagation(); onManage() }} style={{ width: '64rpx', height: '64rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '4rpx' }}>···</Text></View>
             <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? open : undefined} fontSize="21rpx" />
             <View style={{ width: '30rpx' }} />
             <QianxunActionStat kind="like" count={item.likeCount} active={item.liked} onClick={item.postId && item.status === 'published' && !liking ? onLike : undefined} fontSize="21rpx" />

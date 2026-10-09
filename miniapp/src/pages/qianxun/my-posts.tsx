@@ -247,21 +247,21 @@ function PublishBanner() {
 
 function MyPostCard({ receipt, liking, config, onMore, onFailure, onLike }: { receipt: MyPostReceipt; liking: boolean; config?: CommunityConfig; onMore: () => void; onFailure: () => void; onLike: () => void }) {
   return (
-    <View style={{ padding: '38rpx 0 28rpx', borderBottom: '2rpx solid #EEF3F8' }}>
-      <View style={{ display: 'flex', alignItems: 'baseline' }}>
-        <Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{dayOfMonth(receipt.createdAt)}</Text>
-        <Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '10rpx' }}>{monthLabel(receipt.createdAt)}</Text>
-        <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '42rpx', marginLeft: '28rpx', flex: 1 }}>{receipt.content}</Text>
-      </View>
-      <View style={{ display: 'flex', alignItems: 'flex-start', marginTop: '18rpx' }}>
-        <View style={{ width: '130rpx', flexShrink: 0 }}>
-          <QianxunPostStatusBadge config={config} status={receipt.status} statusName={receipt.statusName} onFailure={onFailure} />
+    <View className="qianxun-standalone-my-post-card" style={{ padding: '38rpx 0 28rpx', borderBottom: '2rpx solid #EEF3F8' }}>
+      <View style={{ display: 'flex', alignItems: 'flex-start' }}>
+        <View data-role="qianxun-my-post-date-column" style={{ width: '130rpx', flexShrink: 0 }}>
+          <View className="qianxun-my-post-date" data-role="qianxun-my-post-date" style={{ height: '48rpx', display: 'flex', alignItems: 'baseline' }}>
+            <Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{dayOfMonth(receipt.createdAt)}</Text>
+            <Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '10rpx' }}>{monthLabel(receipt.createdAt)}</Text>
+          </View>
+          {receipt.status !== 'published' ? <View className="qianxun-my-post-status-slot" data-role="qianxun-my-post-status-slot" style={{ marginTop: '20rpx' }}><QianxunPostStatusBadge config={config} status={receipt.status} statusName={receipt.statusName} onFailure={onFailure} /></View> : null}
         </View>
-        <View style={{ width: '452rpx' }}>
-          <PostImages urls={receipt.imageUrls} />
+        <View className="qianxun-my-post-content-column" data-role="qianxun-my-post-content-column" style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '42rpx' }}>{receipt.content}</Text>
+          <View style={{ marginTop: '18rpx' }}><PostImages urls={receipt.imageUrls} /></View>
           {receipt.topicName ? <View style={{ height: '48rpx', borderRadius: '24rpx', background: '#F6F7F9', padding: '0 20rpx', marginTop: '18rpx', display: 'inline-flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '23rpx', marginRight: '8rpx' }}>#</Text><Text style={{ color: '#777777', fontSize: '23rpx' }}>{receipt.topicName}</Text></View> : null}
           <View style={{ height: '88rpx', display: 'flex', alignItems: 'center' }}>
-            <View onClick={onMore} style={{ width: '74rpx', height: '52rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '8rpx' }}>···</Text></View>
+            <View className="qianxun-my-post-more" data-role="qianxun-my-post-more" onClick={onMore} style={{ width: '74rpx', height: '52rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '8rpx' }}>···</Text></View>
             <View style={{ flex: 1 }} />
             <QianxunActionStat kind="comment" count={receipt.commentCount} onClick={receipt.postId && receipt.status === 'published' ? () => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${receipt.postId}&focus=comment` }) : undefined} />
             <View style={{ width: '30rpx' }} />

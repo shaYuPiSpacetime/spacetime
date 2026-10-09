@@ -1,3 +1,6 @@
+/* eslint-env node */
+/* eslint-disable @typescript-eslint/no-var-requires */
+
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -85,6 +88,10 @@ test('我的动态审核与失败状态按蓝湖统一展示并通过弹窗反�
   assert.match(statusBadge, /color: rejected \? '#FFFFFF' : '#2876FF'/, '待审标签文字颜色必须按蓝湖画板还原')
   assert.match(statusBadge, /fontSize: '20rpx'/, '状态标签字号必须按蓝湖画板还原')
   assert.match(statusBadge, /event\.stopPropagation\(\)/, '点击发布失败必须阻止卡片点击冒泡')
+  assert.match(interactions, /data-role="qianxun-my-post-date"[\s\S]*data-role="qianxun-my-post-status-slot" style=\{\{ marginTop: '20rpx' \}\}/, '互动内状态标签必须位于日期下方 10px')
+  assert.match(myPosts, /data-role="qianxun-my-post-date"[\s\S]*data-role="qianxun-my-post-status-slot" style=\{\{ marginTop: '20rpx' \}\}/, '独立我的动态状态标签必须位于日期下方 10px')
+  assert.match(interactions, /data-role="qianxun-my-post-content-column"[\s\S]*data-role="qianxun-my-post-more"[\s\S]*<View style=\{\{ flex: 1 \}\} \/>/, '互动内三个点必须从正文左边缘开始，弹性占位只能放在其后')
+  assert.match(myPosts, /data-role="qianxun-my-post-content-column"[\s\S]*data-role="qianxun-my-post-more"[\s\S]*<View style=\{\{ flex: 1 \}\} \/>/, '独立我的动态三个点必须从正文左边缘开始')
   const failureDialog = read('src/components/QianxunPublishFailureDialog.tsx')
   assert.match(failureDialog, /width: '620rpx'[\s\S]*height: '538rpx'/, '发布失败弹窗尺寸必须按蓝湖画板还原')
   assert.match(failureDialog, /id="qianxun-publish-failure-reason"/, '发布失败弹窗必须展示服务端失败原因')

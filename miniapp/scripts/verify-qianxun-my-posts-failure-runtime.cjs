@@ -10,7 +10,7 @@ const projectPath = path.resolve(__dirname, '..')
 const cliPath = '/Applications/wechatwebdevtools.app/Contents/MacOS/cli'
 const automationPort = Number(process.env.WX_AUTO_PORT || 9432)
 const idePort = Number(process.env.WX_IDE_PORT || 57815)
-const outputRoot = path.resolve(projectPath, '../docs/验收报告/截图证据/2026-10-09-我的动态发布失败蓝湖还原')
+const outputRoot = path.resolve(projectPath, '../docs/验收报告/截图证据/2026-10-09-我的动态状态定位修正')
 let connectedMiniProgram
 
 function timeout(promise, label, ms = 30000) {
@@ -66,6 +66,28 @@ async function screenshot(miniProgram, page, outputDir, filename) {
     assertNear(size.width, 88 * system.windowWidth / 750, 1, `${label}宽度`)
     assertNear(size.height, 48 * system.windowWidth / 750, 1, `${label}高度`)
   }
+  const cards = await page.$$('.qianxun-my-post-card')
+  let firstDate
+  let firstStatusSlot
+  let firstContentColumn
+  let firstMore
+  for (const card of cards) {
+    const statusSlot = await card.$('.qianxun-my-post-status-slot')
+    if (!statusSlot) continue
+    firstDate = await card.$('.qianxun-my-post-date')
+    firstStatusSlot = statusSlot
+    firstContentColumn = await card.$('.qianxun-my-post-content-column')
+    firstMore = await card.$('.qianxun-my-post-more')
+    break
+  }
+  assert.ok(firstDate && firstStatusSlot && firstContentColumn && firstMore, '缺少状态定位验收锚点')
+  const dateBox = await firstDate.size()
+  const dateOffset = await firstDate.offset()
+  const statusSlotOffset = await firstStatusSlot.offset()
+  const contentOffset = await firstContentColumn.offset()
+  const moreOffset = await firstMore.offset()
+  assertNear(statusSlotOffset.top - dateOffset.top - dateBox.height, 10, 1, '状态标签与日期间距')
+  assertNear(moreOffset.left, contentOffset.left, 1, '三个点与正文左边缘')
   const minePanel = await page.$('#qianxun-interactions-panel-mine')
   assert.doesNotMatch(await minePanel.outerWxml(), /内容未通过安全审核，请修改后重新提交/, '列表不得内联展示失败原因')
   await screenshot(miniProgram, page, outputDir, '01-我的动态-审核与失败状态.png')
