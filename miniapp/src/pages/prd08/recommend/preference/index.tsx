@@ -389,7 +389,6 @@ export default function RecommendPreferencePage() {
               disabled={!model.advancedFilterEffective}
               onLow={value => patchAdvanced({ minHeight: value })}
               onHigh={value => patchAdvanced({ maxHeight: value })}
-              onReset={() => patchAdvanced({ minHeight: null, maxHeight: null })}
             />
             <RangeSection
               title="体重偏好"
@@ -401,7 +400,6 @@ export default function RecommendPreferencePage() {
               disabled={!model.advancedFilterEffective}
               onLow={value => patchAdvanced({ minWeight: value })}
               onHigh={value => patchAdvanced({ maxWeight: value })}
-              onReset={() => patchAdvanced({ minWeight: null, maxWeight: null })}
             />
             <Text
               style={{
@@ -484,12 +482,6 @@ export default function RecommendPreferencePage() {
                   : '请选择推荐对象家乡偏好'}
               </Text>
               <Text style={{ color: '#999999', fontSize: '26rpx' }}>›</Text>
-            </View>
-            <View
-              onClick={() => model.advancedFilterEffective && patchAdvanced({ hometowns: [] })}
-              style={{ color: BLUE, fontSize: '24rpx', marginTop: '16rpx', textAlign: 'right' }}
-            >
-              家乡不限
             </View>
           </View>
           <View
@@ -638,7 +630,6 @@ function RangeSection({
   disabled = false,
   onLow,
   onHigh,
-  onReset,
 }: {
   title: string
   value: string
@@ -649,21 +640,12 @@ function RangeSection({
   disabled?: boolean
   onLow: (value: number) => void
   onHigh: (value: number) => void
-  onReset?: () => void
 }) {
   return (
     <View style={{ marginTop: '34rpx' }}>
       <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 600 }}>
         {title} {value}
       </Text>
-      {onReset ? (
-        <View
-          onClick={() => !disabled && onReset()}
-          style={{ display: 'inline-block', marginLeft: '20rpx', color: disabled ? '#999999' : BLUE, fontSize: '24rpx' }}
-        >
-          不限
-        </View>
-      ) : null}
       <View style={{ height: '70rpx', marginTop: '14rpx' }}>
         <DualRangeSlider
           min={min}

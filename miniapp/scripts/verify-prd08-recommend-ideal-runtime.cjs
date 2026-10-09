@@ -28,6 +28,7 @@ const onlyRecommend = process.env.PRD08_ONLY_RECOMMEND === 'true'
 const onlyPreferenceSlider = process.env.PRD08_ONLY_PREFERENCE_SLIDER === 'true'
 const onlyPreferenceCitySheet = process.env.PRD08_ONLY_PREFERENCE_CITY_SHEET === 'true'
 const onlyPreferenceHometownSheet = process.env.PRD08_ONLY_PREFERENCE_HOMETOWN_SHEET === 'true'
+const onlyPreferenceCleanup = process.env.PRD08_ONLY_PREFERENCE_CLEANUP === 'true'
 const privateCommunication = process.env.PRD08_PRIVATE_COMMUNICATION === 'true'
 const skipScreenshots = process.env.PRD08_SKIP_SCREENSHOTS === 'true'
 const outputRoot = path.resolve(
@@ -661,7 +662,8 @@ async function screenshot(miniProgram, outputDir, filename) {
         ...process.env,
         MINIAPP_E2E_MODE: 'true',
         MINIAPP_E2E_API_BASE_URL: `http://127.0.0.1:${mockPort}/api`,
-        ...(onlyPreferenceSlider || onlyPreferenceCitySheet || onlyPreferenceHometownSheet ? {
+        ...(onlyPreferenceSlider || onlyPreferenceCitySheet || onlyPreferenceHometownSheet
+          || onlyPreferenceCleanup ? {
           MINIAPP_DEV_FIXED_LOGIN: 'true',
           MINIAPP_DEV_FIXED_TOKEN: 'prd08-runtime-token',
         } : {}),
@@ -733,6 +735,25 @@ async function screenshot(miniProgram, outputDir, filename) {
     await screenshot(miniProgram, outputDir, '002-偏好设置家乡筛选底部弹层.png')
     assert.equal(exceptions.length, 0, `运行异常：${exceptions.join('；')}`)
     console.log(`偏好设置家乡筛选弹层截图完成：${outputDir}`)
+    return
+  }
+
+  if (onlyPreferenceCleanup) {
+    state.vip = true
+    const page = await open(miniProgram, '/pages/prd08/recommend/preference/index', '偏好设置精简入口')
+    const scrollView = await waitForElement(page, 'scroll-view', '偏好设置滚动区')
+    await scrollView.scrollTo(0, 980)
+    await page.waitFor(500)
+    const texts = await page.$$('text')
+    const labels = await Promise.all(texts.map(element => element.text()))
+    assert.equal(labels.filter(label => label === '不限').length, 0, '页面仍展示独立“ 不限 ”入口')
+    assert.equal(labels.includes('家乡不限'), false, '页面仍展示“家乡不限”入口')
+    for (const expected of ['身高偏好 160-185', '体重偏好 不限-不限', '家乡偏好']) {
+      assert.ok(labels.includes(expected), `偏好设置缺少状态文案：${expected}`)
+    }
+    await screenshot(miniProgram, outputDir, '003-偏好设置隐藏不限入口.png')
+    assert.equal(exceptions.length, 0, `运行异常：${exceptions.join('；')}`)
+    console.log(`偏好设置精简入口截图完成：${outputDir}`)
     return
   }
 

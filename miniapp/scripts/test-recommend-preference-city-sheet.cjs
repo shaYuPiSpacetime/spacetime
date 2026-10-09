@@ -42,7 +42,8 @@ test('偏好设置居住地与家乡筛选复用编辑资料现居地底部组�
   assert.match(preference, /hometownSheetVisible \? \(/)
   assert.match(preference, /title="家乡偏好"/)
   assert.match(preference, /patchAdvanced\(\{ hometowns: \[city\.code\] \}\)/)
-  assert.match(preference, />\s*家乡不限\s*</)
+  assert.doesNotMatch(preference, />\s*家乡不限\s*</)
+  assert.doesNotMatch(preference, /onReset=/)
 
   assert.match(regionSheet, />\s*中国\s*</)
   assert.match(regionSheet, />\s*海外地区国家\s*</)
