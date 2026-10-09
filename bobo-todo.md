@@ -1,3 +1,5 @@
+修复https://my.feishu.cn/wiki/ETgfw46z3irwS1kpx8wcXUrPncf 波波 待处理bug
+
 修改小程序侧
 配置了筛选结果后就到结果页，没有配置筛选才是在推荐页
 偏好设置 居住地是两级联动
