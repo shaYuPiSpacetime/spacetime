@@ -5,12 +5,15 @@ import { getWindowMetrics } from '@/utils/system'
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
 const QIANXUN_SECONDARY_TAB_OFFSET = 70
+const PROFILE_TOUCH_SIZE = 88
+const PROFILE_MENU_GAP = 18
+const PROFILE_MIN_LEFT = 391
 
 export type QianxunPrimaryTab = 'FAMILY' | 'KINDRED' | 'CAREER'
 
 export interface QianxunHeaderMetrics {
   primaryTop: number
-  avatarRight: number
+  avatarLeft: number
   secondaryTop: number
   contentTop: number
 }
@@ -18,11 +21,22 @@ export interface QianxunHeaderMetrics {
 export function getQianxunHeaderMetrics(): QianxunHeaderMetrics {
   const system = getWindowMetrics()
   const scale = system.windowWidth ? 750 / system.windowWidth : 2
-  const menu = Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? Taro.getMenuButtonBoundingClientRect() : undefined
+  let menu: ReturnType<typeof Taro.getMenuButtonBoundingClientRect> | undefined
+  try {
+    if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) menu = Taro.getMenuButtonBoundingClientRect()
+  } catch {
+    // 胶囊 API 暂不可用时使用安全位置，避免遮挡一级导航。
+  }
+  const menuLeft = menu ? menu.left * scale : 598
+  const validMenu = menu && Number.isFinite(menu.top) && menu.top >= 0 &&
+    Number.isFinite(menu.height) && menu.height > 0 && menu.width > 0 &&
+    menu.right <= system.windowWidth &&
+    menuLeft >= PROFILE_MIN_LEFT + PROFILE_TOUCH_SIZE + PROFILE_MENU_GAP
+  if (!validMenu) menu = undefined
   const primaryTop = menu ? menu.top * scale + (menu.height * scale - 45) / 2 : 90
-  const avatarRight = menu ? (system.windowWidth - menu.left) * scale + 18 : 190
+  const avatarLeft = (menu ? menuLeft : 598) - PROFILE_TOUCH_SIZE - PROFILE_MENU_GAP
   const secondaryTop = primaryTop + QIANXUN_SECONDARY_TAB_OFFSET
-  return { primaryTop, avatarRight, secondaryTop, contentTop: secondaryTop + 82 }
+  return { primaryTop, avatarLeft, secondaryTop, contentTop: secondaryTop + 82 }
 }
 
 interface QianxunHeaderProps {
@@ -56,7 +70,7 @@ export function QianxunHeader({ active, avatar, metrics, onChange, onProfile }: 
           </View>
         )
       })}
-      <View onClick={onProfile} style={{ position: 'absolute', right: `${metrics.avatarRight - 15}rpx`, top: `${metrics.primaryTop - 16}rpx`, width: '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <View id="qianxun-profile-entry" onClick={onProfile} style={{ position: 'absolute', left: `${metrics.avatarLeft}rpx`, top: `${metrics.primaryTop - 16}rpx`, width: '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Image src={avatar} mode="aspectFill" style={{ width: '58rpx', height: '58rpx', borderRadius: '29rpx', background: '#EEF3F8' }} />
       </View>
     </View>
