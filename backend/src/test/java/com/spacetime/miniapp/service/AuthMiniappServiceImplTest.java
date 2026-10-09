@@ -7,7 +7,6 @@ import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.enums.AccountStatusEnum;
-import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
@@ -56,8 +55,6 @@ class AuthMiniappServiceImplTest {
     @Mock
     private AppUserAuditContentService auditContentService;
     @Mock
-    private SmsCodeProvider smsCodeProvider;
-    @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOps;
@@ -78,16 +75,13 @@ class AuthMiniappServiceImplTest {
     @BeforeEach
     void setUp() {
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
-        when(smsCodeProvider.generateCode()).thenReturn("654321");
-        when(smsCodeProvider.providerCode()).thenReturn("ALIYUN");
-        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn("654321");
+        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn("0000");
         when(accessEvaluator.evaluate(any(AppUser.class))).thenReturn(new AccessStatusVO());
         when(appConfigDao.selectByKey("prd01.security.sms.rules")).thenReturn(config(
                 "{\"rows\":[{\"key\":\"sendCountdownSeconds\",\"value\":\"45\"},{\"key\":\"validMinutes\",\"value\":\"3\"},{\"key\":\"dailySendLimit\",\"value\":\"8\"}]}"));
         authService = new AuthMiniappServiceImpl(
                 appUserDao,
                 auditContentService,
-                smsCodeProvider,
                 redisTemplate,
                 objectMapper,
                 wechatMiniappClient,
@@ -156,23 +150,22 @@ class AuthMiniappServiceImplTest {
     }
 
     @Test
-    @DisplayName("发送验证码由短信 Provider 生成并发送")
-    void shouldGenerateAndSendCodeWithProvider() {
+    @DisplayName("获取验证码固定写入 0000")
+    void shouldIssueFixedCode() {
         when(valueOps.get(anyString())).thenReturn(null);
 
         PhoneSmsCodeReq req = new PhoneSmsCodeReq();
         req.setPhone("13800138000");
         PhoneSmsCodeVO vo = authService.sendPhoneSmsCode(req);
 
-        assertThat(vo.getProviderCode()).isEqualTo("ALIYUN");
-        verify(valueOps).set("miniapp:auth:sms:code:13800138000", "654321", Duration.ofMinutes(3));
-        verify(smsCodeProvider).sendLoginCode("13800138000", "654321", 3);
+        assertThat(vo.getProviderCode()).isEqualTo("FIXED");
+        verify(valueOps).set("miniapp:auth:sms:code:13800138000", "0000", Duration.ofMinutes(3));
     }
 
     @Test
     @DisplayName("Redis 中的有效验证码可以完成登录")
     void shouldLoginWithCachedCode() {
-        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn("654321");
+        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn("0000");
         AppUser user = new AppUser();
         user.setId(11L);
         user.setOpenid("phone_13800138000");
@@ -183,7 +176,7 @@ class AuthMiniappServiceImplTest {
 
         PhoneLoginReq req = new PhoneLoginReq();
         req.setPhone("13800138000");
-        req.setSmsCode("654321");
+        req.setSmsCode("0000");
         req.setAgreeProtocol(true);
 
         WechatLoginVO vo = authService.phoneLogin(req);
@@ -198,12 +191,73 @@ class AuthMiniappServiceImplTest {
         PhoneLoginReq req = new PhoneLoginReq();
         req.setPhone("13800138000");
         req.setSmsCode("1234");
-        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn("654321");
+        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn("0000");
         req.setAgreeProtocol(true);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(req))
                 .hasMessageContaining("AUTH_SMS_INVALID");
         verify(appUserDao, never()).selectByPhoneHash(anyString());
+    }
+
+    @Test
+    @DisplayName("未获取或已过期的固定验证码拒绝登录")
+    void shouldRejectFixedCodeWithoutCachedCode() {
+        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn(null);
+        PhoneLoginReq req = new PhoneLoginReq();
+        req.setPhone("13800138000");
+        req.setSmsCode("0000");
+        req.setAgreeProtocol(true);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(req))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+        verifyNoInteractions(appUserDao);
+    }
+
+    @Test
+    @DisplayName("旧随机验证码即使匹配缓存也不能登录")
+    void shouldRejectLegacyRandomCode() {
+        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn("654321");
+        PhoneLoginReq req = new PhoneLoginReq();
+        req.setPhone("13800138000");
+        req.setSmsCode("654321");
+        req.setAgreeProtocol(true);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(req))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+        req.setSmsCode("0000");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(req))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+        verifyNoInteractions(appUserDao);
+    }
+
+    @Test
+    @DisplayName("获取后固定验证码只能登录一次")
+    void shouldConsumeIssuedFixedCodeOnce() {
+        java.util.Map<String, String> cache = new java.util.HashMap<>();
+        when(valueOps.get(anyString())).thenAnswer(invocation -> cache.get(invocation.getArgument(0)));
+        doAnswer(invocation -> {
+            cache.put(invocation.getArgument(0), invocation.getArgument(1));
+            return null;
+        }).when(valueOps).set(anyString(), anyString(), any(Duration.class));
+        when(redisTemplate.delete(anyString())).thenAnswer(invocation ->
+                cache.remove(invocation.getArgument(0)) != null);
+        AppUser user = new AppUser();
+        user.setId(11L);
+        user.setOpenid("phone_13800138000");
+        user.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+        when(appUserDao.selectByPhoneHash(anyString())).thenReturn(user);
+        PhoneSmsCodeReq smsReq = new PhoneSmsCodeReq();
+        smsReq.setPhone("13800138000");
+        authService.sendPhoneSmsCode(smsReq);
+        PhoneLoginReq req = new PhoneLoginReq();
+        req.setPhone("13800138000");
+        req.setSmsCode("0000");
+        req.setAgreeProtocol(true);
+
+        assertThat(authService.phoneLogin(req).getUserId()).isEqualTo(11L);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(req))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+        verify(appUserDao).selectByPhoneHash(anyString());
     }
 
 
@@ -220,8 +274,8 @@ class AuthMiniappServiceImplTest {
         assertThat(vo.getValidMinutes()).isEqualTo(3);
         assertThat(vo.getDailyLimit()).isEqualTo(8);
         assertThat(vo.getDailyRemaining()).isEqualTo(7);
-        assertThat(vo.getProviderCode()).isEqualTo("ALIYUN");
-        verify(valueOps).set("miniapp:auth:sms:code:13800138000", "654321", Duration.ofMinutes(3));
+        assertThat(vo.getProviderCode()).isEqualTo("FIXED");
+        verify(valueOps).set("miniapp:auth:sms:code:13800138000", "0000", Duration.ofMinutes(3));
         verify(valueOps).set("miniapp:auth:sms:cooldown:13800138000", "1", Duration.ofSeconds(45));
         verify(valueOps).set(argThat(key -> key.startsWith("miniapp:auth:sms:daily:")), eq("1"), any(Duration.class));
     }
@@ -252,7 +306,7 @@ class AuthMiniappServiceImplTest {
 
         PhoneLoginReq req = new PhoneLoginReq();
         req.setPhone("13800138000");
-        req.setSmsCode("654321");
+        req.setSmsCode("0000");
         req.setAgreeProtocol(true);
 
         WechatLoginVO vo = authService.phoneLogin(req);
@@ -277,7 +331,7 @@ class AuthMiniappServiceImplTest {
 
         PhoneLoginReq req = new PhoneLoginReq();
         req.setPhone("13800138000");
-        req.setSmsCode("654321");
+        req.setSmsCode("0000");
         req.setAgreeProtocol(true);
 
         WechatLoginVO vo = authService.phoneLogin(req);
@@ -299,7 +353,7 @@ class AuthMiniappServiceImplTest {
 
         PhoneLoginReq req = new PhoneLoginReq();
         req.setPhone("13800138000");
-        req.setSmsCode("654321");
+        req.setSmsCode("0000");
         req.setAgreeProtocol(true);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(req))
