@@ -116,12 +116,17 @@ reset_main: BEGIN
       FROM app_message_record
      WHERE (sender_user_id = v_user_a AND receiver_user_id = v_user_b)
         OR (sender_user_id = v_user_b AND receiver_user_id = v_user_a)
-        OR conversation_id IN (SELECT id FROM tmp_ops_pair_conversations)
-        OR id IN (
-            SELECT request_message_id FROM tmp_ops_pair_whispers WHERE request_message_id IS NOT NULL
-            UNION
-            SELECT reply_message_id FROM tmp_ops_pair_whispers WHERE reply_message_id IS NOT NULL
-        );
+        OR conversation_id IN (SELECT id FROM tmp_ops_pair_conversations);
+    INSERT IGNORE INTO tmp_ops_pair_messages (id, biz_no)
+    SELECT message.id, message.message_no
+      FROM app_message_record message
+      JOIN tmp_ops_pair_whispers whisper
+        ON whisper.request_message_id = message.id;
+    INSERT IGNORE INTO tmp_ops_pair_messages (id, biz_no)
+    SELECT message.id, message.message_no
+      FROM app_message_record message
+      JOIN tmp_ops_pair_whispers whisper
+        ON whisper.reply_message_id = message.id;
 
     SELECT COUNT(*) INTO v_like_count
       FROM app_relation_like
