@@ -135,6 +135,7 @@ export interface IdealUnlockRecordVO {
   status: string
   cost: number
   available: boolean
+  unavailableReason?: 'unlock_inactive' | 'blocked' | 'account_unavailable' | null
   profile?: PublicProfileVO | null
   communicationMode?: CommunicationMode | null
   educationLabel?: string | null

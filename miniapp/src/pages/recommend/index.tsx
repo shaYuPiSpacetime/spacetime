@@ -27,6 +27,7 @@ import { findConversationByPeerUserId } from '@/services/message'
 import { cancelRelationLike, sendRelationLike } from '@/services/relation'
 import { useAuthStore } from '@/stores/authStore'
 import { publishRecommendBadge } from '@/stores/recommendBadgeStore'
+import { navigateToOrRedirect } from '@/utils/navigation'
 
 type RecommendTab = 'recommend' | 'ideal'
 type LoadState = 'loading' | 'ready' | 'empty' | 'limit' | 'error'
@@ -46,8 +47,10 @@ function createRequestId(prefix: string, candidateNo: string) {
 
 export default function RecommendPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<RecommendTab>(
-    router.params.tab === 'ideal' ? 'ideal' : 'recommend'
+  const [activeTab, setActiveTab] = useState<RecommendTab>(() =>
+    router.params.tab === 'ideal' ? 'ideal'
+      : router.params.tab === 'recommend' ? 'recommend'
+        : Taro.getStorageSync('prd08RecommendActiveTab') === 'ideal' ? 'ideal' : 'recommend'
   )
   const [page, setPage] = useState<RecommendCandidatePageVO | null>(null)
   const [idealSnapshotNo, setIdealSnapshotNo] = useState<string | null>(null)
@@ -83,6 +86,10 @@ export default function RecommendPage() {
 
   const candidates = page?.items || []
   const candidate = candidates[candidateIndex] || null
+
+  useEffect(() => {
+    Taro.setStorageSync('prd08RecommendActiveTab', activeTab)
+  }, [activeTab])
 
   useEffect(() => {
     const userId = useAuthStore.getState().userId
@@ -138,7 +145,7 @@ export default function RecommendPage() {
     waitingNavigationRef.current = true
     setState('limit')
     try {
-      await Taro.navigateTo({ url: '/pages/prd08/recommend/waiting/index' })
+      await navigateToOrRedirect('/pages/prd08/recommend/waiting/index')
     } catch {
       setErrorMessage('等待页打开失败，请下拉刷新重试')
       setState('error')

@@ -10,6 +10,7 @@ import com.spacetime.common.dao.RecommendPreferenceDao;
 import com.spacetime.common.dao.SchoolDictionaryDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserRelationBlock;
 import com.spacetime.common.entity.IdealFilterSnapshot;
 import com.spacetime.common.entity.IdealSnapshotCandidate;
 import com.spacetime.common.entity.RecommendPreference;
@@ -67,6 +68,58 @@ class IdealServiceImplTest {
     @Mock private Prd01AccessEvaluator accessEvaluator;
 
     @InjectMocks private IdealServiceImpl service;
+
+    @Test
+    void searchShouldBatchBlockChecksInsteadOfQueryingEachCandidate() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        List<AppUser> candidates = LongStream.range(100, 200)
+                .mapToObj(id -> openUser(id, "FEMALE", 28, "320100")).toList();
+        prepareSearch(current, candidates);
+
+        assertThat(service.search(7L, searchReq(List.of())).getResultCount()).isEqualTo(100);
+        verify(relationBlockDao).selectActiveBetweenUserAndTargets(
+                org.mockito.ArgumentMatchers.eq(7L), any(), any());
+        verify(relationBlockDao, never()).selectActive(any(), any(), any());
+    }
+
+    @Test
+    void batchedBlockChecksKeepBlacklistBidirectionalAndNoRecommendOutgoingOnly() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        List<AppUser> candidates = LongStream.range(100, 104)
+                .mapToObj(id -> openUser(id, "FEMALE", 28, "320100")).toList();
+        prepareSearch(current, candidates);
+        List<AppUserRelationBlock> blocks = new java.util.ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            AppUserRelationBlock block = new AppUserRelationBlock();
+            block.setUserId(i % 2 == 0 ? 7L : 100L + i);
+            block.setTargetUserId(i % 2 == 0 ? 100L + i : 7L);
+            block.setBlockType(i < 2 ? "BLACKLIST" : "NO_RECOMMEND");
+            blocks.add(block);
+        }
+        when(relationBlockDao.selectActiveBetweenUserAndTargets(any(), any(), any())).thenReturn(blocks);
+
+        assertThat(service.search(7L, searchReq(List.of())).getResultCount()).isEqualTo(1);
+        ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(rows.capture());
+        assertThat(rows.getValue()).singleElement()
+                .satisfies(item -> assertThat(item.getCandidateUserId()).isEqualTo(103L));
+    }
+
+    @Test
+    void legacyImportedCommaTagsShouldEnableAndMatchInterestAndLoveConditions() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        current.setTags("reading,love_ritual");
+        AppUser candidate = openUser(8L, "FEMALE", 28, "320100");
+        candidate.setTags("reading,love_ritual");
+        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+                tag(10L, 0L, "HOBBY", "兴趣"), tag(11L, 10L, "reading", "阅读爱好"),
+                tag(20L, 0L, "LOVE", "爱情"), tag(21L, 20L, "love_ritual", "注重仪式感")));
+        prepareSearch(current, List.of(candidate));
+
+        assertThat(service.search(7L, searchReq(List.of(
+                "M08-IDEAL-interest-similar", "M08-IDEAL-view-compatible"))).getResultCount())
+                .isEqualTo(1);
+    }
 
     @ParameterizedTest
     @CsvSource({

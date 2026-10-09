@@ -55,6 +55,7 @@ export default function HeartUserPage() {
   const isLoggedIn = useAuthStore(state => state.isLoggedIn)
   const targetUserId = Number(router.params.targetUserId || router.params.userId || 0)
   const sourceScene = ((router.params.sourceScene as RelationSourceScene | undefined) || 'profile') as RelationSourceScene
+  const returnAfterUnlike = router.params.from === 'my-likes'
   const [profile, setProfile] = useState<PublicProfileVO | null>(null)
   useShareAppMessage(() => ({
     title: profile?.nickname ? `${profile.nickname}的主页` : '时空邂逅用户主页',
@@ -237,6 +238,7 @@ export default function HeartUserPage() {
         setProfile(previous => previous ? { ...previous, liked: false, matched: Boolean(data.matched), matchNo: data.matchNo || previous.matchNo, canEnterConversation: Boolean(data.canEnterConversation), communicationMode: data.canEnterConversation ? 'PRIVATE_MESSAGE' : 'WHISPER' } : previous)
         likeRequestId.current = null
         await Taro.showToast({ title: '已取消喜欢', icon: 'none' })
+        if (returnAfterUnlike) goBack()
       } else {
         likeRequestId.current ||= createRequestId('like', targetUserId)
         const data = await sendRelationLike(targetUserId, sourceScene, likeRequestId.current)
@@ -366,7 +368,7 @@ export default function HeartUserPage() {
   ) : null
   const footer = (
     <View style={{ position: 'fixed', left: '55rpx', right: '55rpx', bottom: '30rpx', zIndex: 50, display: 'flex', gap: '20rpx' }}>
-      {!profile.matched ? (
+      {liked || !profile.matched ? (
         <View id="public-profile-like-button" onClick={() => runCertifiedAction(() => void toggleLike())} style={{ width: '210rpx', height: '98rpx', borderRadius: '49rpx', background: liked ? '#FFF0F2' : '#FFFFFF', border: '2rpx solid #FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: likeSubmitting ? 0.6 : 1 }}><Text style={{ color: '#FF5E6E', fontSize: '28rpx', fontWeight: 500 }}>{likeSubmitting ? '处理中' : liked ? '取消喜欢' : '喜欢'}</Text></View>
       ) : null}
       <View id="public-profile-chat-button" onClick={() => runCertifiedAction(() => void openConversation())} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#FF5E6E', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8rpx 22rpx rgba(255,94,110,0.25)' }}><Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{profile.communicationMode === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View>

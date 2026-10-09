@@ -10,6 +10,7 @@ import { getRecommendCandidates, getRecommendPreferences } from '@/services/reco
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { useAuthStore } from '@/stores/authStore'
+import { navigateToOrRedirect } from '@/utils/navigation'
 
 const background =
   'linear-gradient(90deg,rgba(233,253,251,.72),rgba(234,238,249,.68) 49%,rgba(248,250,239,.68))'
@@ -25,6 +26,7 @@ export default function RecommendWaitingPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState('')
   const refreshGeneration = useRef(0)
+  const openingIdealRef = useRef(false)
   useEffect(() => {
     void getCommunityPosts('HOT', 1, 1)
       .then(result => setPost(result.records?.[0] || null))
@@ -71,9 +73,20 @@ export default function RecommendWaitingPage() {
   useDidHide(() => {
     refreshGeneration.current += 1
   })
-  const openIdeal = () => {
+  const openIdeal = async () => {
+    if (openingIdealRef.current) return
+    openingIdealRef.current = true
+    // 在点击当刻废弃自动刷新，不能等到页面隐藏后才取消旧响应的跳转。
+    refreshGeneration.current += 1
     Taro.setStorageSync(RECOMMEND_TAB_STORAGE_KEY, 'ideal')
-    void Taro.switchTab({ url: '/pages/recommend/index' })
+    try {
+      await Taro.switchTab({ url: '/pages/recommend/index' })
+    } catch {
+      await Taro.showToast({ title: '理想型打开失败，请重试', icon: 'none' })
+      void refreshRecommendation()
+    } finally {
+      openingIdealRef.current = false
+    }
   }
   return (
     <View style={{ minHeight: '100vh', background, fontFamily: 'PingFang SC, sans-serif' }}>
@@ -109,7 +122,7 @@ export default function RecommendWaitingPage() {
               每日12点准时推荐
             </Text>
             <Text
-              onClick={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
+              onClick={() => void navigateToOrRedirect('/pages/prd08/recommend/replay/index')}
               style={{ position: 'relative', zIndex: 1, color: '#4B8BFF', fontSize: '28rpx', marginTop: '28rpx' }}
             >
               查看往日推荐
@@ -300,7 +313,7 @@ function WaitingHeader({ onIdeal }: { onIdeal: () => void }) {
         }}
       >
         <View
-          onClick={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
+          onClick={() => void navigateToOrRedirect('/pages/prd08/recommend/replay/index')}
           style={{
             width: `${actionsLayout.actionSize}rpx`,
             height: `${actionsLayout.actionSize}rpx`,

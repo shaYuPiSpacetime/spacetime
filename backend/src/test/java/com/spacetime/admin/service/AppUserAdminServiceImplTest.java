@@ -506,6 +506,21 @@ class AppUserAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("导入标签应保存为与小程序筛选一致的 JSON 数组")
+    void importedTagsShouldUseJsonArrayStorage() {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true),
+                fieldSetting("nickname", "昵称", true, true), fieldSetting("gender", "性别", true, true)));
+        mockProfileDictLabels();
+        ImportBatchVO result = service.previewImport("app-users.csv", String.join("\n",
+                "phone,nickname,gender,tags", "13900001111,标签测试,女,reading|love_ritual"));
+        assertThat(result.getImportedCount()).isEqualTo(1);
+        ArgumentCaptor<AppUser> userCaptor = ArgumentCaptor.forClass(AppUser.class);
+        verify(appUserDao).insert(userCaptor.capture());
+        assertThat(cn.hutool.json.JSONUtil.parseArray(userCaptor.getValue().getTags()).toList(String.class))
+                .containsExactly("reading", "love_ritual");
+    }
+
+    @Test
     @DisplayName("导入模板中文列头应能映射到配置必填字段")
     void shouldImportChineseTemplateHeadersForConfiguredRequiredFields() {
         mockImportRequiredFields(List.of(

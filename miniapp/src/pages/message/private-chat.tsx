@@ -1,4 +1,5 @@
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
+import { navigateToOrRedirect } from '@/utils/navigation'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -154,7 +155,7 @@ function PendingWhisperChat({ pendingWhisperNo }: { pendingWhisperNo: string }) 
 
   return (
     <View className="message-page message-page--gray private-chat-page">
-      <MessageNav title={nickname} avatarUrl={avatar} onProfileClick={targetUserId ? () => void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${encodeURIComponent(targetUserId)}&sourceScene=profile` }) : undefined} />
+      <MessageNav title={nickname} avatarUrl={avatar} onProfileClick={targetUserId ? () => void navigateToOrRedirect(`/pages/heart/user?targetUserId=${encodeURIComponent(targetUserId)}&sourceScene=profile`) : undefined} />
       <ScrollView scrollY className="private-chat-scroll" style={{ height: keyboardHeight > 0 ? `calc(100vh - 137px - ${keyboardHeight}px)` : undefined }} showScrollbar={false}>
         <View className="chat-safety-card">
           <View className="chat-match-banner">
@@ -654,7 +655,7 @@ function EstablishedPrivateChatPage() {
       <MessageNav
         title={detail?.peerUser.nickname || '私信'}
         avatarUrl={detail?.peerUser.avatarUrl || MESSAGE_AVATAR}
-        onProfileClick={detail?.peerUser.profileAvailable ? () => void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${encodeURIComponent(detail.peerUser.userId)}&sourceScene=profile` }) : undefined}
+        onProfileClick={detail?.peerUser.profileAvailable ? () => void navigateToOrRedirect(`/pages/heart/user?targetUserId=${encodeURIComponent(detail.peerUser.userId)}&sourceScene=profile`) : undefined}
         rightContent={<DotsButton onClick={() => setShowActions(true)} />}
       />
       <ScrollView
@@ -696,7 +697,7 @@ function EstablishedPrivateChatPage() {
               <View id={messageAnchorId(message)} className="chat-message-item" key={messageMergeKey(message)}>
                 {time ? <Text className="chat-message-time">{time}</Text> : null}
                 <View className={`chat-row chat-row--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`}>
-                  {message.direction !== 'outgoing' ? <Image className="chat-avatar" src={detail?.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" onClick={() => { if (detail?.peerUser.profileAvailable) void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${encodeURIComponent(detail.peerUser.userId)}&sourceScene=profile` }) }} /> : null}
+                  {message.direction !== 'outgoing' ? <Image className="chat-avatar" src={detail?.peerUser.avatarUrl || MESSAGE_AVATAR} mode="aspectFill" onClick={() => { if (detail?.peerUser.profileAvailable) void navigateToOrRedirect(`/pages/heart/user?targetUserId=${encodeURIComponent(detail.peerUser.userId)}&sourceScene=profile`) }} /> : null}
                   {message.sendStatus === 'failed' ? <View className="chat-failed" onClick={() => setRetryTarget(message)}><Text>!</Text></View> : null}
                   <View
                     className={`chat-bubble chat-bubble--${message.direction === 'outgoing' ? 'outgoing' : 'incoming'}`}
@@ -706,7 +707,7 @@ function EstablishedPrivateChatPage() {
                   >
                     <Text>{message.content}</Text>
                   </View>
-                  {message.direction === 'outgoing' ? <Image className="chat-avatar" src={detail?.selfAvatarUrl || MESSAGE_AVATAR} mode="aspectFill" onClick={() => { const selfUserId = useAuthStore.getState().userId; if (selfUserId) void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${selfUserId}&sourceScene=profile` }) }} /> : null}
+                  {message.direction === 'outgoing' ? <Image className="chat-avatar" src={detail?.selfAvatarUrl || MESSAGE_AVATAR} mode="aspectFill" onClick={() => { const selfUserId = useAuthStore.getState().userId; if (selfUserId) void navigateToOrRedirect(`/pages/heart/user?targetUserId=${selfUserId}&sourceScene=profile`) }} /> : null}
                 </View>
               </View>
             )

@@ -1297,7 +1297,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             String code = normalizeDictValue(dictType, value);
             normalized.add(code == null ? value : code);
         }
-        return String.join(",", normalized);
+        return toJsonArray(normalized);
     }
 
     private Map<String, String> safeLabels(String dictType) {

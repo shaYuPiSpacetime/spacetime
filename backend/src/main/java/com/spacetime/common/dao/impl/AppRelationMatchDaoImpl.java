@@ -2,9 +2,12 @@ package com.spacetime.common.dao.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.AppRelationMatchDao;
 import com.spacetime.common.entity.AppRelationMatch;
 import com.spacetime.common.enums.RelationMatchStatusEnum;
+import com.spacetime.common.enums.RelationMatchSourceTypeEnum;
+import com.spacetime.common.enums.RelationMatchSourceStatusEnum;
 import com.spacetime.common.mapper.AppRelationMatchMapper;
 import org.springframework.stereotype.Repository;
 
@@ -20,6 +23,14 @@ public class AppRelationMatchDaoImpl extends AbstractRelationCrudDao<AppRelation
     public AppRelationMatchDaoImpl(AppRelationMatchMapper mapper) {
         super(mapper);
         this.matchMapper = mapper;
+    }
+
+    @Override
+    public Page<AppRelationMatch> selectMutualLikePage(Page<AppRelationMatch> page, Long userId) {
+        return matchMapper.selectMutualLikePage(page, userId,
+                RelationMatchStatusEnum.MATCHED.getCode(),
+                RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode(),
+                RelationMatchSourceStatusEnum.ACTIVE.getCode());
     }
 
     @Override

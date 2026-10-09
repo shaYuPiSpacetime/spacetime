@@ -70,7 +70,8 @@ function UnlockCard({ item }: { item: IdealUnlockRecordVO }) {
       ? [profile.currentCity, profile.age ? `${profile.age}岁` : '', item.educationLabel]
           .filter(Boolean)
           .join('·')
-      : '已失效用户'
+      : item.unavailableReason === 'blocked' ? '暂不可查看'
+        : item.unavailableReason === 'unlock_inactive' ? '解锁已失效' : '暂不可访问用户'
   return (
     <View
       style={{
@@ -114,7 +115,9 @@ function UnlockCard({ item }: { item: IdealUnlockRecordVO }) {
           >
             {available && profile
               ? item.schoolSummary || profile.school || profile.occupationLabel || '资料已解锁'
-              : '该用户当前不可访问'}
+              : item.unavailableReason === 'blocked' ? '存在拉黑关系，暂不可查看'
+                : item.unavailableReason === 'unlock_inactive' ? '解锁已过期或退还'
+                  : '该用户当前不可访问'}
           </Text>
         </View>
       </View>

@@ -17,6 +17,8 @@ public class IdealUnlockRecordVO {
     private String status;
     private Integer cost;
     private Boolean available;
+    /** 不可访问原因：unlock_inactive / blocked / account_unavailable。 */
+    private String unavailableReason;
     private PublicProfileVO profile;
     private String communicationMode;
     private String educationLabel;

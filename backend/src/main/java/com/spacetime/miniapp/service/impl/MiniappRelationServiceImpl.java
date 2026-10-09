@@ -406,14 +406,7 @@ public class MiniappRelationServiceImpl implements MiniappRelationService {
         requireOpenUser(userId, CURRENT_ACCESS_CLOSED, "关系反馈准入未开放");
         int current = Math.max(page, 1);
         int effectiveSize = Math.min(Math.max(size, 1), MOBILE_PAGE_SIZE);
-        LambdaQueryWrapper<AppRelationMatch> wrapper = new LambdaQueryWrapper<AppRelationMatch>()
-                .eq(AppRelationMatch::getMatchStatus, RelationMatchStatusEnum.MATCHED.getCode())
-                .eq(AppRelationMatch::getActiveMarker, 1)
-                .and(query -> query.eq(AppRelationMatch::getUserLowId, userId)
-                        .or().eq(AppRelationMatch::getUserHighId, userId))
-                .orderByDesc(AppRelationMatch::getMatchedTime)
-                .orderByDesc(AppRelationMatch::getId);
-        Page<AppRelationMatch> source = matchDao.selectPage(new Page<>(current, effectiveSize), wrapper);
+        Page<AppRelationMatch> source = matchDao.selectMutualLikePage(new Page<>(current, effectiveSize), userId);
         List<AppRelationMatch> sourceRows = safeList(source.getRecords());
         Map<Long, Long> counterparties = sourceRows.stream().collect(Collectors.toMap(
                 AppRelationMatch::getId, row -> counterparty(row, userId), (left, right) -> left));

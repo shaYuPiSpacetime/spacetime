@@ -17,9 +17,8 @@ public class CommunityAuditPolicy {
             return decision("pending_manual", false, false, safeResult);
         }
         return switch (safeResult.conclusion()) {
-            case PASS -> "sincere_post".equals(contentType)
-                    ? decision("pending_manual", false, false, safeResult)
-                    : decision("published", true, false, safeResult);
+            // 时空站台发布权限已由 Service 校验；安全检查通过后无需再排人工队列。
+            case PASS -> decision("published", !"sincere_post".equals(contentType), false, safeResult);
             case REJECT -> decision("rejected", false, false, safeResult);
             case REVIEW, UNAVAILABLE -> decision("pending_manual", false, false, safeResult);
         };

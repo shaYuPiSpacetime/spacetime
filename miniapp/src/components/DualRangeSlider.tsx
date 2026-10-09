@@ -173,7 +173,7 @@ export default function DualRangeSlider({
     >
       <View
         id={`${idRef.current}-track`}
-        style={{ position: 'absolute', left: '18rpx', right: '18rpx', top: '41rpx', height: '6rpx' }}
+        style={{ position: 'absolute', left: '60rpx', right: '60rpx', top: '41rpx', height: '6rpx' }}
       >
         <View
           style={{

@@ -20,11 +20,11 @@ class CommunityAuditPolicyTest {
     }
 
     @Test
-    void sincerePostPass_shouldWaitForManualReview() {
+    void authorizedStationPostPass_shouldPublishWithoutManualReview() {
         CommunityAuditDecision decision = policy.decidePost(
                 "sincere_post", CommunitySecurityResult.pass("87014"), true);
 
-        assertThat(decision.status()).isEqualTo("pending_manual");
+        assertThat(decision.status()).isEqualTo("published");
         assertThat(decision.sampleRequired()).isFalse();
     }
 

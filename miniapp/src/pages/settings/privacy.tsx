@@ -1,6 +1,6 @@
 import { Button, Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isCoolingOff } from '@/domain/settingsFlow'
 import { settingsApi } from '@/services/settings'
 import type { AccountCancelStatus, BlockedUserVO } from '@/types/settings'
@@ -18,28 +18,35 @@ export default function PrivacySettingsPage() {
   const [blockedLoading, setBlockedLoading] = useState(false)
   const [blockedError, setBlockedError] = useState(false)
   const [removingIds, setRemovingIds] = useState<number[]>([])
+  const statusRequestRef = useRef(0)
 
   useEffect(() => {
-    void Promise.all([
-      settingsApi.cancelStatus(),
-      settingsApi.publicConfig([
+    void settingsApi.publicConfig([
         'privacy.intro_title',
         'privacy.intro_copy',
         'privacy.cooling_title',
         'privacy.cooling_end_label',
         'privacy.loading_text',
         'privacy.load_failed_text',
-      ]),
-    ]).then(([statusResult, copyResult]) => {
-      setStatus(statusResult)
+      ]).then(copyResult => {
       setCopyConfig(copyResult || {})
     }).catch(error => Taro.showToast({
       title: error instanceof Error ? error.message : '',
       icon: 'none',
-    })).finally(() => setLoading(false))
+    }))
   }, [])
 
   useDidShow(() => {
+    const request = ++statusRequestRef.current
+    setLoading(true)
+    void settingsApi.cancelStatus().then(result => {
+      if (request === statusRequestRef.current) setStatus(result)
+    }).catch(error => Taro.showToast({
+      title: error instanceof Error ? error.message : '注销状态读取失败',
+      icon: 'none',
+    })).finally(() => {
+      if (request === statusRequestRef.current) setLoading(false)
+    })
     void loadBlacklist(false)
   })
 

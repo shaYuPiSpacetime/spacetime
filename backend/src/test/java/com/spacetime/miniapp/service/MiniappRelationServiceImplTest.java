@@ -615,7 +615,7 @@ class MiniappRelationServiceImplTest {
 
         when(appUserDao.selectById(7L)).thenReturn(current);
         when(accessProjectionService.project(current)).thenReturn("OPEN");
-        when(matchDao.selectPage(any(), any())).thenReturn(matchPage);
+        when(matchDao.selectMutualLikePage(any(), eq(7L))).thenReturn(matchPage);
         when(appUserDao.selectList(any())).thenReturn(List.of(target));
         when(accessProjectionService.projectAll(any())).thenReturn(Map.of(8L, "OPEN"));
         when(matchSourceDao.selectList(any())).thenReturn(List.of());
@@ -671,7 +671,7 @@ class MiniappRelationServiceImplTest {
         when(visitDao.countUnlockedRecentVisitors(eq(7L), any())).thenReturn(0L);
         when(visitDao.selectVisibleRecentVisitors(eq(7L), eq(false), any(), eq(0L), eq(20)))
                 .thenReturn(List.of(visit));
-        when(matchDao.selectPage(any(), any())).thenReturn(matchPage);
+        when(matchDao.selectMutualLikePage(any(), eq(7L))).thenReturn(matchPage);
         when(appUserDao.selectList(any())).thenReturn(List.of(target));
         when(matchDao.selectActiveByUser(7L)).thenReturn(List.of());
         when(visitEventDao.countTargetStatsAtSnapshot(eq(7L), any(), any(), any(), any()))

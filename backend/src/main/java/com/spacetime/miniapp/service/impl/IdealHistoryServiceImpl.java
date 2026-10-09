@@ -182,12 +182,17 @@ public class IdealHistoryServiceImpl implements IdealHistoryService {
         result.setCost(record.getCoinCost());
         if (!active) {
             result.setAvailable(false);
+            result.setUnavailableReason("unlock_inactive");
             return result;
         }
         AppUser target = appUserDao.selectById(record.getTargetUserId());
-        boolean available = target != null && "OPEN".equals(accessProjectionService.project(target))
-                && !blocked(currentUserId, record.getTargetUserId());
+        boolean accountAvailable = target != null && "OPEN".equals(accessProjectionService.project(target));
+        boolean relationBlocked = accountAvailable && blocked(currentUserId, record.getTargetUserId());
+        boolean available = accountAvailable && !relationBlocked;
         result.setAvailable(available);
+        if (!available) {
+            result.setUnavailableReason(relationBlocked ? "blocked" : "account_unavailable");
+        }
         if (available) {
             result.setProfile(publicProfileService.getPublicProfile(currentUserId, record.getTargetUserId()));
             result.setCommunicationMode("PRIVATE_MESSAGE");

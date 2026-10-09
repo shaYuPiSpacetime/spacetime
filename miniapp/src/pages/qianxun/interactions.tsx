@@ -102,7 +102,7 @@ function resolveOwnAvatar(value?: string | null) {
 export default function QianxunInteractionsPage() {
   const [profile, setProfile] = useState<ProfileSummary>(() => {
     const auth = useAuthStore.getState()
-    return { ...emptyProfile, nickname: auth.nickname || emptyProfile.nickname, avatar: resolveOwnAvatar(auth.avatar) }
+    return { ...emptyProfile, nickname: auth.nickname || emptyProfile.nickname, avatar: '' }
   })
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState<MainSection>('interaction')
@@ -212,7 +212,7 @@ export default function QianxunInteractionsPage() {
       if (auth.userId !== ownerId) return
       const source = home.profile || {}
       const nickname = String(source.nickname || auth.nickname || emptyProfile.nickname)
-      const avatar = resolveOwnAvatar(String(source.avatar || auth.avatar || ''))
+      const avatar = resolveOwnAvatar(String(source.avatar || ''))
       setProfile(current => ({ ...current, nickname, avatar, description: buildProfileDescription(source, config) }))
       auth.updateIdentity(ownerId, nickname, avatar)
     } catch {
@@ -330,7 +330,7 @@ export default function QianxunInteractionsPage() {
     const editable = item.status === 'rejected'
     try {
       const actions = editable ? ['编辑并重新提交审核', '删除'] : ['删除']
-      const selected = await Taro.showActionSheet({ itemList: actions, alertText: editable ? '修改后将重新提交审核' : undefined })
+      const selected = await Taro.showActionSheet({ itemList: actions })
       if (editable && selected.tapIndex === 0) {
         const postRef = item.postNo || item.postId
         if (!postRef) throw new Error('当前动态暂时无法编辑')

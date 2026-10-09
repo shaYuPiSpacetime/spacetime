@@ -5,6 +5,7 @@ import AccessBlockedPage from '@/components/AccessBlockedPage'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
 import avatarImage from '@/assets/lanhu/heart-message/heart-avatar.webp'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { navigateToOrRedirect } from '@/utils/navigation'
 import {
   getGivenLikes,
   type GivenLikeItemVO,
@@ -96,11 +97,11 @@ export default function MyLikesPage() {
               <View style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
                 <View style={{ display: 'flex', alignItems: 'center' }}>
                   <Text style={{ color: '#333333', fontSize: '28rpx', fontWeight: 500 }}>{person.nickname}</Text>
-                  {person.matched ? <Text style={{ marginLeft: '12rpx', color: '#FF5E6E', fontSize: '20rpx' }}>已相互喜欢</Text> : null}
+                  {person.matched ? <Text style={{ marginLeft: '12rpx', color: '#FF5E6E', fontSize: '20rpx' }}>已匹配</Text> : null}
                 </View>
                 <Text style={{ display: 'block', marginTop: '10rpx', color: '#999999', fontSize: '20rpx' }}>{buildProfileText(person)}</Text>
               </View>
-              <View onClick={() => void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${person.userId}&sourceScene=profile` })} style={{ width: '168rpx', height: '72rpx', borderRadius: '12rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <View onClick={() => void navigateToOrRedirect(`/pages/heart/user?targetUserId=${person.userId}&sourceScene=profile&from=my-likes`)} style={{ width: '168rpx', height: '72rpx', borderRadius: '12rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#333333', fontSize: '26rpx' }}>查看主页</Text>
               </View>
             </View>

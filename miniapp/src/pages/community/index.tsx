@@ -238,6 +238,12 @@ export default function CommunityPage() {
   })
 
   useEffect(() => {
+    const resetHeartTab = () => setActiveTab('likes')
+    Taro.eventCenter.on('heartTabReselect', resetHeartTab)
+    return () => { Taro.eventCenter.off('heartTabReselect', resetHeartTab) }
+  }, [])
+
+  useEffect(() => {
     if (activeTab !== 'visitors' || !visitorsPage) return
     const dateKey = currentLocalDateKey()
     const total = Number(visitorsPage.todayVisitorUv || 0)

@@ -9,9 +9,11 @@ import com.spacetime.common.dao.IdealSnapshotCandidateDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppConfig;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserRelationBlock;
 import com.spacetime.common.entity.IdealFilterSnapshot;
 import com.spacetime.common.entity.IdealSnapshotCandidate;
 import com.spacetime.common.entity.UserUnlockRecord;
+import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.response.IdealHelpVO;
@@ -120,8 +122,45 @@ class IdealHistoryServiceImplTest {
 
         assertThat(result.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getStatus()).isEqualTo("expired");
+            assertThat(item.getUnavailableReason()).isEqualTo("unlock_inactive");
             assertThat(item.getProfile()).isNull();
             assertThat(item.getCommunicationMode()).isNull();
+        });
+        verify(publicProfileService, never()).getPublicProfile(any(), any());
+    }
+
+    @Test
+    void blacklistedUnlockIsUnavailableWithoutMisrepresentingAccountOrLeakingProfile() {
+        givenCurrentUserOpen();
+        Page<UserUnlockRecord> page = new Page<>(1, 20, 1);
+        page.setRecords(List.of(unlockRecord(LocalDateTime.now().plusDays(3), "active", 1)));
+        when(unlockRecordDao.selectPage(any(), any())).thenReturn(page);
+        AppUser target = user(8L);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(relationBlockDao.selectActive(7L, 8L, RelationBlockTypeEnum.BLACKLIST.getCode()))
+                .thenReturn(new AppUserRelationBlock());
+
+        assertThat(service.unlockRecords(7L, "all", null).getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getStatus()).isEqualTo("active");
+            assertThat(item.getAvailable()).isFalse();
+            assertThat(item.getUnavailableReason()).isEqualTo("blocked");
+            assertThat(item.getProfile()).isNull();
+        });
+        verify(publicProfileService, never()).getPublicProfile(any(), any());
+    }
+
+    @Test
+    void closedAccountUnlockUsesAccountUnavailableReasonAndNeverReturnsProfile() {
+        givenCurrentUserOpen();
+        Page<UserUnlockRecord> page = new Page<>(1, 20, 1);
+        page.setRecords(List.of(unlockRecord(LocalDateTime.now().plusDays(3), "active", 1)));
+        when(unlockRecordDao.selectPage(any(), any())).thenReturn(page);
+
+        assertThat(service.unlockRecords(7L, "all", null).getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getAvailable()).isFalse();
+            assertThat(item.getUnavailableReason()).isEqualTo("account_unavailable");
+            assertThat(item.getProfile()).isNull();
         });
         verify(publicProfileService, never()).getPublicProfile(any(), any());
     }

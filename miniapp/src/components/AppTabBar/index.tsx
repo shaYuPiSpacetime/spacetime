@@ -40,8 +40,10 @@ const TABS: Tab[] = [
 
 let tabSwitchInFlight = false
 let tabSwitchSourceRoute = ''
+let tabSwitchGeneration = 0
 
-export function releaseTabSwitch() {
+export function releaseTabSwitch(expectedGeneration?: number) {
+  if (expectedGeneration !== undefined && expectedGeneration !== tabSwitchGeneration) return
   tabSwitchInFlight = false
   tabSwitchSourceRoute = ''
 }
@@ -108,6 +110,8 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
   const messageBadge = formatMessageBadge(messageUnreadCount)
   const handlePress = (tab: Tab) => {
     const currentRoute = getCurrentRoute()
+    // 等待页已经是推荐的当前状态，重选中心按钮不能先切回主路由再自动入栈。
+    if (tab.key === 'recommend' && currentRoute === 'pages/prd08/recommend/waiting/index') return
     const sourceTab = TABS.find(item => item.path.slice(1) === currentRoute)
     if (tabSwitchInFlight) {
       // 同一路由内的并发点击属于一次导航事务；路由已变化则说明上次切换已落地，
@@ -116,16 +120,21 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
       releaseTabSwitch()
     }
     // 是否重复点击只认微信真实路由，不能依赖可能滞后一帧的点亮状态。
-    if (tab.path.slice(1) === currentRoute) return
+    if (tab.path.slice(1) === currentRoute) {
+      if (tab.key === 'community') Taro.eventCenter.trigger('heartTabReselect')
+      return
+    }
     tabSwitchInFlight = true
     tabSwitchSourceRoute = currentRoute
+    const generation = ++tabSwitchGeneration
     onActiveChange?.(tab.key)
     Taro.switchTab({
       url: tab.path,
-      success: releaseTabSwitch,
+      success: () => releaseTabSwitch(generation),
       fail: () => {
+        if (generation !== tabSwitchGeneration) return
         onActiveChange?.(sourceTab?.key ?? active)
-        releaseTabSwitch()
+        releaseTabSwitch(generation)
       },
     })
   }

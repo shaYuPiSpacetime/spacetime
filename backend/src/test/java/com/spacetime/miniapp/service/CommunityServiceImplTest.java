@@ -535,8 +535,8 @@ class CommunityServiceImplTest {
     }
 
     @Test
-    @DisplayName("发布诚意贴-机审通过后进入人工审核")
-    void createSincerePost_machinePass_shouldPendingManual() {
+    @DisplayName("工作人员时空站台-安全检查通过后直接发布")
+    void createSincerePost_machinePass_shouldPublish() {
         CommunityPostCreateReq req = new CommunityPostCreateReq();
         req.setPostType("sincere_post");
         req.setTitle("真诚交友");
@@ -553,8 +553,8 @@ class CommunityServiceImplTest {
 
         CommunityPublishResultVO result = communityService.createPost(1L, req);
 
-        assertThat(result.getStatus()).isEqualTo("pending_manual");
-        verify(communityPostDao).insert(argThat(entity -> "pending_manual".equals(entity.getStatus())));
+        assertThat(result.getStatus()).isEqualTo("published");
+        verify(communityPostDao).insert(argThat(entity -> "published".equals(entity.getStatus())));
     }
 
     @Test

@@ -15,6 +15,7 @@ import com.spacetime.common.dao.RecommendPreferenceDao;
 import com.spacetime.common.dao.SchoolDictionaryDao;
 import com.spacetime.common.dao.UserUnlockRecordDao;
 import com.spacetime.common.entity.AppUser;
+import com.spacetime.common.entity.AppUserRelationBlock;
 import com.spacetime.common.entity.IdealFilterSnapshot;
 import com.spacetime.common.entity.IdealSnapshotCandidate;
 import com.spacetime.common.entity.RecommendPreference;
@@ -198,11 +199,12 @@ public class IdealServiceImpl implements IdealService {
 
         List<AppUser> queried = safeUsers(appUserDao.selectList(candidateWrapper(current, values)));
         Map<Long, String> access = accessProjectionService.projectAll(queried);
+        Set<Long> blockedIds = blockedCandidateIds(userId, queried);
         List<IdealSnapshotCandidate> candidates = new ArrayList<>();
         Map<String, Boolean> schoolTierByCode = schoolTierByCode(values, queried);
         for (AppUser candidate : queried) {
             if (!"OPEN".equals(access.get(candidate.getId()))
-                    || isBlocked(userId, candidate.getId())
+                    || blockedIds.contains(candidate.getId())
                     || !matchesAll(current, candidate, values, scopes, schoolTierByCode)) {
                 continue;
             }
@@ -575,6 +577,27 @@ public class IdealServiceImpl implements IdealService {
                 && (record.getExpireTime() == null || record.getExpireTime().isAfter(LocalDateTime.now()));
     }
 
+    /** 批量投影屏蔽关系；不推荐为单向设置，拉黑则双向阻止访问。 */
+    private Set<Long> blockedCandidateIds(Long userId, List<AppUser> candidates) {
+        List<Long> targetIds = candidates.stream().map(AppUser::getId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        if (targetIds.isEmpty()) {
+            return Set.of();
+        }
+        List<AppUserRelationBlock> blocks = relationBlockDao.selectActiveBetweenUserAndTargets(
+                userId, targetIds, List.of(RelationBlockTypeEnum.BLACKLIST.getCode(),
+                        RelationBlockTypeEnum.NO_RECOMMEND.getCode()));
+        Set<Long> result = new LinkedHashSet<>();
+        for (AppUserRelationBlock block : blocks == null ? List.<AppUserRelationBlock>of() : blocks) {
+            boolean outgoing = userId.equals(block.getUserId());
+            if (outgoing || RelationBlockTypeEnum.BLACKLIST.getCode().equals(block.getBlockType())) {
+                Long targetId = outgoing ? block.getTargetUserId() : block.getUserId();
+                if (targetId != null) result.add(targetId);
+            }
+        }
+        return result;
+    }
+
     private boolean isBlocked(Long userId, Long candidateId) {
         return relationBlockDao.selectActive(userId, candidateId,
                 RelationBlockTypeEnum.BLACKLIST.getCode()) != null
@@ -648,7 +671,13 @@ public class IdealServiceImpl implements IdealService {
     }
 
     private Set<String> tags(AppUser user, TagScopes scopes) {
-        return parseList(user == null ? null : user.getTags()).stream()
+        String raw = user == null ? null : user.getTags();
+        List<String> stored = parseList(raw);
+        // 旧版管理端把多选标签存成逗号文本；兼容既有数据，不要求重新导入用户。
+        if (stored.isEmpty() && StrUtil.isNotBlank(raw) && !raw.trim().startsWith("[")) {
+            stored = java.util.Arrays.asList(raw.split("[,，|｜]"));
+        }
+        return stored.stream().map(StrUtil::trim).filter(StrUtil::isNotBlank)
                 .map(code -> scopes.canonicalTags().getOrDefault(code, code))
                 .collect(java.util.stream.Collectors.toSet());
     }

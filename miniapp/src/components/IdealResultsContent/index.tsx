@@ -38,7 +38,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
   const pendingCheck = useRef(false)
   const loadInFlight = useRef(false)
   const showEmptyState = !resolvingSnapshot && !loading && !message && !resolutionError && items.length === 0
-  const load = async (cursor?: string) => {
+  const load = async (cursor?: string, append = true) => {
     if (loadInFlight.current) return
     if (!snapshotNo) {
       if (resolvingSnapshot) return
@@ -53,7 +53,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
       const data = await getIdealResults(snapshotNo, cursor)
       setMessage('')
       setPage(data)
-      setItems(current => (cursor ? [...current, ...(data.items || [])] : data.items || []))
+      setItems(current => (cursor && append ? [...current, ...(data.items || [])] : data.items || []))
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '理想型结果加载失败')
     } finally {
@@ -61,6 +61,14 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
       setLoading(false)
       setLoadingMore(false)
     }
+  }
+  const changeBatch = async () => {
+    if (loading || loadingMore || resolvingSnapshot) return
+    if (!page?.nextCursor) {
+      await Taro.showToast({ title: '已显示全部结果', icon: 'none' })
+      return
+    }
+    await load(page.nextCursor, false)
   }
   const refreshResults = () => {
     if (pendingCheck.current) return
@@ -209,7 +217,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
                 }}
               >
                 <View
-                  onClick={() => void Taro.redirectTo({ url: '/pages/prd08/ideal/filter/index' })}
+                  onClick={() => void changeBatch()}
                   style={{ display: 'flex', alignItems: 'center' }}
                 >
                   <Image

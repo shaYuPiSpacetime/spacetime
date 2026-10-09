@@ -153,22 +153,15 @@ export default function QianxunTopicPage() {
   }
 
   const openPostActions = async (post: CommunityPostVO) => {
-    if (post.authorId === currentUserId) {
-      setSelectedOwnPost(post)
-      return
-    }
+    setSelectedOwnPost(post)
+  }
+
+  const manageSelectedPost = async (action: 'follow' | 'hide' | 'report') => {
+    const post = selectedOwnPost
+    if (!post) return
+    setSelectedOwnPost(undefined)
     try {
-      const action = await Taro.showActionSheet({ itemList: [
-        '分享',
-        post.followingAuthor ? '取消关注' : '关注',
-        post.hiddenAuthor ? '取消不看 TA 动态' : '不看 TA 动态',
-        '举报',
-      ] })
-      if (action.tapIndex === 0) {
-        await Taro.showShareMenu({ withShareTicket: true })
-        return
-      }
-      if (action.tapIndex === 1) {
+      if (action === 'follow') {
         if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') {
           setShowUnverifiedModal(true)
           return
@@ -177,7 +170,7 @@ export default function QianxunTopicPage() {
         setPosts(items => items.map(item => item.authorId === post.authorId ? { ...item, followingAuthor: result.following } : item))
         return
       }
-      if (action.tapIndex === 2) {
+      if (action === 'hide') {
         const result = post.hiddenAuthor
           ? await unhideCommunityAuthor(post.authorUserNo || post.authorId)
           : await hideCommunityAuthor(post.authorUserNo || post.authorId)
@@ -226,7 +219,7 @@ export default function QianxunTopicPage() {
       </ScrollView>
     </View>
     <View id="qianxun-topic-participate" onClick={() => topicId && void Taro.navigateTo({ url: `/pages/qianxun/compose?topicId=${topicId}&topicName=${encodeURIComponent(topicName)}` })} style={{ position: 'fixed', left: '50%', bottom: 'calc(30rpx + env(safe-area-inset-bottom))', width: '240rpx', height: '82rpx', borderRadius: '41rpx', background: topicId ? BLUE : '#C8D4E8', boxShadow: '0 12rpx 28rpx rgba(40,118,255,0.28)', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx', fontWeight: 600 }}>参与话题</Text></View>
-    <CommunityPostActionSheet visible={selectedOwnPost !== undefined} post={selectedOwnPost} isSelf={selectedOwnPost ? selectedOwnPost.authorId === currentUserId : false} onClose={() => setSelectedOwnPost(undefined)} />
+    <CommunityPostActionSheet visible={selectedOwnPost !== undefined} post={selectedOwnPost} isSelf={selectedOwnPost ? selectedOwnPost.authorId === currentUserId : false} onClose={() => setSelectedOwnPost(undefined)} onFollow={() => void manageSelectedPost('follow')} onHide={() => void manageSelectedPost('hide')} onReport={() => void manageSelectedPost('report')} />
     <CommunityReportReasonSheet visible={selectedReportPost !== undefined} reasons={config?.reportReasons || []} onClose={() => setSelectedReportPost(undefined)} onReport={reasonCode => void submitReport(reasonCode)} />
     <UnverifiedCertificationModal visible={showUnverifiedModal} onClose={() => setShowUnverifiedModal(false)} onConfirm={() => {
       setShowUnverifiedModal(false)
