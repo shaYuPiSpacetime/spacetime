@@ -7,8 +7,6 @@
 4. **Forked execution** — Use `context: fork` for implementer and QA subagents to prevent context rot from noisy output.
 5. **Single source of truth** — Plans, decisions, and summaries live in `.claude/plans/` and `.claude/memory/`. The active plan controls what is being worked on.
 
-## Pipeline routing
-
 ## 发布长期规则（用户确认于 2026-10-09）
 
 - 每次发布都先实际拉取并同步最新 `origin/master`，包括仅重新发布、重新上传小程序体验版的请求；上次已经拉取不能替代本次拉取。
