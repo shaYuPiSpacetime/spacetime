@@ -1,0 +1,41 @@
+name: ops-reset-relation-pair-20261009
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'deploy/sql/prod/108_ops_reset_relation_pair_20261009.sql'
+      - '.github/workflows/ops-reset-relation-pair-20261009.yml'
+
+concurrency:
+  group: spacetime-prod-data-ops
+  cancel-in-progress: false
+
+jobs:
+  reset-pair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout operation files
+        uses: actions/checkout@v4
+
+      - name: Copy one-time SQL to production host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'deploy/sql/prod/108_ops_reset_relation_pair_20261009.sql'
+          target: '/mnt/data/spacetime-prod'
+
+      - name: Execute guarded pair reset
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          script_stop: true
+          script: |
+            set -e
+            cd /mnt/data/spacetime-prod
+            bash deploy/scripts/migrate-prod-db.sh \
+              deploy/sql/prod/108_ops_reset_relation_pair_20261009.sql
