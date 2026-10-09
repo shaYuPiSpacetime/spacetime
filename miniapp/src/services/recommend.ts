@@ -1,5 +1,6 @@
 import type { PublicProfileVO } from './profile'
 import { get, post, put } from './request'
+import { collectRecommendCandidatePages } from '@/domain/recommendBadge'
 
 export type CommunicationMode = 'WHISPER' | 'PRIVATE_MESSAGE'
 
@@ -64,6 +65,8 @@ export interface RecommendCandidateVO {
 
 export interface RecommendCandidatePageVO {
   items: RecommendCandidateVO[]
+  /** 当前队列已成功记录浏览的候选，仅用于本地角标。 */
+  viewedCandidateNos?: string[]
   nextCursor?: string | null
   remainingBrowseCount?: number | null
   nextResetAt?: string | null
@@ -149,7 +152,10 @@ export function saveRecommendPreferences(data: RecommendPreferenceSaveReq): Prom
 }
 
 export function getRecommendCandidates(cursor?: string): Promise<RecommendCandidatePageVO> {
-  return get<RecommendCandidatePageVO>('/miniapp/recommend/candidates', { cursor })
+  return collectRecommendCandidatePages(
+    (nextCursor?: string) => get<RecommendCandidatePageVO>('/miniapp/recommend/candidates', { cursor: nextCursor }),
+    cursor
+  )
 }
 
 export function recordRecommendView(candidateNo: string, data: RecommendViewActionReq): Promise<null> {

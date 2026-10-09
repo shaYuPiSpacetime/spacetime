@@ -1,15 +1,51 @@
 export function resolveRecommendBadgeCount(page) {
   if (!page || !Array.isArray(page.items) || page.items.length === 0) return 0
+  const viewed = new Set(page.viewedCandidateNos || [])
+  const candidates = new Set(page.items.filter(item => !viewed.has(item.candidateNo)).map(item => item.candidateNo))
+  if (page.remainingBrowseCount == null) return candidates.size
   const remaining = Number(page.remainingBrowseCount)
-  return Number.isFinite(remaining) ? Math.max(0, remaining) : 0
+  return Number.isFinite(remaining) ? Math.min(candidates.size, Math.max(0, remaining)) : 0
+}
+
+/** 按游标收齐额度内的真实候选，空扫描页继续查询，重复游标或筛选变化时拒绝发布不完整数字。 */
+export async function collectRecommendCandidatePages(fetchPage, cursor) {
+  const first = await fetchPage(cursor)
+  const remaining = first.remainingBrowseCount
+  const limit = remaining == null ? Infinity : Math.max(0, Number(remaining) || 0)
+  const candidates = new Map()
+  const visited = new Set(cursor ? [cursor] : [])
+  let page = first
+  while (true) {
+    if (page.preferenceVersion !== first.preferenceVersion || page.nextResetAt !== first.nextResetAt) {
+      throw new Error('推荐条件已变化，请刷新后重试')
+    }
+    for (const item of page.items || []) {
+      if (candidates.size >= limit) break
+      candidates.set(item.candidateNo, item)
+    }
+    if (!page.nextCursor || candidates.size >= limit) break
+    if (visited.has(page.nextCursor)) throw new Error('推荐数据获取失败，请刷新后重试')
+    visited.add(page.nextCursor)
+    page = await fetchPage(page.nextCursor)
+  }
+  return {
+    ...first,
+    items: [...candidates.values()],
+    nextCursor: page.nextCursor,
+    waitingReason: candidates.size ? null : page.waitingReason,
+  }
 }
 
 /** 浏览动作成功后同步服务端已扣除的额度，仅更新仍含该候选的当前页。 */
 export function applyRecommendViewToPage(page, candidateNo) {
   if (!page || !page.items?.some(item => item.candidateNo === candidateNo)) return page
+  if (page.viewedCandidateNos?.includes(candidateNo)) return page
   const remaining = page.remainingBrowseCount
-  if (remaining == null || !Number.isFinite(remaining)) return page
-  return { ...page, remainingBrowseCount: Math.max(0, remaining - 1) }
+  return {
+    ...page,
+    viewedCandidateNos: [...(page.viewedCandidateNos || []), candidateNo],
+    remainingBrowseCount: remaining == null || !Number.isFinite(remaining) ? remaining : Math.max(0, remaining - 1),
+  }
 }
 
 /** 多个底部栏共用推荐数字：合并刷新，保留最近结果，阻止旧响应覆盖浏览后的数字。 */
