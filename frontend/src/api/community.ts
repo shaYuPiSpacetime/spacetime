@@ -161,6 +161,7 @@ export interface CommunityReportAdminVO {
   reasonCode: string;
   reasonLabel?: string;
   extraText?: string;
+  evidenceImageUrls?: string[];
   sourceScene?: string;
   status: string;
   statusName?: string;

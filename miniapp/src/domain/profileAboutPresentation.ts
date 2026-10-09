@@ -55,31 +55,43 @@ export function buildProfilePreviewAboutSummary(
   })
 }
 
+function toProfileAboutSummaryItem(
+  question: Pick<AboutMeQuestion, 'questionKey' | 'title' | 'placeholder'>,
+  value: string,
+): ProfileAboutSummaryItem {
+  const definition = PROFILE_ABOUT_SUMMARY_DEFINITIONS.find(item => item.key === question.questionKey)
+  return {
+    key: question.questionKey,
+    title: String(question.title || definition?.title || question.questionKey),
+    placeholder: String(question.placeholder || definition?.placeholder || ''),
+    value,
+  }
+}
+
+/** “补充更多关于我”按后台返回顺序展示可见题目的前三项。 */
+export function buildProfileAboutPrompts(
+  questions: Array<Pick<AboutMeQuestion, 'questionKey' | 'title' | 'placeholder'>> = [],
+): ProfileAboutSummaryItem[] {
+  return questions.slice(0, 3).map(question => toProfileAboutSummaryItem(question, ''))
+}
+
 /**
- * 未填写任何内容时展示蓝湖默认三项；已有填写时按接口顺序展示全部已填写条目。
+ * 未填写任何内容时按后台题目顺序展示前三项；已有填写时按接口顺序展示全部已填写条目。
  */
 export function buildProfileAboutSummary(
   questions: Array<Pick<AboutMeQuestion, 'questionKey' | 'title' | 'placeholder' | 'latestContent' | 'effectiveContent'>> = [],
   visibleFieldKeys?: string[]
 ): ProfileAboutSummaryItem[] {
   const visibleKeys = visibleFieldKeys ? new Set(visibleFieldKeys) : null
-  const definitionByKey = new Map<string, (typeof PROFILE_ABOUT_SUMMARY_DEFINITIONS)[number]>(
-    PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(item => [item.key, item])
-  )
   const filled = questions.flatMap(question => {
     if (visibleKeys && !visibleKeys.has(question.questionKey)) return []
     const value = resolveOwnerVisibleText(question)
     if (!value) return []
-    const definition = definitionByKey.get(question.questionKey)
-    return [{
-      key: question.questionKey,
-      title: String(question.title || definition?.title || question.questionKey),
-      placeholder: String(question.placeholder || definition?.placeholder || ''),
-      value,
-    }]
+    return [toProfileAboutSummaryItem(question, value)]
   })
   if (filled.length) return filled
-  return PROFILE_ABOUT_SUMMARY_DEFINITIONS
-    .filter(definition => !visibleKeys || visibleKeys.has(definition.key))
-    .map(definition => ({ ...definition, value: '' }))
+  return questions
+    .filter(question => !visibleKeys || visibleKeys.has(question.questionKey))
+    .slice(0, 3)
+    .map(question => toProfileAboutSummaryItem(question, ''))
 }

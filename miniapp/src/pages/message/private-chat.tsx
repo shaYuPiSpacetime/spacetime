@@ -1,17 +1,17 @@
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import { navigateToOrRedirect } from '@/utils/navigation'
-import Taro, { useDidShow, useRouter } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, useRouter } from '@tarojs/taro'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   createKeyedSingleFlight,
   formatPrivateChatTime,
   isReadCursorNotFoundError,
-  isChatScrollTargetSettled,
   isTimAccountMissingError,
   resolveConversationReadCursor,
   resolveConversationSendBlockedReason,
   resolveMessageError,
+  resolvePrivateChatScrollIntent,
   waitForMessageGatewayReady,
   withMessageTimeout,
 } from '@/domain/messageRuntime'
@@ -239,6 +239,8 @@ function EstablishedPrivateChatPage() {
   const scrollTargetRef = useRef<'chat-bottom-a' | 'chat-bottom-b'>('chat-bottom-b')
   const mountedRef = useRef(true)
   const hasCompletedInitialShowRef = useRef(false)
+  const pageVisibleRef = useRef(true)
+  const nearBottomRef = useRef(true)
   const timConversationIdRef = useRef(isMockScene ? conversationNo : '')
   const gatewayRef = useRef<MessageImGateway>()
   const gatewayPromiseRef = useRef<Promise<MessageImGateway>>()
@@ -258,42 +260,13 @@ function EstablishedPrivateChatPage() {
     ? conversationNo
     : detail?.timConversationId || ''
 
-  const requestScrollToLatest = useCallback((afterPositioned?: () => void) => {
+  const requestScrollToLatest = useCallback(() => {
     const current = scrollTargetRef.current
     const target = current === 'chat-bottom-a' ? 'chat-bottom-b' : 'chat-bottom-a'
     scrollTargetRef.current = target
-    // React 的 nextTick 只保证虚拟树更新；首屏还要等微信原生 ScrollView 确认真正滚到底部。
-    Taro.nextTick(() => {
-      setScrollTarget(target)
-      if (!afterPositioned) return
-
-      const waitUntilSettled = (attempt = 0) => {
-        Taro.nextTick(() => {
-          if (!mountedRef.current) return
-          let viewportRect: { top: number; bottom: number } | null = null
-          let targetRect: { top: number; bottom: number } | null = null
-          Taro.createSelectorQuery()
-            .select('.private-chat-scroll')
-            .boundingClientRect(rect => {
-              if (rect && !Array.isArray(rect)) viewportRect = { top: rect.top, bottom: rect.bottom }
-            })
-            .select(`#${target}`)
-            .boundingClientRect(rect => {
-              if (rect && !Array.isArray(rect)) targetRect = { top: rect.top, bottom: rect.bottom }
-            })
-            .exec(() => {
-              if (!mountedRef.current) return
-              if (isChatScrollTargetSettled(viewportRect, targetRect) || attempt >= 11) {
-                afterPositioned()
-                return
-              }
-              waitUntilSettled(attempt + 1)
-            })
-        })
-      }
-
-      waitUntilSettled()
-    })
+    // 与消息列表在同一批 React 更新里提交滚动目标，避免正文先出现在顶部再跳到底部。
+    setScrollTarget(target)
+    nearBottomRef.current = true
   }, [])
 
   useEffect(() => {
@@ -353,7 +326,8 @@ function EstablishedPrivateChatPage() {
       item => item.conversationNo === currentTimConversationId || item.conversationNo === conversationNo,
     )
     if (!relevant.length) return
-    if (relevant.some(item => item.direction === 'incoming')) {
+    const hasIncoming = relevant.some(item => item.direction === 'incoming')
+    if (hasIncoming) {
       setDetail(current => current?.femaleProtection?.appliesToCurrentUser
         ? {
             ...current,
@@ -371,6 +345,11 @@ function EstablishedPrivateChatPage() {
       setTimeout(() => void acknowledgeRendered(next), 0)
       return next
     })
+    if (hasIncoming
+      && pageVisibleRef.current
+      && resolvePrivateChatScrollIntent('incoming', nearBottomRef.current) === 'latest') {
+      Taro.nextTick(requestScrollToLatest)
+    }
   }
 
   const getGateway = useCallback(async (): Promise<MessageImGateway> => {
@@ -440,15 +419,10 @@ function EstablishedPrivateChatPage() {
       const revealInitial = (items: ChatMessage[]) => {
         if (initialRevealed) return
         initialRevealed = true
-        const finishReveal = () => {
-          initialPositionedRef.current = true
-          setInitialLoading(false)
-        }
-        if (items.length > 0) {
-          requestScrollToLatest(() => finishReveal())
-          return
-        }
-        finishReveal()
+        if (items.length > 0
+          && resolvePrivateChatScrollIntent('initial') === 'latest') requestScrollToLatest()
+        initialPositionedRef.current = true
+        setInitialLoading(false)
       }
       const localHistoryPromise = withMessageTimeout(
         service.listConversationMessages(conversationNo, undefined, 30),
@@ -537,12 +511,47 @@ function EstablishedPrivateChatPage() {
     unsubscribeGatewayRef.current = undefined
   }, [])
 
+  const refreshPreservingPosition = useCallback(async () => {
+    if (isMockScene) return
+    try {
+      const [detailResult, historyResult] = await Promise.allSettled([
+        service.getConversation(conversationNo),
+        service.listConversationMessages(conversationNo, undefined, 30),
+      ])
+      if (!mountedRef.current) return
+      if (detailResult.status === 'fulfilled') {
+        setDetail(detailResult.value)
+        timConversationIdRef.current = detailResult.value.timConversationId || ''
+      }
+      if (historyResult.status === 'fulfilled') {
+        const page = historyResult.value
+        const next = upsertMessages(messagesRef.current, page.list)
+        messagesRef.current = next
+        setMessages(next)
+        setHistoryCursor(page.nextCursor || undefined)
+        setHistoryCompleted(!page.hasMore)
+        void acknowledgeRendered(next)
+      }
+      void messagePlatformRuntime.refreshUnread()
+    } catch {
+      // 页面恢复刷新失败时保留当前画面，不用错误层打断用户阅读。
+    }
+  }, [acknowledgeRendered, conversationNo, isMockScene, service])
+
+  useDidHide(() => {
+    pageVisibleRef.current = false
+    setScrollTarget(undefined)
+  })
+
   useDidShow(() => {
+    pageVisibleRef.current = true
     if (!hasCompletedInitialShowRef.current) {
       hasCompletedInitialShowRef.current = true
       return
     }
-    if (!isMockScene) void load()
+    if (resolvePrivateChatScrollIntent('resume') === 'preserve') {
+      void refreshPreservingPosition()
+    }
   })
 
   const loadEarlier = async () => {
@@ -725,15 +734,28 @@ function EstablishedPrivateChatPage() {
         style={{ height: keyboardHeight > 0 ? `calc(100vh - 137px - ${keyboardHeight}px)` : undefined }}
         showScrollbar={false}
         scrollIntoView={scrollTarget}
-        onScrollToUpper={() => void loadEarlier()}
+        onScroll={event => {
+          const windowHeight = Taro.getWindowInfo().windowHeight
+          const visibleHeight = Math.max(1, windowHeight - 137 - keyboardHeight)
+          nearBottomRef.current = event.detail.scrollHeight
+            - event.detail.scrollTop
+            - visibleHeight <= 96
+        }}
+        onScrollToLower={() => { nearBottomRef.current = true }}
+        onScrollToUpper={() => {
+          nearBottomRef.current = false
+          void loadEarlier()
+        }}
         onClick={dismissKeyboard}
       >
-        <View className={`private-chat-skeleton${initialLoading ? '' : ' private-chat-skeleton--hidden'}`}>
-          <View className="private-chat-skeleton-card" />
-          <View className="private-chat-skeleton-row" />
-          <View className="private-chat-skeleton-row private-chat-skeleton-row--right" />
-        </View>
-        <View className={`private-chat-content${initialLoading ? ' private-chat-content--preparing' : ''}`}>
+        {initialLoading && messages.length === 0 ? (
+          <View className="private-chat-skeleton">
+            <View className="private-chat-skeleton-card" />
+            <View className="private-chat-skeleton-row" />
+            <View className="private-chat-skeleton-row private-chat-skeleton-row--right" />
+          </View>
+        ) : null}
+        <View className="private-chat-content">
         <View className="chat-history-loading">
           {historyLoading ? <Text>正在加载历史消息...</Text> : null}
         </View>
@@ -773,8 +795,8 @@ function EstablishedPrivateChatPage() {
           })}
           {!initialLoading && messages.length === 0 ? <Text className="message-empty-copy">暂无聊天记录</Text> : null}
         </View>
-        <View id="chat-bottom-a" />
-        <View id="chat-bottom-b" />
+        <View id="chat-bottom-a" className="chat-bottom-anchor" />
+        <View id="chat-bottom-b" className="chat-bottom-anchor" />
         </View>
       </ScrollView>
 

@@ -10,6 +10,7 @@ import {
   buildBasicProfileLocationText,
 } from '@/domain/basicProfilePresentation'
 import {
+  buildProfileAboutPrompts,
   buildProfileAboutSummary,
   buildProfilePreviewAboutSummary,
   resolveOwnerVisibleText,
@@ -26,7 +27,7 @@ import { getMyCommunityPosts, type CommunityPostVO } from '@/services/community'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { useAuthStore } from '@/stores/authStore'
-import type { BasicProfile, ProfileFieldSetting, ProfileMedia, RegionTreeOption, VerificationStatus, VoiceIntro } from '@/types/prd01'
+import type { AboutMeQuestion, BasicProfile, ProfileFieldSetting, ProfileMedia, RegionTreeOption, VerificationStatus, VoiceIntro } from '@/types/prd01'
 import { PROFILE_UPDATED_EVENT, type ProfileEditUpdate } from '@/utils/profileEditEvents'
 import type { ProfileTagItem } from '@/utils/profileTags'
 import {
@@ -160,12 +161,6 @@ const defaultPhotoSlots: ProfilePhotoSlot[] = [
   { label: '展示才艺的照片' },
   { label: '宠物小伙伴' },
 ]
-const aboutStoryPrompts = [
-  { fieldId: 'carStatus', label: '购车情况?' },
-  { fieldId: 'childrenPlan', label: '是否想要孩子?' },
-  { fieldId: 'hasChild', label: '有无子女?' },
-]
-
 type VoiceRecorderSession = {
   onStart: () => void
   onStop: (result: Taro.RecorderManager.OnStopCallbackResult) => void
@@ -236,6 +231,7 @@ export default function ProfileEditPage() {
   const [intro, setIntro] = useState('')
   const [previewIntro, setPreviewIntro] = useState('')
   const [aboutTopics, setAboutTopics] = useState<ProfileAboutSummaryItem[]>([])
+  const [aboutQuestions, setAboutQuestions] = useState<AboutMeQuestion[]>([])
   const [previewAboutTopics, setPreviewAboutTopics] = useState<ProfileAboutSummaryItem[]>([])
   const [selectedTags, setSelectedTags] = useState<ProfileTagItem[]>([])
   const [communityPosts, setCommunityPosts] = useState<CommunityPostVO[]>([])
@@ -265,6 +261,10 @@ export default function ProfileEditPage() {
   const recordingTimer = useRef<ReturnType<typeof setInterval>>()
   const voiceAudio = useRef<ReturnType<typeof Taro.createInnerAudioContext>>()
   const visibleAboutKeys = useMemo(() => visibleAboutFieldKeys(fieldSettings), [fieldSettings])
+  const aboutStoryPrompts = useMemo(
+    () => buildProfileAboutPrompts(aboutQuestions),
+    [aboutQuestions],
+  )
 
   useEffect(() => {
     void (async () => {
@@ -310,6 +310,7 @@ export default function ProfileEditPage() {
         setPreviewIntro(resolvePreviewVisibleText(introDetail))
         const visibleAboutQuestions = filterVisibleAboutQuestions(aboutDetail.questions, aboutFieldSettings)
         const initialVisibleAboutKeys = visibleAboutFieldKeys(aboutFieldSettings)
+        setAboutQuestions(visibleAboutQuestions)
         setAboutTopics(buildProfileAboutSummary(visibleAboutQuestions, initialVisibleAboutKeys))
         setPreviewAboutTopics(buildProfilePreviewAboutSummary(visibleAboutQuestions))
         const tagCodes = parseTagCodes(tags)
@@ -681,6 +682,7 @@ export default function ProfileEditPage() {
     }
     if (update.type === 'about') {
       const visibleAboutQuestions = filterVisibleAboutQuestions(update.questions, fieldSettings)
+      setAboutQuestions(visibleAboutQuestions)
       setAboutTopics(buildProfileAboutSummary(visibleAboutQuestions, visibleAboutKeys))
       setPreviewAboutTopics(buildProfilePreviewAboutSummary(visibleAboutQuestions))
     }
@@ -925,7 +927,7 @@ export default function ProfileEditPage() {
           {aboutVisibilityReady && visibleAboutKeys.length > 0 ? (
             <AboutDetailSection
               items={aboutTopics}
-              visibleFieldKeys={visibleAboutKeys}
+              prompts={aboutStoryPrompts}
               onAdd={() => handleProfileAction('关于我', '/pages/profile-edit/about')}
               onFill={key =>
                 handleProfileAction(
@@ -1888,12 +1890,12 @@ function VoiceSection({ voice, onRecord, onDelete }: { voice?: VoiceIntro; onRec
 
 function AboutDetailSection({
   items,
-  visibleFieldKeys,
+  prompts,
   onAdd,
   onFill,
 }: {
   items: ProfileAboutSummaryItem[]
-  visibleFieldKeys: string[]
+  prompts: ProfileAboutSummaryItem[]
   onAdd: () => void
   onFill: (key: string) => void
 }) {
@@ -1986,7 +1988,7 @@ function AboutDetailSection({
       >
         补充更多关于我的故事
       </Text>
-      <AboutStoryChips visibleFieldKeys={visibleFieldKeys} onClick={onAdd} />
+      <AboutStoryChips prompts={prompts} onClick={onAdd} />
       <View
         onClick={onAdd}
         style={{
@@ -2019,10 +2021,10 @@ function AboutDetailSection({
 }
 
 function AboutStoryChips({
-  visibleFieldKeys,
+  prompts,
   onClick,
 }: {
-  visibleFieldKeys: string[]
+  prompts: ProfileAboutSummaryItem[]
   onClick: () => void
 }) {
   return (
@@ -2032,9 +2034,9 @@ function AboutStoryChips({
       showScrollbar={false}
     >
       <View style={{ display: 'flex', flexDirection: 'row' }}>
-        {aboutStoryPrompts.filter(item => visibleFieldKeys.includes(item.fieldId)).map(item => (
+        {prompts.map(item => (
           <View
-            key={item.fieldId}
+            key={item.key}
             onClick={onClick}
             style={{
               height: '54rpx',
@@ -2047,7 +2049,9 @@ function AboutStoryChips({
               flexShrink: 0,
             }}
           >
-            <Text style={{ color: '#9B9FA8', fontSize: '24rpx', lineHeight: '34rpx' }}>{item.label}</Text>
+            <Text style={{ color: '#9B9FA8', fontSize: '24rpx', lineHeight: '34rpx' }}>
+              {`${item.title}${/[?？]$/.test(item.title) ? '' : '?'}`}
+            </Text>
             <AboutStoryChipPlus />
           </View>
         ))}

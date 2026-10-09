@@ -130,26 +130,24 @@ test('主页预览空内容和空图片不生成占位模块', () => {
   assert.doesNotMatch(preview, /minHeight: '5900rpx'/, '隐藏空模块后禁止保留固定超长页面高度')
 })
 
-test('关于我无填写默认三项，有填写时按真实填写条数回显', () => {
+test('关于我无填写取后台可见问题前三项，有填写时按真实填写条数回显', () => {
   const presentationPath = 'src/domain/profileAboutPresentation.ts'
-  assert.ok(fs.existsSync(path.join(root, presentationPath)), '缺少关于我固定摘要领域映射')
-  const { PROFILE_ABOUT_SUMMARY_DEFINITIONS, buildProfileAboutSummary } =
+  assert.ok(fs.existsSync(path.join(root, presentationPath)), '缺少关于我摘要领域映射')
+  const { buildProfileAboutPrompts, buildProfileAboutSummary } =
     loadTypeScriptModule(presentationPath)
 
-  assert.deepEqual(
-    PROFILE_ABOUT_SUMMARY_DEFINITIONS.map(item => [item.key, item.title]),
-    [
-      ['meetingPreference', '见面便好'],
-      ['preferredActivities', '喜欢的见面活动'],
-      ['housingStatus', '住房情况'],
-    ],
-    '关于我未填写时必须按蓝湖默认展示三项'
-  )
-
-  const empty = buildProfileAboutSummary([])
+  const configuredQuestions = [
+    { questionKey: 'carStatus', title: '购车情况', placeholder: '说说你的购车情况', latestContent: '', effectiveContent: '', canSubmit: true },
+    { questionKey: 'childrenPlan', title: '是否想要孩子', placeholder: '说说你对孩子的规划', latestContent: '', effectiveContent: '', canSubmit: true },
+    { questionKey: 'hasChild', title: '有无子女', placeholder: '说说你当前的子女情况', latestContent: '', effectiveContent: '', canSubmit: true },
+    { questionKey: 'housingStatus', title: '住房情况', placeholder: '说说你的住房情况', latestContent: '', effectiveContent: '', canSubmit: true },
+  ]
+  const empty = buildProfileAboutSummary(configuredQuestions)
   assert.equal(empty.length, 3)
+  assert.deepEqual(empty.map(item => item.key), ['carStatus', 'childrenPlan', 'hasChild'])
   assert.deepEqual(empty.map(item => item.value), ['', '', ''])
-  assert.ok(empty.every(item => item.placeholder), '空值三项必须展示蓝湖引导文案')
+  assert.ok(empty.every(item => item.placeholder), '空值三项必须展示后台引导文案')
+  assert.deepEqual(buildProfileAboutPrompts(configuredQuestions).map(item => item.key), ['carStatus', 'childrenPlan', 'hasChild'])
 
   const filled = buildProfileAboutSummary([
     {
@@ -183,13 +181,13 @@ test('关于我无填写默认三项，有填写时按真实填写条数回显',
   assert.equal(filled[1].title, '购车情况', '额外已填写问题必须使用接口标题完整回显')
   assert.equal(filled[1].value, '已有代步车', '本人页优先回显最新填写内容')
 
-  const configuredDefaults = buildProfileAboutSummary([], ['housingStatus'])
+  const configuredDefaults = buildProfileAboutSummary(configuredQuestions, ['housingStatus'])
   assert.deepEqual(
     configuredDefaults.map(item => item.key),
     ['housingStatus'],
     '默认摘要也必须排除后台关闭的字段'
   )
-  assert.deepEqual(buildProfileAboutSummary([], []), [], '所有关于我字段关闭时不得生成默认摘要')
+  assert.deepEqual(buildProfileAboutSummary(configuredQuestions, []), [], '所有关于我字段关闭时不得生成默认摘要')
 })
 
 test('资料编辑页关于我摘要和入口同步后台字段显隐', () => {
@@ -211,11 +209,8 @@ test('资料编辑页关于我摘要和入口同步后台字段显隐', () => {
     /aboutVisibilityReady && visibleAboutKeys\.length > 0 \? \(/,
     '配置加载完成前或全部字段关闭时必须隐藏关于我区块入口'
   )
-  assert.match(
-    edit,
-    /aboutStoryPrompts\.filter\(item => visibleFieldKeys\.includes\(item\.fieldId\)\)/,
-    '摘要区固定推荐词也必须隐藏后台关闭的字段'
-  )
+  assert.doesNotMatch(edit, /const aboutStoryPrompts\s*=\s*\[/, '摘要区不得写死推荐问题')
+  assert.match(edit, /buildProfileAboutPrompts\(aboutQuestions\)/, '摘要区推荐问题必须按后台顺序动态取前三项')
 })
 
 test('编辑资料地区优先展示接口标签，缺标签时按省市树回显中文', () => {
@@ -895,10 +890,8 @@ test('编辑资料二级页沿用渐变导航并严格使用蓝湖歌曲与关�
   assert.match(nav, /background="transparent"/, '二级导航必须透出页面渐变背景')
   assert.match(songs, /title="爱听的歌曲"/, '歌曲页标题必须与蓝湖一致')
   assert.doesNotMatch(songs, /song\.coverUrl/, '歌曲列表必须统一使用蓝湖音乐圆盘图标')
-  assert.match(edit, /fieldId: 'carStatus', label: '购车情况\?'/, '关于我补充项缺少购车情况配置映射')
-  assert.match(edit, /fieldId: 'childrenPlan', label: '是否想要孩子\?'/, '关于我补充项缺少生育计划配置映射')
-  assert.match(edit, /fieldId: 'hasChild', label: '有无子女\?'/, '关于我补充项缺少子女情况配置映射')
-  assert.match(edit, /aboutStoryPrompts\.filter\(item => visibleFieldKeys\.includes\(item\.fieldId\)\)/, '关于我补充项必须按后台字段配置动态展示')
+  assert.doesNotMatch(edit, /fieldId: 'carStatus'|fieldId: 'childrenPlan'|fieldId: 'hasChild'/, '关于我补充项不得在页面写死题目')
+  assert.match(edit, /buildProfileAboutPrompts\(aboutQuestions\)/, '关于我补充项必须动态展示后台可见问题前三项')
   assert.match(edit, /function RightChevron/, '页面右箭头必须使用稳定图形组件')
   assert.match(edit, /function VoiceActionIcon/, '语音操作图标必须使用稳定图形组件')
 })

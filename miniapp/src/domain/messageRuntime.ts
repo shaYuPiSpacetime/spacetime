@@ -39,21 +39,19 @@ type MiniappRoutePage = {
   options?: Record<string, unknown>
 }
 
-type ChatScrollRect = {
-  top: number
-  bottom: number
-}
+export type PrivateChatScrollCause = 'initial' | 'resume' | 'incoming' | 'outgoing' | 'prepend'
+export type PrivateChatScrollIntent = 'latest' | 'preserve'
 
-/** 原生 ScrollView 完成定位后，末尾锚点应落在可视区域内。 */
-export function isChatScrollTargetSettled(
-  viewport: ChatScrollRect | null | undefined,
-  target: ChatScrollRect | null | undefined,
-  tolerance = 2,
-): boolean {
-  if (!viewport || !target) return false
-  if (![viewport.top, viewport.bottom, target.top, target.bottom].every(Number.isFinite)) return false
-  return target.top <= viewport.bottom + tolerance
-    && target.bottom >= viewport.top - tolerance
+/**
+ * 私信只在明确需要时跟随最新消息；页面恢复和阅读历史时必须保留用户当前位置。
+ */
+export function resolvePrivateChatScrollIntent(
+  cause: PrivateChatScrollCause,
+  nearBottom = false,
+): PrivateChatScrollIntent {
+  if (cause === 'initial' || cause === 'outgoing') return 'latest'
+  if (cause === 'incoming') return nearBottom ? 'latest' : 'preserve'
+  return 'preserve'
 }
 
 /** 从私信头像进入用户主页后，复用栈内原会话，避免再压入一个重复聊天页。 */

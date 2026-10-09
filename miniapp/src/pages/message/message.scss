@@ -860,13 +860,7 @@
   position: relative;
 }
 .private-chat-content {
-  opacity: 1;
-  transition: opacity 140ms ease-out;
-  will-change: opacity;
-}
-.private-chat-content--preparing {
-  opacity: 0;
-  pointer-events: none;
+  min-height: 100%;
 }
 .private-chat-skeleton {
   position: absolute;
@@ -875,14 +869,7 @@
   padding: 22px 16px;
   background: #f5f5f5;
   box-sizing: border-box;
-  opacity: 1;
   pointer-events: none;
-  transition: opacity 140ms ease-out;
-  will-change: opacity;
-}
-
-.private-chat-skeleton--hidden {
-  opacity: 0;
 }
 .private-chat-skeleton-card {
   height: 232px;
@@ -905,6 +892,10 @@
   font-size: 11px;
   line-height: 28px;
   text-align: center;
+}
+.chat-bottom-anchor {
+  width: 1px;
+  height: 1px;
 }
 .private-chat-date {
   display: block;

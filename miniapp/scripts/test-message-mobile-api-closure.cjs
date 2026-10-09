@@ -107,6 +107,17 @@ test('从聊天进入用户主页后再次点私信必须复用上一层同会�
   assert.match(profile, /await Taro\.navigateBack\(\{ delta: 1 \}\)/, '命中同会话时应直接返回复用原页面')
 })
 
+test('私信滚动策略区分首次进入、返回页面和新消息场景', () => {
+  const { resolvePrivateChatScrollIntent } = requireDomain('src/domain/messageRuntime.ts')
+
+  assert.equal(resolvePrivateChatScrollIntent('initial'), 'latest', '从私信列表进入必须展示最新消息')
+  assert.equal(resolvePrivateChatScrollIntent('outgoing'), 'latest', '主动发送后必须展示最新消息')
+  assert.equal(resolvePrivateChatScrollIntent('incoming', true), 'latest', '停留底部收到新消息应跟随到底部')
+  assert.equal(resolvePrivateChatScrollIntent('incoming', false), 'preserve', '查看历史时收到新消息不得打断阅读')
+  assert.equal(resolvePrivateChatScrollIntent('resume'), 'preserve', '从用户主页返回必须保留原位置')
+  assert.equal(resolvePrivateChatScrollIntent('prepend'), 'preserve', '加载更早消息必须保留当前锚点')
+})
+
 test('私信发送保留键盘，键盘弹出和发送后消息区露出最新消息', () => {
   const privateChat = read('src/pages/message/private-chat.tsx')
   assert.match(privateChat, /holdKeyboard/)
@@ -134,26 +145,24 @@ test('私信点击消息区域时显式收起键盘，但发送按钮仍保留�
   assert.match(privateChat, /holdKeyboard/, '发送按钮交互仍需保留键盘')
 })
 
-test('私信历史首次加载完成后重新定位最新消息，加载更早记录不强制回底', () => {
+test('私信首屏与页面恢复不等待原生轮询、不隐藏正文且不重载跳位', () => {
   const privateChat = read('src/pages/message/private-chat.tsx')
   const styles = read('src/pages/message/message.scss')
-  const { isChatScrollTargetSettled } = requireDomain('src/domain/messageRuntime.ts')
   const initialHistory = privateChat.match(/const revealInitial = \(items: ChatMessage\[\]\) => \{[\s\S]*?const localHistoryPromise/)?.[0] || ''
   const olderHistory = privateChat.match(/const loadEarlier = async \(\) => \{[\s\S]*?\n  \}/)?.[0] || ''
   const timHistoryMerge = privateChat.match(/const page = await withMessageTimeout\([\s\S]*?revealInitial\(upsertMessages\(localHistory\.page\?\.list \|\| \[\], page\.list\)\)/)?.[0] || ''
+  const resumeBlock = privateChat.match(/useDidShow\(\(\) => \{[\s\S]*?\n  \}\)/)?.[0] || ''
 
-  assert.equal(isChatScrollTargetSettled({ top: 88, bottom: 700 }, { top: 699, bottom: 699 }), true)
-  assert.equal(isChatScrollTargetSettled({ top: 88, bottom: 700 }, { top: 904, bottom: 904 }), false)
   assert.match(privateChat, /scrollIntoView=\{scrollTarget\}/, '滚动目标不能在异步消息加载前固定为底部')
-  assert.match(privateChat, /Taro\.nextTick\([\s\S]*?setScrollTarget/, '应等历史消息渲染后再改变滚动目标')
   assert.match(privateChat, /current === 'chat-bottom-a' \? 'chat-bottom-b' : 'chat-bottom-a'/, '重复打开会话时也应改变滚动目标')
   assert.match(privateChat, /id="chat-bottom-a"[\s\S]*?id="chat-bottom-b"/, '两个滚动锚点必须始终位于消息末尾')
-  assert.doesNotMatch(initialHistory, /setTimeout\(/, '首屏揭示不能依赖固定延时，否则慢设备会先露出中间滚动位置')
-  assert.match(initialHistory, /requestScrollToLatest\(\(\) =>/, '首屏必须在滚动目标渲染完成后再揭示内容')
-  assert.match(privateChat, /Taro\.createSelectorQuery\(\)[\s\S]*?isChatScrollTargetSettled/, '必须确认微信原生滚动容器已真正定位到底部后再揭示首屏')
-  assert.match(privateChat, /private-chat-skeleton--hidden/, '加载层必须保留并淡出，不能在原生滚动完成时直接卸载造成闪白')
-  assert.match(styles, /\.private-chat-skeleton--hidden\s*\{[\s\S]*?opacity:\s*0;/, '加载层完成后应与稳定正文交叉淡出')
+  assert.match(initialHistory, /requestScrollToLatest\(\)/, '首屏历史到达后必须直接请求最新消息位置')
+  assert.doesNotMatch(privateChat, /Taro\.createSelectorQuery\(\)[\s\S]*?isChatScrollTargetSettled/, '首屏不能轮询原生布局后才展示，否则会长时间空白')
+  assert.doesNotMatch(privateChat, /private-chat-content--preparing/, '消息正文不能通过透明状态等待滚动完成')
+  assert.doesNotMatch(styles, /\.private-chat-content--preparing\s*\{/, '样式层不得再隐藏整块聊天正文')
   assert.match(privateChat, /if \(!hasCompletedInitialShowRef\.current\) \{[\s\S]*?hasCompletedInitialShowRef\.current = true[\s\S]*?return/, '首次进入只能由挂载加载一次，不能再被 useDidShow 重复触发')
+  assert.doesNotMatch(resumeBlock, /void load\(\)/, '从用户主页返回不能重新执行首屏加载导致跳顶或闪烁')
+  assert.match(resumeBlock, /refreshPreservingPosition/, '页面恢复只允许静默合并新数据并保留当前位置')
   assert.match(privateChat, /revealInitial\(localHistory\.page\?\.list \|\| \[\]\)/, '本地历史完成后必须结束首屏定位')
   assert.doesNotMatch(timHistoryMerge, /page\.list\.length > 0\) requestScrollToLatest\(\)/, 'TIM 历史合并不能在首屏揭示后再次强制跳到底部')
   assert.doesNotMatch(olderHistory, /requestScrollToLatest\(\)/, '上翻加载历史不能把用户拉回底部')

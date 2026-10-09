@@ -20,11 +20,15 @@ interface ReportQuery {
 }
 
 const INITIAL_QUERY: ReportQuery = { page: 1, size: DEFAULT_PAGE_SIZE, keyword: '', targetType: '', status: '', reasonCode: '', startTime: '', endTime: '' };
+const CHAT_REPORT_TARGET_TYPES = ['chat', 'message', 'conversation', 'whisper'];
 
 export default function CommunityReportsPage() {
   const { meta, loading: metaLoading } = useCommunityMeta();
   const { hasAnyPermission } = usePermission();
   const canView = hasAnyPermission('community:report:list');
+  const canHandle = hasAnyPermission('community:report:handle');
+  const canExport = hasAnyPermission('community:export:create');
+  const canViewEvidenceContent = canHandle && hasAnyPermission('message:report-context:view');
   const initialQuery = useMemo(() => INITIAL_QUERY, []);
   const fetcher = useCallback((query: ReportQuery) => getCommunityReportPage({ ...query }), []);
   const list = useCommunityList<CommunityReportAdminVO, ReportQuery>(initialQuery, fetcher, canView);
@@ -50,6 +54,9 @@ export default function CommunityReportsPage() {
   const [evidenceReason, setEvidenceReason] = useState('');
   const [evidenceContent, setEvidenceContent] = useState<ReportSensitiveContentVO | null>(null);
   const [evidenceContentLoading, setEvidenceContentLoading] = useState(false);
+  const [reportedMessageContent, setReportedMessageContent] = useState<ReportSensitiveContentVO | null>(null);
+  const [reportedMessageLoading, setReportedMessageLoading] = useState(false);
+  const [reportedMessageError, setReportedMessageError] = useState('');
   const canRiskHandle = hasAnyPermission('community:report:risk');
   const configuredResults = metaOptions(meta, 'reportResult');
   const resultOptions = configuredResults.length ? configuredResults : metaOptions(meta, 'reportStatus').filter((item) => ['valid', 'invalid', 'merged'].includes(item.code));
@@ -93,13 +100,42 @@ export default function CommunityReportsPage() {
     setEvidence([]);
     setEvidenceTarget(null);
     setEvidenceContent(null);
+    setReportedMessageContent(null);
+    setReportedMessageLoading(false);
+    setReportedMessageError('');
     try {
       const value = unwrapData<CommunityReportAdminVO>(await getCommunityReportDetail(row.id), row);
       setCurrent(value);
-      if (value.reportNo && ['chat', 'message', 'conversation', 'whisper'].includes(value.targetType)) {
+      if (value.reportNo && CHAT_REPORT_TARGET_TYPES.includes(value.targetType)) {
         setEvidenceLoading(true);
         try {
-          setEvidence(unwrapData<ReportEvidenceVO[]>(await getCommunityReportEvidence(value.reportNo), []));
+          const evidenceItems = unwrapData<ReportEvidenceVO[]>(await getCommunityReportEvidence(value.reportNo), []);
+          setEvidence(evidenceItems);
+          const targetEvidence = evidenceItems.find((item) => item.evidenceType === 'target');
+          if (!targetEvidence) {
+            setReportedMessageError('未找到被举报消息的冻结记录');
+          } else if (!targetEvidence.contentAvailable) {
+            setReportedMessageError('被举报消息正文不可用');
+          } else if (!canViewEvidenceContent) {
+            setReportedMessageError('当前账号无权查看被举报消息正文');
+          } else {
+            setReportedMessageLoading(true);
+            try {
+              const content = unwrapData<ReportSensitiveContentVO>(await viewCommunityReportEvidenceContent(
+                value.reportNo,
+                targetEvidence.evidenceNo,
+                {
+                  viewReason: '查看举报详情中的目标消息',
+                  requestId: `ADMIN-TARGET-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                },
+              ), null as any);
+              setReportedMessageContent(content);
+            } catch (cause) {
+              setReportedMessageError(cause instanceof Error ? cause.message : '被举报消息加载失败');
+            } finally {
+              setReportedMessageLoading(false);
+            }
+          }
         } finally {
           setEvidenceLoading(false);
         }
@@ -169,17 +205,17 @@ export default function CommunityReportsPage() {
     setIpBlockScopes((currentScopes) => currentScopes.includes(code) ? currentScopes.filter((item) => item !== code) : [...currentScopes, code]);
   }
 
-  const canHandle = hasAnyPermission('community:report:handle');
-  const canExport = hasAnyPermission('community:export:create');
   const reportEditable = Boolean(current && ['pending', 'processing'].includes(current.status));
   const canHandleCurrent = canHandle && reportEditable;
-  const canViewEvidenceContent = hasAnyPermission('message:report-context:view');
+  const currentIsChatReport = Boolean(current && CHAT_REPORT_TARGET_TYPES.includes(current.targetType));
   const closeDrawer = () => {
     setDrawerOpen(false);
     setEvidence([]);
     setEvidenceTarget(null);
     setEvidenceContent(null);
     setEvidenceReason('');
+    setReportedMessageContent(null);
+    setReportedMessageError('');
   };
 
   return (
@@ -205,8 +241,11 @@ export default function CommunityReportsPage() {
       <Drawer open={drawerOpen} onClose={closeDrawer} title="举报详情" description={metaCopy(meta, 'report_detail_description')} className="w-[760px]" footer={canHandleCurrent ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={closeDrawer}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>保存处理</Button></div> : undefined}>
         {detailLoading || !current ? <div className="py-20 text-center text-sm text-slate-400">加载中</div> : <div className="space-y-4">
           <DetailGrid items={[{ label: '举报编号', value: current.reportNo || current.id }, { label: '举报对象', value: `${metaLabel(meta, 'reportTargetType', current.targetType)} / ${current.targetNo || current.targetId}` }, { label: '举报人', value: `${current.reporterNo || current.reporterId} / ${current.reporterName || '-'}` }, { label: '被举报人', value: `${current.targetUserNo || current.targetUserId || '-'} / ${current.targetUserName || '-'}` }, { label: '举报原因', value: metaLabel(meta, 'reportReason', current.reasonCode, current.reasonLabel) }, { label: '当前状态', value: statusPill(meta, 'reportStatus', current.status, current.statusName) }]} />
-          <DetailSection title="举报上下文">{current.context?.available === false ? <div className="rounded-lg bg-amber-50 p-3 text-amber-700">{current.context.unavailableReason || metaCopy(meta, 'report_context_unavailable')}</div> : <div className="space-y-2"><p className="whitespace-pre-wrap">{current.context?.content || current.context?.summary || current.extraText || '-'}</p>{current.context?.sourceNo && <p className="text-xs text-slate-400">{current.context.sourceNo}</p>}{Boolean(current.context?.imageUrls?.length) && <div className="grid grid-cols-3 gap-2">{current.context?.imageUrls?.map((url) => <img key={url} src={url} alt="举报证据" className="aspect-square rounded-lg object-cover" />)}</div>}</div>}</DetailSection>
-          {['chat', 'message', 'conversation', 'whisper'].includes(current.targetType) && <DetailSection title="聊天举报冻结证据">{evidenceLoading ? <p>证据加载中...</p> : !evidence.length ? <p className="text-slate-400">暂无可用冻结证据</p> : <div className="space-y-3">{evidence.map(item => <div key={item.evidenceNo} className="rounded-lg border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div><strong className="text-sm">{item.evidenceNo}</strong><p className="mt-1 text-xs text-slate-500">{item.sourceBizNo || '-'} · {item.messageType || '-'} · {item.eventTime || '-'}</p></div><Button size="sm" variant="outline" disabled={!canViewEvidenceContent || !item.contentAvailable} title={!item.contentAvailable ? '正文不可用' : canViewEvidenceContent ? '查看冻结正文' : '无查看权限'} onClick={() => { setEvidenceTarget(item); setEvidenceReason(''); setEvidenceContent(null); }}>{!item.contentAvailable ? '正文不可用' : '查看冻结正文'}</Button></div><div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2"><span>会话：{item.conversationNo || '-'}</span><span>参与方：{item.senderMask || '-'} → {item.receiverMask || '-'}</span><span>快照：{item.snapshotAt || '-'}</span><span>留存至：{item.retainUntil || '-'}</span></div></div>)}</div>}</DetailSection>}
+          <DetailSection title="举报描述"><p className="whitespace-pre-wrap break-words">{current.extraText || '未填写补充说明'}</p></DetailSection>
+          {Boolean(current.evidenceImageUrls?.length) && <DetailSection title="举报附件"><div className="grid grid-cols-3 gap-3">{current.evidenceImageUrls?.map((url, index) => <a key={`${url}-${index}`} href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-slate-200 bg-slate-50"><img src={url} alt={`举报附件${index + 1}`} className="aspect-square w-full object-cover" /></a>)}</div></DetailSection>}
+          {currentIsChatReport && <DetailSection title="被举报消息">{reportedMessageLoading ? <p className="text-slate-500">正在读取被举报消息...</p> : reportedMessageContent ? <div className="space-y-2 rounded-lg border border-blue-100 bg-blue-50/50 p-4"><p className="whitespace-pre-wrap break-words text-slate-900">{reportedMessageContent.content}</p><p className="text-xs text-slate-500">{reportedMessageContent.evidenceNo} · {reportedMessageContent.eventTime || '-'}</p></div> : <p className="text-amber-700">{reportedMessageError || '被举报消息暂不可用'}</p>}</DetailSection>}
+          {!currentIsChatReport && <DetailSection title="举报对象上下文">{current.context?.available === false ? <div className="rounded-lg bg-amber-50 p-3 text-amber-700">{current.context.unavailableReason || metaCopy(meta, 'report_context_unavailable')}</div> : <div className="space-y-2"><p className="whitespace-pre-wrap">{current.context?.content || current.context?.summary || '-'}</p>{current.context?.sourceNo && <p className="text-xs text-slate-400">{current.context.sourceNo}</p>}{Boolean(current.context?.imageUrls?.length) && <div className="grid grid-cols-3 gap-2">{current.context?.imageUrls?.map((url) => <img key={url} src={url} alt="举报对象证据" className="aspect-square rounded-lg object-cover" />)}</div>}</div>}</DetailSection>}
+          {currentIsChatReport && <DetailSection title="聊天上下文证据">{evidenceLoading ? <p>证据加载中...</p> : !evidence.length ? <p className="text-slate-400">暂无可用冻结证据</p> : <div className="space-y-3">{evidence.map(item => <div key={item.evidenceNo} className={`rounded-lg border p-3 ${item.evidenceType === 'target' ? 'border-blue-300 bg-blue-50/40' : 'border-slate-200'}`}><div className="flex items-start justify-between gap-3"><div><strong className="text-sm">{item.evidenceType === 'target' ? '被举报消息' : '上下文消息'} · {item.evidenceNo}</strong><p className="mt-1 text-xs text-slate-500">{item.sourceBizNo || '-'} · {item.messageType || '-'} · {item.eventTime || '-'}</p></div><Button size="sm" variant="outline" disabled={!canViewEvidenceContent || !item.contentAvailable} title={!item.contentAvailable ? '正文不可用' : canViewEvidenceContent ? '查看冻结正文' : '无查看权限'} onClick={() => { setEvidenceTarget(item); setEvidenceReason(''); setEvidenceContent(null); }}>{!item.contentAvailable ? '正文不可用' : '查看冻结正文'}</Button></div><div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2"><span>会话：{item.conversationNo || '-'}</span><span>参与方：{item.senderMask || '-'} → {item.receiverMask || '-'}</span><span>快照：{item.snapshotAt || '-'}</span><span>留存至：{item.retainUntil || '-'}</span></div></div>)}</div>}</DetailSection>}
           <DetailSection title="操作日志"><AuditTimeline logs={current.auditLogs} emptyText={metaCopy(meta, 'audit_log_empty')} /></DetailSection>
           {canHandleCurrent ? <DetailSection title="举报处理"><div className="grid gap-3 sm:grid-cols-2">
             <Field label="处理结论"><NativeSelect includeAll={false} value={result} onChange={setResult} options={resultOptions} /></Field>
