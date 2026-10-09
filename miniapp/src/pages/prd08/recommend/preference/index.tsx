@@ -1,4 +1,4 @@
-import { Image, Picker, ScrollView, Switch, Text, View } from '@tarojs/components'
+import { Image, ScrollView, Switch, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useMemo, useRef, useState } from 'react'
 import DualRangeSlider from '@/components/DualRangeSlider'
@@ -52,9 +52,15 @@ export default function RecommendPreferencePage() {
     provinceCode: '',
     cityCode: '',
   })
+  const [hometownSheetVisible, setHometownSheetVisible] = useState(false)
+  const [hometownSheetSelection, setHometownSheetSelection] = useState({
+    provinceCode: '',
+    cityCode: '',
+  })
   const [educationOptions, setEducationOptions] = useState<DictOption[]>([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const bootstrapPrd01 = usePrd01Store(state => state.bootstrap)
   const loadDistricts = usePrd01Store(state => state.locations)
   const hasShownRef = useRef(false)
   const advancedGestureStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -66,6 +72,7 @@ export default function RecommendPreferencePage() {
         getRecommendPreferences(),
         prd01Api.getProvinceCities(),
         prd01Api.getProfileOptions(),
+        bootstrapPrd01(),
       ])
       setModel(preference)
       setCities(tree)
@@ -168,6 +175,35 @@ export default function RecommendPreferencePage() {
     patch({ targetCities: [...model.targetCities, { code: city.code, name: city.name }] })
     setCitySheetSelection({ provinceCode, cityCode })
     setCitySheetVisible(false)
+  }
+  const openHometownSheet = () => {
+    if (!model.advancedFilterEffective) return
+    if (!cities.length) {
+      void Taro.showToast({ title: '城市选项加载中，请稍后重试', icon: 'none' })
+      return
+    }
+    const selectedCode = advanced.hometowns[0]
+    const province = cities.find(item =>
+      item.children.some(city => city.code === selectedCode)
+    ) || cities[0]
+    const city = province.children.find(item => item.code === selectedCode)
+      || province.children[0]
+    setHometownSheetSelection({
+      provinceCode: province.code,
+      cityCode: city?.code || '',
+    })
+    setHometownSheetVisible(true)
+  }
+  const confirmHometown = (provinceCode: string, cityCode: string) => {
+    const province = cities.find(item => item.code === provinceCode)
+    const city = province?.children.find(item => item.code === cityCode)
+    if (!city) {
+      void Taro.showToast({ title: '请选择城市', icon: 'none' })
+      return
+    }
+    patchAdvanced({ hometowns: [city.code] })
+    setHometownSheetSelection({ provinceCode, cityCode })
+    setHometownSheetVisible(false)
   }
   const rememberAdvancedGestureStart = (event: any) => {
     const touch = event.touches?.[0]
@@ -420,43 +456,35 @@ export default function RecommendPreferencePage() {
             >
               家乡偏好
             </Text>
-            <Picker
-              mode="selector"
-              disabled={!model.advancedFilterEffective}
-              range={cityOptions}
-              rangeKey="name"
-              onChange={event => {
-                if (!model.advancedFilterEffective) return
-                const city = cityOptions[Number(event.detail.value)]
-                if (city) patchAdvanced({ hometowns: [city.code] })
+            <View
+              id="recommend-hometown-sheet-trigger"
+              data-role="recommend-hometown-sheet-trigger"
+              onClick={openHometownSheet}
+              hoverClass={model.advancedFilterEffective ? 'btn-hover' : undefined}
+              style={{
+                height: '68rpx',
+                padding: '0 22rpx',
+                marginTop: '22rpx',
+                borderRadius: '34rpx',
+                background: '#F7F8FA',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
               }}
             >
-              <View
+              <Text
                 style={{
-                  height: '68rpx',
-                  padding: '0 22rpx',
-                  marginTop: '22rpx',
-                  borderRadius: '34rpx',
-                  background: '#F7F8FA',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  color: advanced.hometowns.length ? '#333333' : '#A0A0A0',
+                  fontSize: '24rpx',
                 }}
               >
-                <Text
-                  style={{
-                    color: advanced.hometowns.length ? '#333333' : '#A0A0A0',
-                    fontSize: '24rpx',
-                  }}
-                >
-                  {advanced.hometowns.length
-                    ? cityOptions.find(item => item.code === advanced.hometowns[0])?.name ||
-                      advanced.hometowns[0]
-                    : '请选择推荐对象家乡偏好'}
-                </Text>
-                <Text style={{ color: '#999999', fontSize: '26rpx' }}>›</Text>
-              </View>
-            </Picker>
+                {advanced.hometowns.length
+                  ? cityOptions.find(item => item.code === advanced.hometowns[0])?.name ||
+                    advanced.hometowns[0]
+                  : '请选择推荐对象家乡偏好'}
+              </Text>
+              <Text style={{ color: '#999999', fontSize: '26rpx' }}>›</Text>
+            </View>
             <View
               onClick={() => model.advancedFilterEffective && patchAdvanced({ hometowns: [] })}
               style={{ color: BLUE, fontSize: '24rpx', marginTop: '16rpx', textAlign: 'right' }}
@@ -494,6 +522,19 @@ export default function RecommendPreferencePage() {
           loadDistricts={loadDistricts}
           onConfirm={(provinceCode, cityCode) => confirmTargetCity(provinceCode, cityCode)}
           onClose={() => setCitySheetVisible(false)}
+        />
+      ) : null}
+      {hometownSheetVisible ? (
+        <LanhuRegionSheet
+          title="家乡偏好"
+          regions={cities}
+          provinceCode={hometownSheetSelection.provinceCode}
+          cityCode={hometownSheetSelection.cityCode}
+          districtCode=""
+          includeDistrict={false}
+          loadDistricts={loadDistricts}
+          onConfirm={(provinceCode, cityCode) => confirmHometown(provinceCode, cityCode)}
+          onClose={() => setHometownSheetVisible(false)}
         />
       ) : null}
     </View>
