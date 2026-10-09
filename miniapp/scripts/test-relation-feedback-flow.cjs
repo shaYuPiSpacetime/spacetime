@@ -186,6 +186,14 @@ test('匹配弹窗必须先确认回执再关闭或跳转', () => {
   assert.ok(popupZIndex < tabBarZIndex, '匹配弹窗不得覆盖底部 Tab，用户必须始终能离开心动页')
 })
 
+test('匹配弹窗进入私信必须解析真实会话号，禁止用匹配号冒充会话号', () => {
+  const community = read('src/pages/community/index.tsx')
+
+  assert.match(community, /resolveConversationByPeerUserId\(popup\.matchedUserId\)/)
+  assert.match(community, /conversationNo=\$\{encodeURIComponent\(conversation\.conversationNo\)\}/)
+  assert.doesNotMatch(community, /conversationNo=\$\{popup\.matchNo\}/)
+})
+
 test('公开资料必须成功加载后才上报访问', () => {
   const userPage = read('src/pages/heart/user.tsx')
 

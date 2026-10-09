@@ -17,6 +17,7 @@ import {
   isIdentityVisible,
 } from '@/domain/relationFeedbackFlow'
 import { getApiErrorCode } from '@/services/request'
+import { resolveConversationByPeerUserId } from '@/services/message'
 import {
   acknowledgeVisitorCount,
   currentLocalDateKey,
@@ -357,7 +358,10 @@ export default function CommunityPage() {
           await Taro.showToast({ title: '当前匹配暂不可聊天', icon: 'none' })
           return
         }
-        await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${popup.matchNo}&targetUserId=${popup.matchedUserId}` })
+        const conversation = await resolveConversationByPeerUserId(popup.matchedUserId)
+        await Taro.navigateTo({
+          url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}`,
+        })
       }
     } catch (error) {
       await Taro.showToast({ title: error instanceof Error ? error.message : '操作确认失败，请重试', icon: 'none' })
