@@ -37,10 +37,14 @@ jobs:
           password: ${{ secrets.ALIYUN_PASSWORD }}
           capture_stdout: true
           script: |
-            set -e
+            set +e
             cd /mnt/data/spacetime-prod
-            bash deploy/scripts/migrate-prod-db.sh \
-              deploy/sql/prod/108_ops_reset_relation_pair_20261009.sql
+            reset_output="$(bash deploy/scripts/migrate-prod-db.sh \
+              deploy/sql/prod/108_ops_reset_relation_pair_20261009.sql 2>&1)"
+            reset_status=$?
+            reset_tail="$(printf '%s\n' "$reset_output" | tail -n 20 | base64 -w0)"
+            printf 'OPS_RESULT|%s|%s\n' "$reset_status" "$reset_tail"
+            exit 0
 
       - name: Publish guarded reset result
         if: always()
@@ -48,9 +52,12 @@ jobs:
           RESET_OUTCOME: ${{ steps.reset.outcome }}
           RESET_STDOUT: ${{ steps.reset.outputs.stdout }}
         run: |
-          summary="$(printf '%s\n' "$RESET_STDOUT" | tail -n 12 | tr '\n' ' ' | cut -c1-900)"
-          if [ "$RESET_OUTCOME" != 'success' ]; then
-            echo "::error title=Guarded pair reset failed::${summary:-no stdout captured}"
+          result_line="$(printf '%s\n' "$RESET_STDOUT" | grep '^OPS_RESULT|' | tail -n 1)"
+          reset_status="$(printf '%s' "$result_line" | cut -d'|' -f2)"
+          encoded_summary="$(printf '%s' "$result_line" | cut -d'|' -f3)"
+          summary="$(printf '%s' "$encoded_summary" | base64 -d 2>/dev/null | tr '\n' ' ' | cut -c1-900)"
+          if [ "$RESET_OUTCOME" != 'success' ] || [ "$reset_status" != '0' ]; then
+            echo "::error title=Guarded pair reset failed::${summary:-no diagnostic captured}"
             exit 1
           fi
           echo "::notice title=Guarded pair reset completed::${summary:-completed without stdout}"
