@@ -2,6 +2,7 @@ import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { QIANXUN_BODY_FONT_SIZE, QIANXUN_BODY_LINE_HEIGHT, QIANXUN_BODY_PREVIEW_MAX_HEIGHT } from '@/constants/qianxunTypography'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
@@ -506,8 +507,8 @@ function CommunityCard({ post, optionLabel, isSelf, onAuthor, onOpen, onTopic, o
     <View className="qianxun-community-card" data-post-id={post.id} onClick={onOpen}>
     {post.title ? <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600, marginTop: '29rpx' }}>{post.title}</Text> : null}
     <View style={{ position: 'relative', marginTop: post.title ? '12rpx' : '27rpx' }}>
-      <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '48rpx', maxHeight: canExpand ? '192rpx' : 'none', overflow: 'hidden' }}>{post.content}</Text>
-      {canExpand ? <View onClick={event => { event.stopPropagation(); onOpen() }} style={{ position: 'absolute', right: 0, bottom: 0, height: '48rpx', paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '26rpx', lineHeight: '48rpx' }}>查看全部</Text></View> : null}
+      <Text className="qianxun-body-text qianxun-family-body" style={{ display: 'block', color: '#333333', fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT, maxHeight: canExpand ? QIANXUN_BODY_PREVIEW_MAX_HEIGHT : 'none', overflow: 'hidden' }}>{post.content}</Text>
+      {canExpand ? <View onClick={event => { event.stopPropagation(); onOpen() }} style={{ position: 'absolute', right: 0, bottom: 0, height: QIANXUN_BODY_LINE_HEIGHT, paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '26rpx', lineHeight: QIANXUN_BODY_LINE_HEIGHT }}>查看全部</Text></View> : null}
     </View>
     <PostImageGrid images={post.imageUrls || []} />
     </View>

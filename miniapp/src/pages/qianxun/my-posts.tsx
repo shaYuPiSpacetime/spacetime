@@ -6,6 +6,7 @@ import { QianxunActionStat } from '@/components/QianxunCommunityIcons'
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
 import QianxunPublishFailureDialog from '@/components/QianxunPublishFailureDialog'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { QIANXUN_BODY_FONT_SIZE, QIANXUN_BODY_LINE_HEIGHT } from '@/constants/qianxunTypography'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import {
@@ -257,7 +258,7 @@ function MyPostCard({ receipt, liking, config, onMore, onFailure, onLike }: { re
           {receipt.status !== 'published' ? <View className="qianxun-my-post-status-slot" data-role="qianxun-my-post-status-slot" style={{ marginTop: '20rpx' }}><QianxunPostStatusBadge config={config} status={receipt.status} statusName={receipt.statusName} onFailure={onFailure} /></View> : null}
         </View>
         <View className="qianxun-my-post-content-column" data-role="qianxun-my-post-content-column" style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '42rpx' }}>{receipt.content}</Text>
+          <Text className="qianxun-body-text qianxun-my-posts-body" style={{ display: 'block', color: '#333333', fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT }}>{receipt.content}</Text>
           <View style={{ marginTop: '18rpx' }}><PostImages urls={receipt.imageUrls} /></View>
           {receipt.topicName ? <View style={{ height: '48rpx', borderRadius: '24rpx', background: '#F6F7F9', padding: '0 20rpx', marginTop: '18rpx', display: 'inline-flex', alignItems: 'center' }}><Text style={{ color: BLUE, fontSize: '23rpx', marginRight: '8rpx' }}>#</Text><Text style={{ color: '#777777', fontSize: '23rpx' }}>{receipt.topicName}</Text></View> : null}
           <View style={{ height: '88rpx', display: 'flex', alignItems: 'center' }}>

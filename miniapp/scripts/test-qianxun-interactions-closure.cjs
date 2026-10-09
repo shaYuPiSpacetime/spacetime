@@ -160,6 +160,7 @@ test('互动首页关键纵向基线与单一导航符合蓝湖稿', () => {
 
 test('千寻互动共享字号和筛选色值符合点赞暂无数据蓝湖基线', () => {
   const source = read('src/pages/qianxun/interactions.tsx')
+  const typography = read('src/constants/qianxunTypography.ts')
 
   assert.match(source, /fontSize:\s*'32rpx'.*profile\.nickname/, '资料姓名必须使用蓝湖 32rpx 字号')
   assert.match(source, /fontSize:\s*'24rpx'.*profile\.description/, '资料简介必须使用蓝湖 24rpx 字号')
@@ -174,14 +175,40 @@ test('千寻互动共享字号和筛选色值符合点赞暂无数据蓝湖基�
     /qianxun-interaction-date-group[^\n]*color: '#333333', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600/,
     '互动和浏览记录的日期分组必须统一为 28rpx 加粗深色文字',
   )
-  assert.match(source, /const INTERACTION_BODY_FONT_SIZE = '28rpx'/, '千寻互动正文必须统一为 28rpx')
+  assert.match(typography, /QIANXUN_BODY_FONT_SIZE = '28rpx'/, '千寻互动正文必须统一为 28rpx')
+  assert.match(typography, /QIANXUN_BODY_LINE_HEIGHT = '54rpx'/, '千寻互动正文行高必须统一为 54rpx')
+  assert.match(source, /fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT/, '互动、浏览记录和我的动态必须消费统一正文排版')
   assert.match(source, /<InteractionPostExcerpt[\s\S]{0,180}content=\{item\.content\}/, '我的动态必须复用统一正文组件')
   assert.match(source, /<InteractionPostExcerpt content=\{post\.content\}/, '互动和浏览记录必须复用统一正文组件')
-  assert.match(source, /INTERACTION_BODY_MAX_LINES = 4/, '千寻互动正文最多展示四行')
+  assert.match(typography, /QIANXUN_BODY_PREVIEW_LINES = 4/, '千寻互动正文最多展示四行')
   assert.match(source, /rect\.height > maxHeightPx \+ 1/, '查看全部必须以真实渲染高度判断，不得仅按字数猜测')
-  assert.match(source, /WebkitLineClamp: INTERACTION_BODY_MAX_LINES/, '超长正文必须应用四行截断')
+  assert.match(source, /WebkitLineClamp: QIANXUN_BODY_PREVIEW_LINES/, '超长正文必须应用四行截断')
   assert.match(source, />查看全部<\/Text>/, '超长正文必须显示查看全部入口')
   assert.match(source, /event\.stopPropagation\(\)[\s\S]{0,120}post-detail\?id=\$\{postId\}/, '查看全部必须阻止卡片冒泡并进入动态详情')
+})
+
+test('千寻互动所有动态正文入口必须复用 28rpx/54rpx 排版 token', () => {
+  const sources = [
+    ['推荐信息流', 'src/features/qianxun/QianxunFamilyPage.tsx', /qianxun-family-body/],
+    ['知音信息流', 'src/features/qianxun/QianxunZhiyinTab.tsx', /qianxun-zhiyin-body/],
+    ['互动与浏览记录', 'src/pages/qianxun/interactions.tsx', /qianxun-interaction-body/],
+    ['独立我的动态', 'src/pages/qianxun/my-posts.tsx', /qianxun-my-posts-body/],
+    ['动态详情', 'src/pages/qianxun/post-detail.tsx', /qianxun-detail-body/],
+    ['话题动态', 'src/pages/qianxun/topic.tsx', /qianxun-topic-body/],
+    ['发布动态', 'src/pages/qianxun/compose.tsx', /qianxun-compose-body/],
+  ]
+
+  for (const [label, relativePath, rolePattern] of sources) {
+    const source = read(relativePath)
+    assert.match(source, /QIANXUN_BODY_FONT_SIZE/, `${label}缺少统一正文字号 token`)
+    assert.match(source, /QIANXUN_BODY_LINE_HEIGHT/, `${label}缺少统一正文行高 token`)
+    assert.match(source, rolePattern, `${label}缺少正文运行态验收标识`)
+  }
+
+  assert.match(read('src/features/qianxun/QianxunFamilyPage.tsx'), /maxHeight: canExpand \? QIANXUN_BODY_PREVIEW_MAX_HEIGHT/, '推荐信息流四行截断高度必须随 54rpx 行高同步')
+  assert.match(read('src/features/qianxun/QianxunZhiyinTab.tsx'), /maxHeight: canExpand \? QIANXUN_BODY_PREVIEW_MAX_HEIGHT/, '知音信息流四行截断高度必须随 54rpx 行高同步')
+  assert.match(read('src/pages/qianxun/interactions.tsx'), /maxHeight: QIANXUN_BODY_PREVIEW_MAX_HEIGHT/, '互动页四行截断高度必须随 54rpx 行高同步')
+  assert.match(read('src/pages/qianxun/compose.tsx'), /placeholderStyle="color:#999999;font-size:28rpx;line-height:54rpx"/, '发布页正文占位样式必须与输入正文一致')
 })
 
 test('驳回动态编辑必须带入原图文并重新提交审核', () => {

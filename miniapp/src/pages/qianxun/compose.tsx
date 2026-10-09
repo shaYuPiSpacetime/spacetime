@@ -3,6 +3,7 @@ import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { QIANXUN_BODY_FONT_SIZE, QIANXUN_BODY_LINE_HEIGHT } from '@/constants/qianxunTypography'
 import {
   deleteCommunityDraft,
   COMMUNITY_COPY_KEYS,
@@ -271,12 +272,13 @@ export default function QianxunComposePage() {
       <PageHeader title={editPostId ? '编辑动态' : postType === 'sincere_post' ? '发布时空站台' : '发布动态'} onBack={() => void goBack()} />
       <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${navigationMetrics.navigationHeight}rpx`, bottom: '184rpx', boxSizing: 'border-box' }} showScrollbar={false}>
         <Textarea
+          className="qianxun-body-text qianxun-compose-body"
           value={content}
           maxlength={Number(config?.postMaxTextLength || 500)}
           placeholder="记录生活，展现真实的你"
-          placeholderStyle="color:#999999;font-size:28rpx;line-height:40rpx"
+          placeholderStyle="color:#999999;font-size:28rpx;line-height:54rpx"
           onInput={event => setContent(event.detail.value)}
-          style={{ width: '700rpx', minHeight: '420rpx', margin: '22rpx 25rpx 0', color: '#333333', fontSize: '28rpx', lineHeight: '44rpx', boxSizing: 'border-box' }}
+          style={{ width: '700rpx', minHeight: '420rpx', margin: '22rpx 25rpx 0', color: '#333333', fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT, boxSizing: 'border-box' }}
         />
         <View style={{ display: 'flex', justifyContent: 'flex-end', padding: '12rpx 30rpx 0' }}>
           <Text style={{ color: '#999999', fontSize: '24rpx', lineHeight: '34rpx' }}>{Array.from(content).length}/{Number(config?.postMaxTextLength || 500)}</Text>

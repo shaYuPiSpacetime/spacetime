@@ -8,6 +8,7 @@ import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/Whi
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { QIANXUN_BODY_FONT_SIZE, QIANXUN_BODY_LINE_HEIGHT } from '@/constants/qianxunTypography'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { formatCommunityAuthorMeta } from '@/domain/communityProfile'
 import {
@@ -287,7 +288,7 @@ export default function QianxunPostDetailPage() {
             <View style={{ borderRadius: '16rpx', background: '#FFFFFF', padding: '24rpx 24rpx 0', overflow: 'hidden' }}>
               <AuthorRow post={post} isSelf={post.authorId === currentUserId} onAuthor={() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)} onMore={() => setShowActions(true)} onApply={() => void openWhisper()} />
               {post.title ? <Text style={{ display: 'block', color: '#222F45', fontSize: '29rpx', lineHeight: '44rpx', fontWeight: 600, marginTop: '24rpx' }}>{post.title}</Text> : null}
-              <Text style={{ display: 'block', color: '#333333', fontSize: '28rpx', lineHeight: '47rpx', marginTop: '22rpx' }}>{post.content}</Text>
+              <Text className="qianxun-body-text qianxun-detail-body" style={{ display: 'block', color: '#333333', fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT, marginTop: '22rpx' }}>{post.content}</Text>
               <ImageGrid images={post.imageUrls || []} />
               <View style={{ display: 'flex', alignItems: 'center', marginTop: '25rpx' }}>
                 <Text style={{ color: '#999999', fontSize: '24rpx', lineHeight: '34rpx' }}>{relativeTime(post.createTime)}活跃</Text>

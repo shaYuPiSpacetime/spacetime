@@ -6,6 +6,13 @@ import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommun
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
 import QianxunPublishFailureDialog from '@/components/QianxunPublishFailureDialog'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import {
+  QIANXUN_BODY_FONT_SIZE,
+  QIANXUN_BODY_LINE_HEIGHT,
+  QIANXUN_BODY_LINE_HEIGHT_RPX,
+  QIANXUN_BODY_PREVIEW_LINES,
+  QIANXUN_BODY_PREVIEW_MAX_HEIGHT,
+} from '@/constants/qianxunTypography'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import { normalizeAvatarUrl } from '@/utils/avatar'
@@ -40,9 +47,6 @@ import defaultAvatar from '@/assets/profile/default-avatar.webp'
 const BLUE = '#2876FF'
 const NAVY = '#0C285A'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
-const INTERACTION_BODY_FONT_SIZE = '28rpx'
-const INTERACTION_BODY_LINE_HEIGHT_RPX = 42
-const INTERACTION_BODY_MAX_LINES = 4
 
 type MainSection = 'interaction' | 'history' | 'mine'
 type InteractionFilter = 'commented' | 'liked' | 'unlocked'
@@ -757,7 +761,7 @@ function InteractionPostExcerpt({ content, postId, measureKey, color, marginTop 
         .select(`#${measureId}`)
         .boundingClientRect((rect: { height?: number } | null) => {
           const windowWidth = Taro.getWindowInfo().windowWidth || 375
-          const maxHeightPx = INTERACTION_BODY_LINE_HEIGHT_RPX * INTERACTION_BODY_MAX_LINES * windowWidth / 750
+          const maxHeightPx = QIANXUN_BODY_LINE_HEIGHT_RPX * QIANXUN_BODY_PREVIEW_LINES * windowWidth / 750
           setOverflow(Boolean(rect?.height && rect.height > maxHeightPx + 1))
         })
         .exec()
@@ -770,25 +774,26 @@ function InteractionPostExcerpt({ content, postId, measureKey, color, marginTop 
   }
 
   if (!postId) {
-    return <Text style={{ display: 'block', color, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, marginTop: marginTop || 0 }}>{content}</Text>
+    return <Text className="qianxun-body-text qianxun-interaction-body" style={{ display: 'block', color, fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT, marginTop: marginTop || 0 }}>{content}</Text>
   }
 
   return (
     <View style={{ position: 'relative', marginTop: marginTop || 0 }}>
       <Text
         id={measureId}
-        style={{ position: 'absolute', left: 0, right: 0, top: 0, visibility: 'hidden', pointerEvents: 'none', display: 'block', fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx` }}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, visibility: 'hidden', pointerEvents: 'none', display: 'block', fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT }}
       >
         {content}
       </Text>
       <Text
-        style={{ display: '-webkit-box', color, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, maxHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX * INTERACTION_BODY_MAX_LINES}rpx`, overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: INTERACTION_BODY_MAX_LINES }}
+        className="qianxun-body-text qianxun-interaction-body"
+        style={{ display: '-webkit-box', color, fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT, maxHeight: QIANXUN_BODY_PREVIEW_MAX_HEIGHT, overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: QIANXUN_BODY_PREVIEW_LINES }}
       >
         {content}
       </Text>
       {overflow ? (
-        <View onClick={openDetail} style={{ position: 'absolute', right: 0, bottom: 0, height: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx`, paddingLeft: '48rpx', background: 'linear-gradient(90deg, rgba(255,255,255,0), #FFFFFF 32%)', display: 'flex', alignItems: 'center' }}>
-          <Text style={{ color: BLUE, fontSize: INTERACTION_BODY_FONT_SIZE, lineHeight: `${INTERACTION_BODY_LINE_HEIGHT_RPX}rpx` }}>查看全部</Text>
+        <View onClick={openDetail} style={{ position: 'absolute', right: 0, bottom: 0, height: QIANXUN_BODY_LINE_HEIGHT, paddingLeft: '48rpx', background: 'linear-gradient(90deg, rgba(255,255,255,0), #FFFFFF 32%)', display: 'flex', alignItems: 'center' }}>
+          <Text style={{ color: BLUE, fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT }}>查看全部</Text>
         </View>
       ) : null}
     </View>

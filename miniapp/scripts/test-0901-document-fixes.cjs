@@ -45,7 +45,10 @@ test('动态作者职业显示中文，话题胶囊按文字宽度自适应', ()
   assert.doesNotMatch(card, /width:\s*'auto'/, '块级 width:auto 会把短话题撑满整行')
 })
 
-test('长动态保持 28rpx/48rpx 排版，查看全部直接进入详情', () => {
+test('长动态保持 28rpx/54rpx 排版，查看全部直接进入详情', () => {
+  const typography = read('src/constants/qianxunTypography.ts')
+  assert.match(typography, /QIANXUN_BODY_FONT_SIZE = '28rpx'/, '千寻动态正文必须统一为 28rpx')
+  assert.match(typography, /QIANXUN_BODY_LINE_HEIGHT = '54rpx'/, '千寻动态正文行高必须统一为 54rpx')
   const targets = [
     {
       name: '成家动态',
@@ -63,7 +66,8 @@ test('长动态保持 28rpx/48rpx 排版，查看全部直接进入详情', () =
 
   for (const target of targets) {
     const card = functionSource(target.source, target.start, target.end)
-    assert.match(card, /fontSize:\s*'28rpx',\s*lineHeight:\s*'48rpx'/, `${target.name}正文排版不符合文档`)
+    assert.match(card, /fontSize:\s*QIANXUN_BODY_FONT_SIZE,\s*lineHeight:\s*QIANXUN_BODY_LINE_HEIGHT/, `${target.name}正文排版不符合文档`)
+    assert.match(card, /QIANXUN_BODY_PREVIEW_MAX_HEIGHT/, `${target.name}四行截断高度必须随 54rpx 行高同步`)
     assert.match(card, />查看全部<\/Text>/, `${target.name}缺少查看全部入口`)
     assert.match(card, /event\.stopPropagation\(\);\s*onOpen\(\)/, `${target.name}查看全部必须直接进入详情`)
     assert.doesNotMatch(card, /setExpanded/, `${target.name}不得在当前页展开全文`)
