@@ -100,18 +100,24 @@ jobs:
       - name: Wait for website backend and migration
         run: |
           expectedVersion="1.2"
+          legalApiBases=(
+            "https://www.shikongxiehou.com"
+            "https://admin.shikongxiehou.com"
+          )
           for attempt in $(seq 1 90); do
-            if (
-              for document in USER_AGREEMENT PRIVACY_POLICY; do
-                curl -fs --max-time 8 "https://www.shikongxiehou.com/api/website/legal/${document}" \
-                  | EXPECTED_VERSION="$expectedVersion" python3 -c 'import json,os,sys; result=json.load(sys.stdin); sys.exit(0 if result.get("code")==200 and result.get("data",{}).get("version")==os.environ["EXPECTED_VERSION"] else 1)' || exit 1
-              done
-            ); then
-              exit 0
-            fi
+            for legalApiBase in "${legalApiBases[@]}"; do
+              if (
+                for document in USER_AGREEMENT PRIVACY_POLICY; do
+                  curl -fs --max-time 8 "${legalApiBase}/api/website/legal/${document}" \
+                    | EXPECTED_VERSION="$expectedVersion" python3 -c 'import json,os,sys; result=json.load(sys.stdin); sys.exit(0 if result.get("code")==200 and result.get("data",{}).get("version")==os.environ["EXPECTED_VERSION"] else 1)' || exit 1
+                done
+              ); then
+                exit 0
+              fi
+            done
             sleep 10
           done
-          echo '官网后端或协议迁移尚未就绪，停止网站镜像发布' >&2
+          echo '官网与后台同源 API 均未返回目标协议版本，停止网站镜像发布' >&2
           exit 1
 
       - name: Sync deploy files over SSH
