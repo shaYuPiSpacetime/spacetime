@@ -28,14 +28,29 @@ jobs:
           target: '/mnt/data/spacetime-prod'
 
       - name: Execute guarded pair reset
+        id: reset
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.2.2
         with:
           host: 112.124.59.146
           username: root
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          script_stop: true
+          capture_stdout: true
           script: |
             set -e
             cd /mnt/data/spacetime-prod
             bash deploy/scripts/migrate-prod-db.sh \
               deploy/sql/prod/108_ops_reset_relation_pair_20261009.sql
+
+      - name: Publish guarded reset result
+        if: always()
+        env:
+          RESET_OUTCOME: ${{ steps.reset.outcome }}
+          RESET_STDOUT: ${{ steps.reset.outputs.stdout }}
+        run: |
+          summary="$(printf '%s\n' "$RESET_STDOUT" | tail -n 12 | tr '\n' ' ' | cut -c1-900)"
+          if [ "$RESET_OUTCOME" != 'success' ]; then
+            echo "::error title=Guarded pair reset failed::${summary:-no stdout captured}"
+            exit 1
+          fi
+          echo "::notice title=Guarded pair reset completed::${summary:-completed without stdout}"
