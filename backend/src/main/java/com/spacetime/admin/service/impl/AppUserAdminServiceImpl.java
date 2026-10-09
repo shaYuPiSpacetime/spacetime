@@ -361,6 +361,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                         .like(AppUser::getNickname, req.getKeyword())
                         .or().like(AppUser::getSchool, req.getKeyword())
                         .or().like(AppUser::getTags, req.getKeyword())
+                        .or().like(AppUser::getPhone, req.getKeyword())
                         .or().like(AppUser::getOpenid, safeKeyword)
                         .or().exists("SELECT 1 FROM app_user_audit_record ar WHERE ar.user_id = app_user.id"
                                 + " AND ar.deleted = 0"
