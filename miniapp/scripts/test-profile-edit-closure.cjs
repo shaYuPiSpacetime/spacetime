@@ -403,7 +403,7 @@ test('编辑资料展示当前头像，主页预览仅展示审核生效头像',
   assert.match(edit, /avatarUrl:\s*previewAvatar \|\| defaultAvatar/, '主页预览模型必须复用审核生效头像的兜底')
 })
 
-test('编辑资料背景图与头像分别上传并独立回显', () => {
+test('编辑资料背景图直接上传，头像进入裁剪后独立回显', () => {
   const edit = read('src/pages/profile/edit.tsx')
   const backgroundHandler = edit.match(/const onChangeBackground = \(\) => \{[\s\S]*?\r?\n  \}\r?\n\r?\n  const onChangeAvatar/)?.[0]
   const avatarHandler = edit.match(/const onChangeAvatar = \(\) => \{[\s\S]*?\r?\n  \}\r?\n\r?\n  const handlePhotoClick/)?.[0]
@@ -411,15 +411,17 @@ test('编辑资料背景图与头像分别上传并独立回显', () => {
   assert.ok(backgroundHandler, '缺少独立的背景图上传处理器')
   assert.match(backgroundHandler, /prd01Api\.uploadBackground/, '背景图必须调用背景上传接口')
   assert.match(backgroundHandler, /prd01Api\.saveBackground/, '背景图上传后必须保存为主页背景')
-  assert.match(backgroundHandler, /setProfileBackground/, '背景图上传后必须独立更新背景状态')
+  assert.match(backgroundHandler, /setPreviewBackground/, '背景图上传后必须独立更新预览背景状态')
   assert.doesNotMatch(backgroundHandler, /setHeroPhoto/, '背景图不得再维护第二份易分叉的展示状态')
   assert.doesNotMatch(backgroundHandler, /uploadAvatar|submitAvatar|setProfileAvatar/, '修改背景图不得修改头像')
 
   assert.ok(avatarHandler, '缺少独立的头像上传处理器')
-  assert.match(avatarHandler, /prd01Api\.uploadAvatar/, '头像必须调用头像上传接口')
-  assert.match(avatarHandler, /prd01Api\.submitAvatar/, '头像上传后必须提交头像审核')
-  assert.match(avatarHandler, /setProfileAvatar/, '头像上传后必须独立更新圆头像')
-  assert.doesNotMatch(avatarHandler, /uploadBackground|saveBackground|setProfileBackground/, '修改头像不得修改背景图')
+  assert.match(avatarHandler, /profileOptions\?\.avatarSource\[0\]/, '头像裁剪前必须读取后端头像来源字典')
+  assert.match(avatarHandler, /\/pages\/verification\/avatar-crop\?source=/, '头像必须进入统一裁剪上传页')
+  assert.match(avatarHandler, /&from=profile/, '头像裁剪页必须知道完成后返回编辑资料')
+  assert.doesNotMatch(avatarHandler, /uploadAvatar|submitAvatar/, '编辑页不得绕过裁剪页直接上传头像')
+  assert.doesNotMatch(avatarHandler, /uploadBackground|saveBackground|setPreviewBackground/, '修改头像不得修改背景图')
+  assert.match(edit, /useDidShow\(\(\) =>[\s\S]*prd01Api\.getAvatar\(\)[\s\S]*setProfileAvatar[\s\S]*setPreviewAvatar/, '从裁剪页返回后必须刷新当前头像和审核生效头像')
 
   assert.match(edit, /dataRole="hero-main-photo"[\s\S]{0,120}onClick=\{onChangeBackground\}/, '主页背景点击必须只触发背景上传')
   assert.match(edit, /data-role="hero-mini-avatar"[\s\S]{0,180}onChangeAvatar\(\)/, '圆头像点击必须只触发头像上传')
@@ -459,8 +461,8 @@ test('语音卡片与录音浮层按蓝湖完成态展示时限、短条、X 和
 
   assert.match(
     edit,
-    /<ProfileSection title="语音介绍" action=\{hasVoice \? '管理' : '录音'\}/,
-    '已有录音时必须展示管理入口'
+    /<ProfileSection title="语音介绍" action=\{voiceUnderReview \? '审核中' : hasVoice \? '管理' : '录音'\}/,
+    '语音审核中必须展示审核态，已有录音时必须展示管理入口'
   )
   assert.match(edit, /id="voice-intro-saved-bar"/, '已录音短条缺少稳定验收节点')
   assert.match(

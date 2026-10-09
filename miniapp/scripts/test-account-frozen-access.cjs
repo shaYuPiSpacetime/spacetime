@@ -37,7 +37,12 @@ function harness(initialStatus) {
       useEffect: effect => { effects.push(effect) },
     },
     '@tarojs/components': { View: 'View', Text: 'Text', Image: 'Image' },
-    '@tarojs/taro': { __esModule: true, default: { navigateTo: args => navigations.push(args.url) }, useDidShow: () => {} },
+    '@tarojs/taro': {
+      __esModule: true,
+      default: { navigateTo: args => navigations.push(args.url) },
+      useDidShow: () => {},
+      useLoad: () => {},
+    },
     '@/stores/authStore': { useAuthStore: selector => selector({ accessStatus: status, setAccessStatus: next => { status = next } }) },
     '@/stores/messageRuntimeStore': { useMessageRuntimeStore: selector => selector({ unreadSummary: { messageUnreadCount: 0 } }) },
     '@/stores/prd01Store': { usePrd01Store },

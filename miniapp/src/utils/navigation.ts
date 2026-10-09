@@ -38,10 +38,19 @@ export async function navigateToOrRedirect(url: string) {
 export async function navigateBackOrRedirect(fallbackUrl = PROFILE_EDIT_FALLBACK_URL) {
   const pages = Taro.getCurrentPages()
   if (pages.length > 1) {
+    let fallbackTask: Promise<unknown> | null = null
+    const fallback = () => {
+      if (!fallbackTask) fallbackTask = Promise.resolve(Taro.redirectTo({ url: fallbackUrl }))
+      return fallbackTask
+    }
     try {
-      await Taro.navigateBack({ delta: 1 })
+      const backResult = Taro.navigateBack({
+        delta: 1,
+        fail: () => { void fallback() },
+      })
+      await Promise.resolve(backResult)
     } catch {
-      await Taro.redirectTo({ url: fallbackUrl })
+      await fallback()
     }
     return
   }

@@ -29,6 +29,7 @@ async function mount(t, { page = false, apiOverrides = {}, bootstrapError = fals
     : () => {} })
   const taro = {
     useRouter: () => ({ params: { profileScore: '87' } }),
+    useShareAppMessage: () => {},
     getRecorderManager: () => recorder,
     nextTick: callback => callback(),
     showToast: async options => { toasts.push(options) },
@@ -92,13 +93,14 @@ async function mount(t, { page = false, apiOverrides = {}, bootstrapError = fals
       if (name === '@/services/prd01') return { prd01Api: api }
       if (name === '@/services/community') return { getMyCommunityPosts: async () => ({ records: [] }) }
       if (name === '@/stores/prd01Store') return { usePrd01Store: store }
+      if (name === '@/stores/authStore') return { useAuthStore: selector => selector({ userId: 1 }) }
       if (/\.(webp|jpg|png)$/.test(name)) return 'test-asset.jpg'
       if (name.startsWith('@/components/') || name.startsWith('./components/')) return {
         default: props => { componentProps[name] = props; return React.createElement('div', { onClick: props.onClick }, props.children) }, __esModule: true,
       }
       if (name.startsWith('@/') || name.startsWith('.')) {
         const base = name.startsWith('@/') ? path.join(root, 'src', name.slice(2)) : path.resolve(path.dirname(file), name)
-        const resolved = [base, `${base}.ts`, `${base}.tsx`].find(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile())
+        const resolved = [base, `${base}.ts`, `${base}.tsx`, `${base}.js`].find(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile())
         if (!resolved) throw new Error(`Cannot load ${name}`)
         return load(resolved)
       }
@@ -251,9 +253,14 @@ for (const type of ['avatar', 'background', 'addAlbum', 'replaceAlbum', 'deleteV
       : type === 'submitVoice' ? { getVoiceIntro: async () => ({}) } : {}
     const h = await mount(t, { page: true, apiOverrides })
     await h.resolve(0, 92)
-    const expectedSave = { avatar: 'submitAvatar', background: 'saveBackground', addAlbum: 'addAlbum',
+    const expectedSave = { avatar: null, background: 'saveBackground', addAlbum: 'addAlbum',
       replaceAlbum: 'replaceAlbum', deleteVoice: 'deleteVoiceIntro', submitVoice: 'submitVoiceIntro' }[type]
-    if (type === 'avatar') await h.click('#profile-edit-avatar')
+    if (type === 'avatar') {
+      await h.click('#profile-edit-avatar')
+      assert.match(h.navigation[0]?.url || '', /\/pages\/verification\/avatar-crop\?[^\s]*&from=profile/)
+      await h.hide()
+      await h.show()
+    }
     if (type === 'background') await act(async () => h.componentProps['./components/ProfileHeroImage'].onClick())
     if (type === 'addAlbum' || type === 'replaceAlbum') await h.click('[data-role="photo-upload-card"]')
     if (type === 'deleteVoice') {
@@ -264,7 +271,7 @@ for (const type of ['avatar', 'background', 'addAlbum', 'replaceAlbum', 'deleteV
       await act(async () => h.recorderEvents.onStop({ tempFilePath: 'recording.mp3', duration: 20000 }))
       await h.clickText('完成')
     }
-    assert.ok(h.saves.some(item => item.name === expectedSave), expectedSave)
+    if (expectedSave) assert.ok(h.saves.some(item => item.name === expectedSave), expectedSave)
     assert.equal(h.requests.length, 2)
     await h.resolve(1, type === 'deleteVoice' ? 88 : 94)
     assert.equal(h.score(), type === 'deleteVoice' ? 88 : 94)

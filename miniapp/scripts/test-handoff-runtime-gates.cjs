@@ -167,7 +167,10 @@ test('手机号和微信登录优先使用登录响应导航，仅非法状态�
   assert.match(hook, /resolvePostLoginRoute/)
   assert.match(hook, /const resumeAfterLogin = async/)
   assert.match(hook, /if \(!route\) return resumeInit\(\)/)
-  assert.match(hook, /Taro\.switchTab\(\{ url: route \}\)/)
+  assert.match(hook, /async function navigateAfterAuthentication\(fallbackRoute: string\)/)
+  assert.match(hook, /resolvePendingShareRoute\([\s\S]*Taro\.reLaunch\(\{ url: pendingRoute \}\)/)
+  assert.match(hook, /Taro\.switchTab\(\{ url: fallbackRoute \}\)/)
+  assert.match(hook, /firstLoginCompleted[\s\S]*navigateAfterAuthentication\(route\)/)
   assert.match(hook, /Taro\.redirectTo\(\{ url: route \}\)/)
 })
 
@@ -192,12 +195,12 @@ test('千寻币明细暂无数据使用蓝湖原始切图', () => {
   )
 })
 
-test('页面入口门禁精确读取 app.config 的 85 个路由并递归扫描依赖', () => {
+test('页面入口门禁精确读取 app.config 的 87 个路由并递归扫描依赖', () => {
   const gate = source('scripts/validate-page-entry-isolation.mjs')
   assert.match(gate, /app\.config\.ts/)
   assert.match(gate, /transpileModule/)
   assert.match(gate, /visit|traverse|walkImports/)
-  assert.match(gate, /85/)
+  assert.match(gate, /87/)
 })
 
 test('构建注册门禁从 dist app.json 校验 Page、App 唯一注册', () => {

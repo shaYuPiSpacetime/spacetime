@@ -29,13 +29,13 @@ test('理想型已有筛选记录时直达最新结果，无记录时才展示�
   assert.match(source, /getIdealSearchRecords/, '理想型入口必须查询服务端筛选记录')
   assert.match(
     source,
-    /items[^\n]*find\([^\n]*status\s*===\s*['"]active['"]\)/,
-    '必须读取按时间倒序返回的最新有效筛选快照，不能进入已过期结果'
+    /const activeRecord = \(data\.items \|\| \[\]\)\.find\(item =>[\s\S]*isIdealSnapshotForPreference\(item, preference\)[\s\S]*Date\.parse\(item\.expiresAt\) > Date\.now\(\)\)/,
+    '必须读取与当前推荐偏好匹配且未过期的最新筛选快照'
   )
   assert.match(
     source,
-    /\/pages\/prd08\/ideal\/results\/index\?snapshotNo=\$\{encodeURIComponent\([^)]*snapshotNo\)\}/,
-    '已有筛选快照时必须进入结果页'
+    /<IdealResultsContent[\s\S]*snapshotNo=\{idealSnapshotNo \|\| ''\}[\s\S]*embedded/,
+    '已有筛选快照时必须在理想型页签内直接展示结果内容'
   )
   assert.match(source, /setActiveTab\('ideal'\)/, '没有筛选记录时必须保留理想型落地页')
   const didShowFlow = source.slice(
@@ -44,20 +44,25 @@ test('理想型已有筛选记录时直达最新结果，无记录时才展示�
   )
   assert.match(
     didShowFlow,
-    /router\.params\.tab\s*===\s*['"]ideal['"][\s\S]*openIdealTab\(\)/,
-    '通过 tab=ideal 直接进入时也必须执行筛选快照判断'
+    /const requestedByRoute =[^\n]*router\.params\.tab === 'ideal'[\s\S]*requestedByRoute[\s\S]*activeTabRef\.current =[^\n]*'ideal'/,
+    '通过 tab=ideal 直接进入时必须先激活理想型页签'
+  )
+  assert.match(
+    didShowFlow,
+    /activeTabRef\.current === 'ideal'[\s\S]*void loadIdealTab\(\)/,
+    '理想型页签显示时必须执行筛选快照判断'
   )
 })
 
 test('推荐偏好居住地使用省市两级联动选择器', () => {
   const source = read('src/pages/prd08/recommend/preference/index.tsx')
 
-  assert.match(source, /mode="multiSelector"/, '居住地偏好必须使用两列选择器')
-  assert.match(source, /onColumnChange=/, '切换省份时必须联动刷新城市列')
+  assert.match(source, /import \{ LanhuRegionSheet \}/, '居住地偏好必须复用统一省市联动弹层')
+  assert.match(source, /prd01Api\.getProvinceCities\(\)/, '省市选项必须读取完整地区树')
   assert.match(
     source,
-    /normalizeTwoLevelRegionSelection/,
-    '省市索引必须复用既有合法范围收敛逻辑'
+    /<LanhuRegionSheet[\s\S]*title="居住地偏好"[\s\S]*regions=\{cities\}[\s\S]*provinceCode=\{citySheetSelection\.provinceCode\}[\s\S]*cityCode=\{citySheetSelection\.cityCode\}[\s\S]*onConfirm=\{\(provinceCode, cityCode\) => confirmTargetCity\(provinceCode, cityCode\)\}/,
+    '居住地偏好必须通过统一弹层联动选择省和市'
   )
 })
 
@@ -71,7 +76,7 @@ test('推荐页首次送出心动后展示下一位且不写入跳过动作', ()
   assert.match(source, /const showNextCandidate = async/, '候选切换必须从跳过动作中拆分出来')
   assert.match(
     toggleLike,
-    /wasLiked[\s\S]*await showNextCandidate\(\)/,
+    /wasLiked[\s\S]*await showNextCandidate\(candidateGeneration,\s*true\)/,
     '首次送出心动成功后必须切换下一位'
   )
   assert.doesNotMatch(toggleLike, /recordRecommendSkip/, '心动后切换不得误记为跳过')
@@ -101,21 +106,22 @@ test('推荐页首次送出心动后展示下一位且不写入跳过动作', ()
   assert.match(source, /awaitCurrentCandidateView/, '切换候选前必须等待当前曝光扣减额度')
   assert.match(
     source,
-    /navigateTo\(\{\s*url:\s*['"]\/pages\/prd08\/recommend\/waiting\/index['"]\s*\}\)/,
+    /navigateToOrRedirect\(['"]\/pages\/prd08\/recommend\/waiting\/index['"]\)/,
     '额度用完后必须自动进入推荐等待聚合页'
   )
 })
 
-test('普通用户高级推荐偏好在交互和提交两层均锁定', () => {
+test('高级推荐偏好按后端有效权益在交互和提交两层锁定', () => {
   const source = read('src/pages/prd08/recommend/preference/index.tsx')
   const saveStart = source.indexOf('const save = async')
   const saveFlow = source.slice(saveStart, source.indexOf('  return (', saveStart))
 
-  assert.match(source, /disabled=\{!model\.vipEffective\}/, '非会员高级滑块必须禁用')
+  assert.match(source, /disabled=\{!model\.advancedFilterEffective\}/, '后端判定高级筛选未生效时滑块必须禁用')
+  assert.match(source, /if \(model\.advancedFilterEffective\) return/, '高级筛选交互必须以后端有效权益为准')
   assert.match(
     saveFlow,
-    /\.\.\.\(model\.vipEffective\s*\?[\s\S]*minHeight[\s\S]*:\s*\{\}\)/,
-    '非会员提交时必须从请求中剔除全部高级条件'
+    /\.\.\.\(model\.advancedFilterEffective\s*\?[\s\S]*minHeight[\s\S]*:\s*\{\}\)/,
+    '后端判定高级筛选未生效时必须从请求中剔除全部高级条件'
   )
 })
 

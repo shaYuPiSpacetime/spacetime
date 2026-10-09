@@ -83,7 +83,11 @@ assert.match(preview, /visibleContent\.photos\[1\] \? <ProfilePreviewPhoto/, '�
 assert.match(preview, /visibleContent\.photos\.slice\(2\)\.map/, '剩余相册必须只遍历真实图片')
 assert.doesNotMatch(preview, /暂未添加标签|暂未填写自我介绍|暂未添加照片|暂未添加喜欢的歌曲/, '空内容禁止显示占位模块或占位文案')
 assert.match(preview, /visibleContent\.tags\.length \? <ProfilePreviewTagSection/, '空标签必须隐藏整个模块')
-assert.match(preview, /visibleContent\.showCertification \? <ProfilePreviewCertification/, '未通过任何认证时必须隐藏认证模块')
+assert.match(
+  preview,
+  /variant === 'public-profile' \? model\.certifications\.length > 0 : visibleContent\.showCertification/,
+  '认证模块必须按公开页真实认证项或本人预览通过状态显示',
+)
 assert.match(preview, /visibleContent\.favoriteSong \? <ProfilePreviewSong/, '空歌曲必须隐藏整个模块')
 assert.doesNotMatch(preview, /function ProfilePreviewPhoto\(\{ label \}/, '蓝湖相册图片没有叠加标签文案')
 assert.match(preview, /miniappOssIcons\.profilePreviewCertAvatar/, '头像认证必须使用主页预览蓝湖切图')

@@ -94,12 +94,21 @@ test('我的动态平铺多图并在点赞后刷新图标和数字', () => {
   assert.equal((standalone.match(/<PostImages urls=\{receipt\.imageUrls\}/g) || []).length, 1, '独立页面每条动态只能渲染一组图片')
 })
 
-test('本人动态菜单只保留带蓝湖微信图标的微信分享和取消', () => {
+test('本人动态菜单仅开放删除，不生成关注、不看和举报操作', () => {
   const componentPath = 'src/components/CommunityPostActionSheet.tsx'
   assert.equal(fs.existsSync(path.join(root, componentPath)), true, '缺少统一的动态操作弹窗')
   const component = read(componentPath)
 
-  assert.match(component, /const moderationActions = isSelf \? \[\] :/, '本人动态不得生成关注、不看和举报操作')
+  assert.match(
+    component,
+    /isSelf \? \[\s*\.\.\.\(onDelete \? \[\{ label: '删除'/,
+    '本人动态必须只提供删除操作',
+  )
+  assert.match(
+    component,
+    /\] : \[\s*\.\.\.\(onFollow[\s\S]*\.\.\.\(onHide[\s\S]*\.\.\.\(onReport/,
+    '关注、不看和举报必须只属于他人动态',
+  )
   assert.match(component, /openType="share"/, '微信分享必须使用小程序原生分享按钮')
   assert.match(component, /miniappOssIcons\.loginMethodWechat/, '微信分享必须使用蓝湖切图对应的 OSS 图标')
   assert.match(component, />微信分享<\/Text>/, '分享文案必须为“微信分享”')
@@ -213,21 +222,27 @@ test('悄悄话弹窗使用全局响应式组件并完整适配安全区', () =>
   assert.match(component, /catchMove/, '弹窗展示时必须阻止手势穿透到底层列表')
   assert.match(component, /maxHeight:\s*'calc\(100vh - 80rpx\)'/, '弹窗高度必须受当前视口限制')
   assert.match(component, /env\(safe-area-inset-bottom\)/, '弹窗底部必须适配设备安全区')
-  assert.match(component, /开通<Text[^>]*>时空邂逅会员<\/Text>每天一个悄悄话/, '全局组件必须保留会员权益提示')
+  assert.match(component, /freeWhisperDailyQuota/, '会员每日免费次数必须读取后端预检查配置')
+  assert.match(
+    component,
+    /configuredDailyQuota > 0 \? `每天\$\{configuredDailyQuota\}个悄悄话` : '享受每日免费悄悄话'/,
+    '会员权益提示必须展示后端配置的每日免费次数，并为未配置场景保留兜底文案',
+  )
   assert.match(compose, /<CommunityWhisperSheet/, '全局流程组件必须复用统一的响应式弹窗')
   assert.match(family, /<WhisperComposeSheet/, '热门动态必须使用全局悄悄话流程组件')
   assert.match(detail, /<WhisperComposeSheet/, '动态详情必须复用同一个悄悄话流程组件')
   assert.doesNotMatch(detail, /function WhisperComposeSheet/, '动态详情不得保留一份会继续漂移的弹窗副本')
 })
 
-test('热门动态关闭悄悄话弹窗后恢复打开前的滚动位置', () => {
+test('热门动态悄悄话弹层常驻，开关时不重建信息流', () => {
   const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
   const compose = read('src/components/WhisperComposeSheet.tsx')
+  const sheet = read('src/components/CommunityWhisperSheet.tsx')
 
-  assert.match(family, /const feedScrollTopRef = useRef\(0\)/, '热门列表必须记录当前滚动位置')
-  assert.match(family, /scrollTop=\{restoredFeedScrollTop\}/, '列表必须接收关闭弹窗后的恢复位置')
-  assert.match(family, /onScroll=\{event => \{\s*feedScrollTopRef\.current = event\.detail\.scrollTop\s*\}\}/, '滚动时必须仅写入 ref，避免逐帧刷新页面')
+  assert.match(family, /<WhisperComposeSheet visible=\{whisperTarget !== null\} target=\{whisperTarget\}/, '热门列表必须常驻挂载悄悄话流程组件，仅切换可见性')
+  assert.match(compose, /<CommunityWhisperSheet[\s\S]*visible=\{visible && target != null\}/, '流程组件必须常驻挂载统一弹层，仅切换可见性')
+  assert.match(sheet, /visibility: visible \? 'visible' : 'hidden'/, '弹层根节点必须通过 visibility 切换展示状态')
+  assert.match(sheet, /pointerEvents: visible \? 'auto' : 'none'/, '隐藏弹层不得拦截底层交互')
   assert.match(compose, /const close = async \(\) =>[\s\S]*await Taro\.hideKeyboard\(\)[\s\S]*onClose\(\)/, '全局流程组件关闭时必须先收起键盘')
-  assert.match(family, /const closeWhisperSheet = async \(\) =>[\s\S]*setRestoredFeedScrollTop\(undefined\)[\s\S]*Taro\.nextTick[\s\S]*setRestoredFeedScrollTop\(preservedScrollTop\)/, '关闭弹窗后必须强制恢复打开前位置')
-  assert.match(family, /onClose=\{\(\) => void closeWhisperSheet\(\)\}/, '弹窗关闭动作必须统一走滚动恢复逻辑')
+  assert.doesNotMatch(family, /feedScrollTopRef|restoredFeedScrollTop/, '常驻弹层方案不得再通过受控 scrollTop 强制重放滚动位置')
 })

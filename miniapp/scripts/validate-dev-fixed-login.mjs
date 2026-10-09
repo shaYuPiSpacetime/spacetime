@@ -46,14 +46,8 @@ assert.match(builtLoginGate, /dev-fixed-token-17366629764/, '固定登录产物�
 assert.match(applicationDev, /dev-fixed-login:/, '后端 dev 配置模板必须声明固定登录配置')
 if (hasLocalApplicationDev) {
   assert.match(applicationDev, /enabled:\s*(?:true|\$\{DEV_FIXED_LOGIN_ENABLED:true\})/, '后端 dev profile 必须启用固定登录')
-  const frontendDefaultToken = taroConfig.match(/process\.env\.DEV_FIXED_LOGIN_TOKEN \|\| '([^']+)'/)?.[1]
   const backendTokenSource = applicationDev.match(/^\s*token:\s*['"]?([^'"\s]+)['"]?\s*$/m)?.[1]
-  const backendDefaultToken = backendTokenSource?.match(/^\$\{DEV_FIXED_LOGIN_TOKEN:([^}]+)\}$/)?.[1]
-    || backendTokenSource
-  assert.ok(
-    frontendDefaultToken && backendDefaultToken && frontendDefaultToken === backendDefaultToken,
-    '后端 dev profile 固定登录 Token 必须与小程序默认值一致',
-  )
+  assert.match(backendTokenSource || '', /^\$\{DEV_FIXED_LOGIN_TOKEN(?::[^}]*)?\}$/, '后端 dev profile 固定登录 Token 必须由环境变量注入')
 }
 assert.doesNotMatch(read('../backend/src/main/resources/application-prod.yml'), /dev-fixed-login/, '生产配置禁止出现固定登录')
 assert.match(startDevScript, /\$\{PID\}/, '后台启动脚本输出 PID 时必须使用明确变量边界')
