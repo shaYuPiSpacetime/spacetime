@@ -24,4 +24,11 @@
 
 ## 发布
 
-发布前已重新 fetch 并同步 master，保留同期理想型搜索性能改动。此次业务源码仅涉及小程序，无后端业务变更。源代码提交、新包构建和上传结果将在完成后补记。
+发布前已重新 fetch 并同步 master，保留同期理想型搜索性能改动。此次业务源码仅涉及小程序，无后端业务变更。
+
+- 源代码提交：`aef2d86e05ecfc59fe0f7ba3ad9a9f9eb094c460`，已 Push 到 master。
+- Push 后再次 fetch、快进核对，从同步后的源码执行生产构建；关闭开发固定登录和 E2E 模式。
+- Taro 构建成功；postbuild 全通过：87 页均只注册一次；主包 1.40 MiB、总包 2.82 MiB；登录首页与无开发 Token 门禁通过。Webpack 存在私信页超过推荐大小的提示，实际包体门禁通过。
+- 上传前 `git ls-remote` 核实远端 master、本地 HEAD 和构建源码均为上述完整 SHA。
+- 微信开发者工具 CLI 上传成功（exit 0）：体验版本 `1.0.20261010.1536`；上传侧统计主包 1,385,509 字节，总包 2,845,738 字节。
+- 本地证据：`.runtime/relation-ui-20261010/` 下 prebuild、related-tests、match-copy-test、build、postbuild、upload 日志和 upload-info.json。生产业务效果仍需该账号真机复验，不将上传成功视作真机验收通过。
