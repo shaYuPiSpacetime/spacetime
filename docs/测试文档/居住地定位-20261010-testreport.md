@@ -17,4 +17,13 @@
 - OPS-01：生产审计成功，确认缺少地图密钥；未配置时没有请求第三方服务。
 - MAN-01：未执行真机定位；尚未提供有效生产地图 Key，不能声称自动定位恢复。
 
-发布构建、部署和小程序上传结果待补记。已请求将 Key 填入服务器私有 prod.env，禁止通过聊天或 Git 传递密钥。
+## 发布结果
+
+- 修复源码 `edeeb20f3897624a6f2bc350b314f55ec296ccbf` 已 Push 到 master。完整 `prebuild:weapp` 通过；生产 Taro 构建及 postbuild 通过，87 页注册检查通过，无开发固定登录或 E2E。
+- 每次构建前重新 fetch 并同步，上传前远端 master、本地 HEAD 与构建 SHA 一致。
+- 独立发布目录 `.runtime/weapp-release-edeeb20f-1791622178346/project`，427 个文件 SHA256 一致；preview/upload 的 15 项包统计逐项一致，主包 1,388,048 字节，总包 2,854,548 字节。
+- 体验版 **1.0.20261010.1650** 上传成功。构建、预览、上传日志在 `.runtime/location-20261010/`。
+- 后端自动部署 [38039174506](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38039174506) 成功，配置检查、镜像构建和服务器部署均通过。共享部署脚本触发的管理端流水线 [38039174510](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38039174510) 同样成功。
+- 部署后只读复核 [38039368350](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38039368350) 成功，服务器源配置及运行容器的 Key 仍均未配置。
+
+尚未闭环：线上自动定位仍缺少有效地图 Key；已请求填入服务器私有 prod.env，禁止通过聊天或 Git 传递密钥。发布成功不代表自动定位已恢复，待补配置后重新部署、确认公共测试坐标解析通过，再做真机验收。
