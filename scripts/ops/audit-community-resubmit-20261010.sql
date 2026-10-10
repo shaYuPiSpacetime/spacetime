@@ -19,4 +19,14 @@ SELECT 'audit' AS section, a.biz_id, a.action, a.result, a.provider_code, a.crea
 SELECT 'media' AS section, t.post_id, t.status, t.provider_label, t.callback_time
   FROM community_media_audit_task t JOIN community_post p ON p.id=t.post_id
  WHERE p.author_id=@target_user ORDER BY t.id DESC LIMIT 12;
+-- 只读取本账号最新驳回实际命中的规则，核对误判；仍不输出用户正文。
+SELECT 'matched_rule' AS section, w.id, w.word, w.category_code, w.status, w.deleted,
+       CHAR_LENGTH(w.word) AS word_length,
+       (SELECT COUNT(*) FROM community_post p WHERE p.author_id=@target_user
+          AND p.machine_code=CONCAT('local_sensitive_word:', w.id)
+          AND LOCATE(w.word, p.content)>0) AS literal_match_posts
+  FROM content_sensitive_word w
+ WHERE w.id=(SELECT CAST(SUBSTRING_INDEX(machine_code, ':', -1) AS UNSIGNED)
+   FROM community_post WHERE author_id=@target_user AND machine_code LIKE 'local_sensitive_word:%'
+   ORDER BY id DESC LIMIT 1);
 COMMIT;
