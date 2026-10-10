@@ -26,6 +26,7 @@
 | 小程序定向回归 | 21 项通过，覆盖真实服务回执、真实编辑页二次驳回弹窗、两处列表标签点击、慢请求、刷新失败、审核新状态回查 |
 | CommunityServiceImplTest | 61 项通过，含重提通过、待审、再次驳回和原有权限/并发回归 |
 | IdealServiceImplTest / ProfileAgeFilterTest | 39 + 1 项通过，含生日当天、生日未到/已过、旧年龄、年龄缺失 |
+| 微信最终构建 | `npm run build:weapp` 通过；87 页注册通过，无开发 Token；主包 1.40 MiB，总包 2.81 MiB |
 | TypeScript | 仓库整体仍有既有类型错误；此次新增事件模块及新增逻辑未引入报错。已有互动页 nullable/矩形回调和 CommunityConfig.publishStatuses 错误仍在 |
 | 微信真实运行 | 未计为通过；本机模拟器启动故障，无该账号登录会话，未伪造 Token |
 | 生产账号数据 | 只读审计通过；不等同于真机弹窗和新版流程已验收 |
@@ -34,4 +35,12 @@
 
 ## 发布
 
-待最终构建、master 推送、后端自动部署与体验版上传后补记。结论为有条件通过，真机验收保留。
+代码提交 `79ec5265564039dfbbcf98eeb677052e8f3f3e17`，已推送 master。最终发布源码 `d7f35bd98587fab4126f299a10afa63d475349c8`：构建门禁发现弹窗 fallback 没走统一文案函数，已修正，并通过定向回归、静态门禁和全新构建。
+
+当次实际 fetch 并同步 origin/master，最终从上述源码构建；上传前 ls-remote 与 HEAD 一致。最终构建日志：`C:/Users/39384/.codex/tmp/resubmit-age-build-release.log`。
+
+- [后端自动部署 38030979884](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38030979884)：对应后端修复提交 `79ec5265`，build/deploy 及各步骤均 success；后续 `d7f35bd9` 仅调整小程序文案函数。
+- 体验版 `1.0.20261010.1430` 上传成功：CLI 退出码 0、`√ upload`；回执总包 2,838,997 bytes。
+- 上传日志与回执：`C:/Users/39384/.codex/tmp/resubmit-age-upload.log`、`resubmit-age-upload.json`。
+
+结论：自动回归、构建和部署完成；真机弹窗与年龄展示验收保留。该账号再次驳回的原因已经由生产审计确认。
