@@ -12,6 +12,8 @@ import java.util.List;
  */
 public interface AppUserDao {
     AppUser selectById(Long id);
+    /** 锁定推荐浏览账号的用户行，锁持续至调用方事务提交，串行化同账号额度检查与扣减。 */
+    void lockRecommendBrowse(Long userId);
     List<AppUser> selectByIds(List<Long> ids);
     AppUser selectByPhoneHash(String phoneHash);
     AppUser selectOne(LambdaQueryWrapper<AppUser> wrapper);

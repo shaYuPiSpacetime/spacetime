@@ -877,6 +877,76 @@ class RecommendServiceImplTest {
     }
 
     @Test
+    @DisplayName("推荐曝光先锁账号再读取幂等记录和额度，最后一个额度只允许一次新增")
+    void recordViewShouldLockBeforeReadingQuotaAndRejectNextCandidate() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), RecommendViewLog.class);
+        AppUser current = openUser(7L, 30, "320100");
+        AppUser target = openUser(100L, 28, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(100L)).thenReturn(target);
+        when(accessProjectionService.project(any())).thenReturn("OPEN");
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", "10")));
+        List<RecommendViewLog> views = new java.util.ArrayList<>();
+        for (long id = 10; id < 19; id++) {
+            views.add(viewLog(7L, id, "view", LocalDateTime.now()));
+        }
+        when(viewLogDao.selectList(any())).thenAnswer(invocation -> {
+            LambdaQueryWrapper<RecommendViewLog> query = invocation.getArgument(0);
+            if (query.getSqlSegment().contains("candidate_user_id")) {
+                return views.stream().filter(view -> query.getParamNameValuePairs().containsValue(view.getCandidateUserId())).toList();
+            }
+            return List.copyOf(views);
+        });
+        org.mockito.Mockito.doAnswer(invocation -> {
+            views.add(invocation.getArgument(0));
+            return null;
+        }).when(viewLogDao).insert(any());
+        RecommendViewActionReq first = new RecommendViewActionReq();
+        first.setRequestId("last-slot");
+        service.recordAction(7L, "100", "view", first);
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(appUserDao, viewLogDao);
+        order.verify(appUserDao).lockRecommendBrowse(7L);
+        order.verify(appUserDao).selectById(7L);
+        order.verify(viewLogDao).selectByRequestAction(7L, "last-slot", "view");
+        assertThat(views).hasSize(10);
+
+        RecommendViewActionReq repeat = new RecommendViewActionReq();
+        repeat.setRequestId("same-user-new-session");
+        service.recordAction(7L, "100", "view", repeat);
+        assertThat(views).hasSize(10);
+        AppUser next = openUser(101L, 28, "320100");
+        when(appUserDao.selectById(101L)).thenReturn(next);
+        RecommendViewActionReq extra = new RecommendViewActionReq();
+        extra.setRequestId("over-quota");
+        assertThatThrownBy(() -> service.recordAction(7L, "101", "view", extra))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("今天的推荐已看完");
+        assertThat(views).hasSize(10);
+    }
+
+    @Test
+    @DisplayName("会员二十人额度浏览十七人仍剩三人，二十人后才能显示上限")
+    void vipSeventeenViewsShouldLeaveThreeSlots() {
+        AppUser current = openUser(7L, 30, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 1));
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(1));
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.vip", "20")));
+        List<RecommendViewLog> views = new java.util.ArrayList<>();
+        for (long id = 10; id < 27; id++) views.add(viewLog(7L, id, "view", LocalDateTime.now()));
+        when(viewLogDao.selectList(any())).thenAnswer(invocation -> List.copyOf(views));
+        when(appUserDao.selectList(any())).thenReturn(List.of());
+        assertThat(service.getCandidates(7L, null).getRemainingBrowseCount()).isEqualTo(3);
+        for (long id = 27; id < 30; id++) views.add(viewLog(7L, id, "view", LocalDateTime.now()));
+        RecommendCandidatePageVO exhausted = service.getCandidates(7L, null);
+        assertThat(exhausted.getRemainingBrowseCount()).isZero();
+        assertThat(exhausted.getWaitingReason()).isEqualTo("browse_limit");
+    }
+
+    @Test
     @DisplayName("客户端不能把服务端候选发放动作伪造成浏览动作提交")
     void recordActionRejectsIssuedActionFromClient() {
         AppUser current = openUser(7L, 30, "320100");

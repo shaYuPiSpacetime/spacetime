@@ -1,8 +1,9 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import IdealResultsContent from '@/components/IdealResultsContent'
+import RecommendWaitingContent from '@/components/RecommendWaitingContent'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
@@ -27,7 +28,6 @@ import { findConversationByPeerUserId } from '@/services/message'
 import { cancelRelationLike, sendRelationLike } from '@/services/relation'
 import { useAuthStore } from '@/stores/authStore'
 import { publishRecommendBadge } from '@/stores/recommendBadgeStore'
-import { navigateToOrRedirect } from '@/utils/navigation'
 
 type RecommendTab = 'recommend' | 'ideal'
 type LoadState = 'loading' | 'ready' | 'empty' | 'limit' | 'error'
@@ -63,6 +63,7 @@ export default function RecommendPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [actionSubmitting, setActionSubmitting] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [pageVisible, setPageVisible] = useState(true)
   const [showIpDialog, setShowIpDialog] = useState(false)
   const [showCertification, setShowCertification] = useState(false)
   const [showUnverifiedModal, setShowUnverifiedModal] = useState(false)
@@ -76,7 +77,7 @@ export default function RecommendPage() {
   const initialIdealTabHandled = useRef(false)
   const candidateRequestGenerationRef = useRef(0)
   const retryCandidateCursorRef = useRef<string | null>(null)
-  const waitingNavigationRef = useRef(false)
+  const pageVisibleRef = useRef(true)
   const profileOpeningRef = useRef(false)
   const currentViewTaskRef = useRef<{
     candidateNo: string
@@ -140,18 +141,6 @@ export default function RecommendPage() {
 
   const openWaitingPage = async () => {
     setState('limit')
-    if (activeTabRef.current !== 'recommend') return
-    if (waitingNavigationRef.current) return
-    waitingNavigationRef.current = true
-    setState('limit')
-    try {
-      await navigateToOrRedirect('/pages/prd08/recommend/waiting/index')
-    } catch {
-      setErrorMessage('等待页打开失败，请下拉刷新重试')
-      setState('error')
-    } finally {
-      waitingNavigationRef.current = false
-    }
   }
 
   const loadCandidates = async () => {
@@ -177,12 +166,10 @@ export default function RecommendPage() {
       setCandidateIndex(0)
       const exhaustedCycle = Taro.getStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY)
       if (data.items?.length) {
-        waitingNavigationRef.current = false
         setState('ready')
       } else if (shouldShowRecommendWaiting(data, exhaustedCycle)) {
         void openWaitingPage()
       } else if (data.waitingReason === 'no_candidate' || !data.items?.length) {
-        waitingNavigationRef.current = false
         setState('empty')
       }
     } catch (error) {
@@ -261,6 +248,8 @@ export default function RecommendPage() {
   }, [])
 
   useDidShow(() => {
+    pageVisibleRef.current = true
+    setPageVisible(true)
     const targetTab = Taro.getStorageSync(RECOMMEND_TAB_STORAGE_KEY)
     const requestedByRoute = !initialIdealTabHandled.current && router.params.tab === 'ideal'
     if (targetTab === 'recommend' || targetTab === 'ideal' || requestedByRoute) {
@@ -297,6 +286,11 @@ export default function RecommendPage() {
     }
   })
 
+  useDidHide(() => {
+    pageVisibleRef.current = false
+    setPageVisible(false)
+  })
+
   usePullDownRefresh(() => {
     if (activeTabRef.current === 'ideal') {
       void loadIdealTab(true).finally(() => Taro.stopPullDownRefresh())
@@ -315,14 +309,19 @@ export default function RecommendPage() {
     const requestGeneration = candidateRequestGenerationRef.current
     const requestId = createRequestId('recommend-view', currentCandidate.candidateNo)
     const task = new Promise<void>(resolve => Taro.nextTick(resolve))
-      .then(() =>
-        recordRecommendView(currentCandidate.candidateNo, {
+      .then(async () => {
+        // 隐藏的候选尚未形成有效曝光，不能因预取或快速切 Tab 扣额度。
+        if (!pageVisibleRef.current || activeTabRef.current !== 'recommend'
+          || candidateRequestGenerationRef.current !== requestGeneration) {
+          if (browseCycleRef.current === browseCycle) viewedCandidates.current.delete(currentCandidate.candidateNo)
+          if (currentViewTaskRef.current?.candidateNo === currentCandidate.candidateNo) currentViewTaskRef.current = null
+          return false
+        }
+        await recordRecommendView(currentCandidate.candidateNo, {
           requestId,
           filterVersion,
           position,
         })
-      )
-      .then(() => {
         if (browseCycleRef.current === browseCycle
           && candidateRequestGenerationRef.current === requestGeneration) {
           setPage(previous => applyRecommendViewToPage(previous, currentCandidate.candidateNo))
@@ -343,9 +342,9 @@ export default function RecommendPage() {
   }
 
   useEffect(() => {
-    if (!candidate || activeTab !== 'recommend' || state !== 'ready' || refreshing) return
+    if (!candidate || !pageVisible || activeTab !== 'recommend' || state !== 'ready' || refreshing) return
     void ensureCandidateView(candidate, candidateIndex + 1, page?.preferenceVersion)
-  }, [activeTab, state, refreshing, candidate?.candidateNo, candidateIndex, page?.preferenceVersion, page?.nextResetAt])
+  }, [activeTab, state, refreshing, pageVisible, candidate?.candidateNo, candidateIndex, page?.preferenceVersion, page?.nextResetAt])
 
   const awaitCurrentCandidateView = async () => {
     if (!candidate) return false
@@ -417,7 +416,6 @@ export default function RecommendPage() {
       setPage(next)
       setCandidateIndex(0)
       if (next.items?.length) {
-        waitingNavigationRef.current = false
         setState('ready')
       } else if (next.waitingReason === 'browse_limit') {
         void openWaitingPage()
@@ -425,7 +423,6 @@ export default function RecommendPage() {
         Taro.setStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY, next.nextResetAt)
         void openWaitingPage()
       } else {
-        waitingNavigationRef.current = false
         setState('empty')
       }
     } catch (error) {
@@ -601,6 +598,14 @@ export default function RecommendPage() {
               void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })
             }
           />
+          <View style={{ display: state === 'limit' ? 'block' : 'none' }}>
+            <RecommendWaitingContent
+              active={state === 'limit' && activeTab === 'recommend'}
+              openIdeal={() => handleTabChange('ideal')}
+              onRetry={() => void loadCandidates()}
+              refreshing={refreshing}
+            />
+          </View>
           {state === 'loading' ? <CenteredText text="加载中…" /> : null}
           {state === 'error' ? (
             <CenteredText text={errorMessage || '推荐加载失败，请下拉刷新'} />

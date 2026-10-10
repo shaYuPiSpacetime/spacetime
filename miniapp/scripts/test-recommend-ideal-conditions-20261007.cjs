@@ -22,14 +22,14 @@ test('资料刷新保留理想型未保存草稿，只移除已不可用条件',
   assert.deepEqual(changed.selectedConditionCodes, ['love'])
 })
 
-test('推荐切理想型只切内容，底部入口保持单图标共享组件', () => {
+test('推荐切理想型只切内容，底部入口保持共享组件与常驻互斥图标', () => {
   const source = read('src/pages/recommend/index.tsx')
   const openIdeal = source.slice(source.indexOf('const openIdealTab'), source.indexOf('const handleTabChange'))
   assert.doesNotMatch(openIdeal, /Taro\.navigateTo/, '切换理想型不能跳离推荐页替换底部导航')
   assert.match(source, /<IdealResultsContent/, '有结果时应内嵌内容而不是重挂导航')
   const bar = read('src/components/AppTabBar/index.tsx')
-  assert.doesNotMatch(bar, /opacity: isOn \?/, '每项只渲染一个图标，不叠两张透明图')
-  assert.match(bar, /src=\{isOn \? tab\.activeIconPath : tab\.iconPath\}/)
+  assert.doesNotMatch(bar, /src=\{isOn \? tab\.activeIconPath : tab\.iconPath\}/)
+  assert.match(bar, /src=\{tab\.iconPath\}[\s\S]*opacity: isOn \? 0 : 1[\s\S]*src=\{tab\.activeIconPath\}[\s\S]*opacity: isOn \? 1 : 0/)
 })
 
 test('修改共享城市或年龄后不恢复旧理想型结果', async () => {

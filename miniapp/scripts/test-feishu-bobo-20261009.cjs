@@ -232,6 +232,7 @@ test('N-05: 无刷新标记的页面重显保留候选，到新周期才重取',
     let loads = 0
     evaluateSnippet(snippet, {
       useDidShow: handler => { show = handler },
+      useDidHide: () => {}, pageVisibleRef: { current: true }, setPageVisible: () => {},
       Taro: { getStorageSync: () => undefined, removeStorageSync: () => {} },
       RECOMMEND_TAB_STORAGE_KEY: 'tab', RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY: 'preference',
       RECOMMEND_REFRESH_STORAGE_KEY: 'refresh', RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY: 'exhausted',

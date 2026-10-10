@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createRequire } from 'node:module'
 
 const root = resolve(import.meta.dirname, '..')
 const read = relativePath => readFileSync(resolve(root, relativePath), 'utf8')
@@ -92,7 +93,19 @@ assert.match(postDetail, /hideCommunityAuthor/, '动态详情更多操作必须�
 assert.match(postDetail, /unhideCommunityAuthor/, '动态详情更多操作必须支持取消不看')
 assert.match(postDetail, /CommunityPostActionSheet/, '动态详情必须复用按作者身份裁剪的操作弹窗')
 assert.match(postActionSheet, /取消不看 TA 动态/, '动态详情更多操作必须按最终态展示反向动作')
-assert.match(postActionSheet, /const moderationActions = isSelf \? \[\] :/, '本人动态必须隐藏关注、不看和举报操作')
+// 本人动态现在可删除；执行真实动作列表，避免旧语法断言误阻断正式构建。
+const ts = createRequire(import.meta.url)('typescript')
+const actionStart = postActionSheet.indexOf('  const moderationActions')
+const actionEnd = postActionSheet.indexOf('  return (', actionStart)
+assert.ok(actionStart >= 0 && actionEnd > actionStart, '动态操作列表必须可核验')
+const actionCode = ts.transpileModule(postActionSheet.slice(actionStart, actionEnd), {
+  compilerOptions: { target: ts.ScriptTarget.ES2020 },
+}).outputText
+const visibleActions = Function('post', 'isSelf', 'onFollow', 'onHide', 'onReport', 'onDelete', `${actionCode}; return moderationActions`)
+const noop = () => {}
+assert.deepEqual(visibleActions({}, true, noop, noop, noop, noop).map(action => action.label), ['删除'], '本人动态只能执行删除，必须隐藏关注、不看和举报')
+assert.deepEqual(visibleActions({}, false, noop, noop, noop, noop).map(action => action.label), ['关注', '不看 TA 动态', '举报'], '他人动态必须保留管理动作且不能删除')
+assert.deepEqual(visibleActions(undefined, true, noop, noop, noop, noop), [], '没有动态时不能出现管理动作')
 assert.match(postDetail, /openReportReasons\('comment'/, '评论举报必须按 comment 对象提交，不能误报为帖子')
 assert.match(topicDetail, /hideCommunityAuthor/, '话题详情更多操作必须将作者偏好写入服务端')
 assert.match(topicDetail, /unhideCommunityAuthor/, '话题详情更多操作必须支持取消不看')

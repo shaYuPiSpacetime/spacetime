@@ -106,9 +106,10 @@ test('推荐页首次送出心动后展示下一位且不写入跳过动作', ()
   assert.match(source, /awaitCurrentCandidateView/, '切换候选前必须等待当前曝光扣减额度')
   assert.match(
     source,
-    /navigateToOrRedirect\(['"]\/pages\/prd08\/recommend\/waiting\/index['"]\)/,
-    '额度用完后必须自动进入推荐等待聚合页'
+    /<RecommendWaitingContent\b/,
+    '额度用完后必须在推荐页内展示等待内容'
   )
+  assert.doesNotMatch(source, /navigateToOrRedirect\(['"]\/pages\/prd08\/recommend\/waiting\/index['"]\)/, '耗尽不得整页跳转')
 })
 
 test('高级推荐偏好按后端有效权益在交互和提交两层锁定', () => {

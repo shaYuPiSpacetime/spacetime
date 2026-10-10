@@ -71,7 +71,8 @@ assert.match(compose, /<MovableArea[\s\S]{0,1200}<MovableView/, '发布动态大
 assert.match(compose, /scaleMin=\{1\}/, '发布动态图片预览最小缩放必须为 1 倍')
 assert.match(compose, /scaleMax=\{3\}/, '发布动态图片预览最大缩放必须限制为 3 倍')
 assert.match(topicDetail, /reportCommunityPost/, '话题动态更多菜单必须接通举报接口')
-assert.match(topicDetail, /Taro\.showActionSheet/, '话题动态更多菜单必须提供真实操作反馈')
+assert.match(topicDetail, /CommunityPostActionSheet/, '话题动态更多菜单必须使用共享真实操作面板')
+assert.match(topicDetail, /onReport=\{/, '共享操作面板必须绑定真实举报处理')
 assert.match(topicDetail, /Taro\.previewImage/, '话题动态图片必须支持原图预览')
 assert.match(topicDetail, /qianxun-topic-post-more-/, '话题动态更多入口必须有稳定运行态标识')
 

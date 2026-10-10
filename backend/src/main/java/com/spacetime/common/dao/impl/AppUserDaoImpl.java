@@ -25,6 +25,14 @@ public class AppUserDaoImpl implements AppUserDao {
         return mapper.selectById(id);
     }
 
+    /** 使用数据库行锁保护推荐额度，支持多个服务实例同时处理浏览请求。 */
+    @Override
+    public void lockRecommendBrowse(Long userId) {
+        mapper.selectOne(new LambdaQueryWrapper<AppUser>()
+                .eq(AppUser::getId, userId)
+                .last("FOR UPDATE"));
+    }
+
     @Override
     public List<AppUser> selectByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {

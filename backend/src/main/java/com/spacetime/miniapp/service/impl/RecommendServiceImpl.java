@@ -443,6 +443,11 @@ public class RecommendServiceImpl implements RecommendService {
     @Override
     @Transactional
     public void recordAction(Long userId, String candidateNo, String action, RecommendViewActionReq req) {
+        // 必须在首次普通读取前取得行锁，避免 MySQL 可重复读沿用并发扣减前的快照。
+        // 锁由数据库事务释放；多设备和多个服务实例均共用同一额度保护。
+        if ("view".equals(action)) {
+            appUserDao.lockRecommendBrowse(userId);
+        }
         requireBrowsableUser(userId);
         if (req == null || StrUtil.isBlank(req.getRequestId()) || !ACTIONS.contains(action)) {
             throw new BusinessException(400, "推荐动作参数有误");

@@ -16,7 +16,8 @@ export async function collectRecommendCandidatePages(fetchPage, cursor) {
   const visited = new Set(cursor ? [cursor] : [])
   let page = first
   while (true) {
-    if (page.preferenceVersion !== first.preferenceVersion || page.nextResetAt !== first.nextResetAt) {
+    if (page.preferenceVersion !== first.preferenceVersion || page.nextResetAt !== first.nextResetAt
+      || page.remainingBrowseCount !== remaining) {
       throw new Error('推荐条件已变化，请刷新后重试')
     }
     for (const item of page.items || []) {
@@ -50,22 +51,27 @@ export function applyRecommendViewToPage(page, candidateNo) {
 
 /** 多个底部栏共用推荐数字：合并刷新，保留最近结果，阻止旧响应覆盖浏览后的数字。 */
 export function createRecommendBadgeRuntime({ fetchPage, now = Date.now }) {
-  let state = { ownerId: null, count: 0, updatedAt: 0, nextResetAt: null }
+  let state = { ownerId: null, count: 0, updatedAt: 0, nextResetAt: null, preferenceVersion: null }
   let generation = 0
   let pending = null
   const listeners = new Set()
   const update = next => {
+    // 同一偏好和周期内，浏览只会减少未看人数；切 Tab 的后台刷新不能把数字加回去。
+    if (state.updatedAt > 0 && state.ownerId === next.ownerId && next.nextResetAt
+      && state.nextResetAt === next.nextResetAt && state.preferenceVersion === next.preferenceVersion) {
+      next.count = Math.min(state.count, next.count)
+    }
     state = next
     listeners.forEach(listener => listener(state))
   }
   const reset = () => {
     generation += 1
     pending = null
-    update({ ownerId: null, count: 0, updatedAt: 0, nextResetAt: null })
+    update({ ownerId: null, count: 0, updatedAt: 0, nextResetAt: null, preferenceVersion: null })
   }
   const publishPage = (ownerId, page) => {
     generation += 1
-    update({ ownerId, count: resolveRecommendBadgeCount(page), updatedAt: now(), nextResetAt: page?.nextResetAt || null })
+    update({ ownerId, count: resolveRecommendBadgeCount(page), updatedAt: now(), nextResetAt: page?.nextResetAt || null, preferenceVersion: page?.preferenceVersion ?? null })
   }
   const refresh = (ownerId, force = false) => {
     if (!ownerId) {
@@ -77,7 +83,7 @@ export function createRecommendBadgeRuntime({ fetchPage, now = Date.now }) {
       update({ ...state, ownerId })
     }
     if (pending?.ownerId === ownerId) return pending.task
-    const resetAt = state.nextResetAt ? new Date(state.nextResetAt.replace(' ', 'T')).getTime() : Infinity
+    const resetAt = state.nextResetAt ? Date.parse(`${state.nextResetAt.replace(' ', 'T')}+08:00`) : Infinity
     if (!force && state.updatedAt > 0 && now() - state.updatedAt < 30000 && now() < resetAt) {
       return Promise.resolve()
     }
@@ -85,7 +91,7 @@ export function createRecommendBadgeRuntime({ fetchPage, now = Date.now }) {
     const request = { ownerId, task: null }
     request.task = Promise.resolve(fetchPage()).then(page => {
       if (generation !== requestGeneration || state.ownerId !== ownerId) return
-      update({ ownerId, count: resolveRecommendBadgeCount(page), updatedAt: now(), nextResetAt: page?.nextResetAt || null })
+      update({ ownerId, count: resolveRecommendBadgeCount(page), updatedAt: now(), nextResetAt: page?.nextResetAt || null, preferenceVersion: page?.preferenceVersion ?? null })
     }).catch(() => {
       // 短暂网络失败不把已经确认的推荐数字清零。
     }).finally(() => {

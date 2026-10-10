@@ -258,12 +258,23 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
               }}
             >
               <Image
-                src={isOn ? tab.activeIconPath : tab.iconPath}
+                src={tab.iconPath}
                 mode="aspectFit"
                 style={{
                   position: 'absolute',
                   width: `${tab.iconWidth}rpx`,
                   height: `${tab.iconHeight}rpx`,
+                  opacity: isOn ? 0 : 1,
+                }}
+              />
+              <Image
+                src={tab.activeIconPath}
+                mode="aspectFit"
+                style={{
+                  position: 'absolute',
+                  width: `${tab.iconWidth}rpx`,
+                  height: `${tab.iconHeight}rpx`,
+                  opacity: isOn ? 1 : 0,
                 }}
               />
               {tab.key === 'chat' && messageBadge ? (
