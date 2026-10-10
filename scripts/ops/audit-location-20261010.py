@@ -33,8 +33,12 @@ try:
     runtime = dict(item.split("=", 1) for item in values if "=" in item)
     source_key = os.environ.get("TENCENT_MAP_KEY", "").strip()
     runtime_key = runtime.get("TENCENT_MAP_KEY", "").strip()
+    source_result = probe(source_key)
+    # Confirm consistency after provider-side quota changes, within the 5 QPS allowance.
+    runtime_checks = [probe(runtime_key) for _ in range(3)]
     print(json.dumps({"checked_at_utc": datetime.now(timezone.utc).isoformat(),
-                      "source": probe(source_key), "runtime": probe(runtime_key),
+                      "source": source_result, "runtime": runtime_checks[0],
+                      "runtime_checks": runtime_checks,
                       "source_matches_runtime": bool(source_key) and source_key == runtime_key}))
 except Exception:
     print(json.dumps({"audit_failed": True}))
