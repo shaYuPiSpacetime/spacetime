@@ -1,0 +1,51 @@
+name: ops-audit-recommend-20261010
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'scripts/ops/audit-recommend-quota-20261010.sql'
+      - '.github/workflows/ops-audit-recommend-20261010.yml'
+permissions:
+  contents: read
+concurrency:
+  group: spacetime-prod-data-ops
+  cancel-in-progress: false
+jobs:
+  audit-recommend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy read-only audit
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'scripts/ops/audit-recommend-quota-20261010.sql'
+          target: '/mnt/data/spacetime-prod'
+      - name: Read aggregate recommendation counts
+        id: audit
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script: |
+            set -e
+            cd /mnt/data/spacetime-prod
+            set -a
+            . secrets/prod.env
+            set +a
+            audit_output="$(MYSQL_PWD="$DB_PASSWORD" mysql -h"$DB_HOST" -P"${DB_PORT:-3306}" \
+              -u"$DB_USER" --default-character-set=utf8mb4 --batch "$DB_NAME" \
+              < scripts/ops/audit-recommend-quota-20261010.sql)"
+            printf 'AUDIT_RESULT|%s\n' "$(printf '%s' "$audit_output" | base64 -w0)"
+      - name: Publish aggregate audit result
+        env:
+          AUDIT_STDOUT: ${{ steps.audit.outputs.stdout }}
+        run: |
+          result_line="$(printf '%s\n' "$AUDIT_STDOUT" | grep '^AUDIT_RESULT|' | tail -n 1)"
+          [ -n "$result_line" ] || exit 1
+          summary="$(printf '%s' "$result_line" | cut -d'|' -f2 | base64 -d | tr '\n' ' ' | cut -c1-5000)"
+          echo "::notice title=Recommendation aggregate audit::$summary"
