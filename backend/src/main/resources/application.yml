@@ -28,6 +28,8 @@ promotion:
     h5-base-url: ${PROMOTION_SHARE_H5_BASE_URL:}
 
 sms:
+  # 联调开关：true 固定 0000 且不发短信；正式上线设置 false 使用下方真实通道。
+  mock-enabled: ${SMS_MOCK_ENABLED:true}
   # 开发和测试默认 mock；生产 profile 覆盖为 aliyun。
   provider: ${SMS_PROVIDER:mock}
   aliyun:

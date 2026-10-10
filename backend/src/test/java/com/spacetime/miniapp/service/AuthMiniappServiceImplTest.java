@@ -9,6 +9,7 @@ import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.PromotionEventInboxService;
+import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.miniapp.dto.request.PhoneLoginReq;
 import com.spacetime.miniapp.dto.request.PhoneSmsCodeReq;
 import com.spacetime.miniapp.dto.request.WechatLoginReq;
@@ -29,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.util.List;
@@ -69,6 +71,8 @@ class AuthMiniappServiceImplTest {
     private UserAssetDao userAssetDao;
     @Mock
     private PromotionEventInboxService promotionEventInboxService;
+    @Mock
+    private SmsCodeProvider smsCodeProvider;
 
     private AuthMiniappServiceImpl authService;
 
@@ -89,7 +93,8 @@ class AuthMiniappServiceImplTest {
                 new Prd01FieldConfigResolver(appConfigDao, objectMapper),
                 accessEvaluator,
                 userAssetDao,
-                promotionEventInboxService);
+                promotionEventInboxService,
+                smsCodeProvider);
     }
 
     @Test
@@ -160,6 +165,7 @@ class AuthMiniappServiceImplTest {
 
         assertThat(vo.getProviderCode()).isEqualTo("FIXED");
         verify(valueOps).set("miniapp:auth:sms:code:13800138000", "0000", Duration.ofMinutes(3));
+        verifyNoInteractions(smsCodeProvider);
     }
 
     @Test
@@ -438,6 +444,145 @@ class AuthMiniappServiceImplTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.wechatLogin(req))
                 .hasMessageContaining("手机号已绑定其他微信账号");
         verify(appUserDao, never()).updateById(any(AppUser.class));
+    }
+
+    @Test
+    @DisplayName("关闭 mock 后真实发送随机码，并缓存到真实模式命名空间")
+    void realModeShouldSendAndCacheProviderCode() {
+        enableRealSms();
+        PhoneSmsCodeVO result = authService.sendPhoneSmsCode(smsRequest());
+
+        assertThat(result.getProviderCode()).isEqualTo("ALIYUN_SMS");
+        assertThat(result.getDailyRemaining()).isEqualTo(7);
+        verify(smsCodeProvider).sendLoginCode("13800138000", "4826", 3);
+        verify(valueOps).set("miniapp:auth:sms:real:code:13800138000", "4826", Duration.ofMinutes(3));
+        verify(valueOps, never()).set(eq("miniapp:auth:sms:code:13800138000"), anyString(), any(Duration.class));
+    }
+
+    @Test
+    @DisplayName("真实发送失败不发放验证码、不计发送次数、不降级 mock")
+    void realSendFailureShouldNotIssueCodeOrConsumeSendLimit() {
+        enableRealSms();
+        doThrow(new IllegalStateException("provider failed"))
+                .when(smsCodeProvider).sendLoginCode("13800138000", "4826", 3);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.sendPhoneSmsCode(smsRequest()))
+                .hasMessageContaining("AUTH_SMS_SEND_FAILED");
+
+        verify(valueOps, never()).set(anyString(), anyString(), any(Duration.class));
+        verifyNoInteractions(appUserDao);
+    }
+
+    @Test
+    @DisplayName("关闭 mock 后配置 MOCK Provider 必须拒绝发放验证码")
+    void realModeShouldRejectMockProvider() {
+        enableRealSms();
+        when(smsCodeProvider.providerCode()).thenReturn("MOCK");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.sendPhoneSmsCode(smsRequest()))
+                .hasMessageContaining("AUTH_SMS_PROVIDER_UNAVAILABLE");
+
+        verify(smsCodeProvider, never()).generateCode();
+        verify(smsCodeProvider, never()).sendLoginCode(anyString(), anyString(), org.mockito.ArgumentMatchers.anyInt());
+        verify(valueOps, never()).set(anyString(), anyString(), any(Duration.class));
+    }
+
+    @Test
+    @DisplayName("关闭 mock 后旧固定验证码缓存不能登录")
+    void realModeShouldNotAcceptPreviouslyIssuedMockCode() {
+        enableRealSms();
+        // setUp 已在旧命名空间保留 0000，但真实命名空间尚未获取验证码。
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(phoneRequest("0000")))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+
+        verify(valueOps).get("miniapp:auth:sms:real:code:13800138000");
+        verify(valueOps, never()).get("miniapp:auth:sms:code:13800138000");
+        verifyNoInteractions(appUserDao);
+    }
+
+    @Test
+    @DisplayName("真实模式使用匹配缓存的随机码登录并消费，兼容 Redis JSON 标量")
+    void realModeShouldLoginWithCachedRandomCode() {
+        enableRealSms();
+        when(valueOps.get("miniapp:auth:sms:real:code:13800138000")).thenReturn("\"4826\"");
+        stubExistingPhoneUser();
+
+        assertThat(authService.phoneLogin(phoneRequest("4826")).getUserId()).isEqualTo(11L);
+        verify(redisTemplate).delete("miniapp:auth:sms:real:code:13800138000");
+        verify(redisTemplate, never()).delete("miniapp:auth:sms:code:13800138000");
+    }
+
+    @Test
+    @DisplayName("真实模式只接受匹配的当前随机码，固定 0000 不绕过验证")
+    void realModeShouldRejectMismatchedOrExpiredCode() {
+        enableRealSms();
+        when(valueOps.get("miniapp:auth:sms:real:code:13800138000")).thenReturn("4826", null);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(phoneRequest("0000")))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(phoneRequest("4826")))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+        verifyNoInteractions(appUserDao);
+    }
+
+    @Test
+    @DisplayName("切回 mock 模式后不接受真实模式验证码")
+    void mockModeShouldNotAcceptPreviouslyIssuedRealCode() {
+        when(valueOps.get("miniapp:auth:sms:code:13800138000")).thenReturn(null);
+        when(valueOps.get("miniapp:auth:sms:real:code:13800138000")).thenReturn("4826");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(phoneRequest("4826")))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+        verify(valueOps, never()).get("miniapp:auth:sms:real:code:13800138000");
+        verifyNoInteractions(appUserDao);
+    }
+
+    @Test
+    @DisplayName("真实短信验证码成功登录后只能使用一次")
+    void realModeShouldConsumeIssuedCodeOnce() {
+        enableRealSms();
+        java.util.Map<String, String> cache = new java.util.HashMap<>();
+        when(valueOps.get(anyString())).thenAnswer(invocation -> cache.get(invocation.getArgument(0)));
+        doAnswer(invocation -> {
+            cache.put(invocation.getArgument(0), invocation.getArgument(1));
+            return null;
+        }).when(valueOps).set(anyString(), anyString(), any(Duration.class));
+        when(redisTemplate.delete(anyString())).thenAnswer(invocation -> cache.remove(invocation.getArgument(0)) != null);
+        stubExistingPhoneUser();
+        authService.sendPhoneSmsCode(smsRequest());
+
+        assertThat(authService.phoneLogin(phoneRequest("4826")).getUserId()).isEqualTo(11L);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.phoneLogin(phoneRequest("4826")))
+                .hasMessageContaining("AUTH_SMS_INVALID");
+        verify(appUserDao).selectByPhoneHash(anyString());
+    }
+
+    private void enableRealSms() {
+        ReflectionTestUtils.setField(authService, "smsMockEnabled", false);
+        when(smsCodeProvider.providerCode()).thenReturn("ALIYUN_SMS");
+        when(smsCodeProvider.generateCode()).thenReturn("4826");
+    }
+
+    private PhoneSmsCodeReq smsRequest() {
+        PhoneSmsCodeReq req = new PhoneSmsCodeReq();
+        req.setPhone("13800138000");
+        return req;
+    }
+
+    private PhoneLoginReq phoneRequest(String code) {
+        PhoneLoginReq req = new PhoneLoginReq();
+        req.setPhone("13800138000");
+        req.setSmsCode(code);
+        req.setAgreeProtocol(true);
+        return req;
+    }
+
+    private void stubExistingPhoneUser() {
+        AppUser user = new AppUser();
+        user.setId(11L);
+        user.setOpenid("phone_13800138000");
+        user.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+        when(appUserDao.selectByPhoneHash(anyString())).thenReturn(user);
     }
 
     private AppConfig config(String value) {

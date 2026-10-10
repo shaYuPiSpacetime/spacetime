@@ -16,6 +16,7 @@ import com.spacetime.common.enums.RegisterSourceEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContext;
+import com.spacetime.common.provider.SmsCodeProvider;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.PromotionEventInboxService;
 import com.spacetime.common.util.DefaultNicknameGenerator;
@@ -31,6 +32,7 @@ import com.spacetime.miniapp.service.WechatMiniappClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,8 +52,8 @@ import java.util.UUID;
  * 小程序登录服务实现。
  *
  * 微信登录和手机号登录共用同一响应结构，移动端可以统一处理首登续填、
- * 核心准入拦截和后续跳转。当前所有环境的手机号验证码固定为 0000，
- * 服务端只在获取后的有效期内保存用于一次性校验。
+ * 核心准入拦截和后续跳转。sms.mock-enabled 控制固定 0000 联调与真实短信模式，
+ * 两种模式的验证码缓存隔离，均需先获取并在有效期内一次性校验。
  */
 @Slf4j
 @Service
@@ -61,6 +63,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private static final String FIXED_SMS_CODE = "0000";
     private static final String SMS_RULES_KEY = "prd01.security.sms.rules";
     private static final String SMS_CODE_PREFIX = "miniapp:auth:sms:code:";
+    private static final String REAL_SMS_CODE_PREFIX = "miniapp:auth:sms:real:code:";
     private static final String SMS_COOLDOWN_PREFIX = "miniapp:auth:sms:cooldown:";
     private static final String SMS_DAILY_PREFIX = "miniapp:auth:sms:daily:";
 
@@ -74,6 +77,11 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     private final Prd01AccessEvaluator accessEvaluator;
     private final UserAssetDao userAssetDao;
     private final PromotionEventInboxService promotionEventInboxService;
+    private final SmsCodeProvider smsCodeProvider;
+
+    /** 测试期间默认开启；正式上线设置 SMS_MOCK_ENABLED=false 并重建后端容器。 */
+    @Value("${sms.mock-enabled:true}")
+    private boolean smsMockEnabled = true;
 
     /** 微信授权手机号登录。 */
     @Override
@@ -109,7 +117,8 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
             throw new BusinessException("AUTH_SMS_DAILY_LIMIT: 今日验证码次数已达上限");
         }
 
-        redisTemplate.opsForValue().set(SMS_CODE_PREFIX + phone, FIXED_SMS_CODE,
+        String code = smsMockEnabled ? FIXED_SMS_CODE : sendRealSmsCode(phone, rules.validMinutes());
+        redisTemplate.opsForValue().set(smsCodeKey(phone), code,
                 Duration.ofMinutes(rules.validMinutes()));
         redisTemplate.opsForValue().set(cooldownKey, "1", Duration.ofSeconds(rules.sendCountdownSeconds()));
         redisTemplate.opsForValue().set(dailyKey, String.valueOf(usedCount + 1), secondsUntilTomorrow());
@@ -119,7 +128,7 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
         vo.setValidMinutes(rules.validMinutes());
         vo.setDailyLimit(rules.dailySendLimit());
         vo.setDailyRemaining(Math.max(0, rules.dailySendLimit() - usedCount - 1));
-        vo.setProviderCode("FIXED");
+        vo.setProviderCode(smsMockEnabled ? "FIXED" : smsCodeProvider.providerCode());
         return vo;
     }
 
@@ -129,16 +138,39 @@ public class AuthMiniappServiceImpl implements AuthMiniappService {
     public WechatLoginVO phoneLogin(PhoneLoginReq req) {
         requireProtocolAgreement(req.getAgreeProtocol());
         String phone = req.getPhone().trim();
-        String codeKey = SMS_CODE_PREFIX + phone;
+        String codeKey = smsCodeKey(phone);
         String submittedCode = req.getSmsCode().trim();
         String cachedCode = normalizeRedisScalar(redisTemplate.opsForValue().get(codeKey));
-        if (!FIXED_SMS_CODE.equals(submittedCode) || !FIXED_SMS_CODE.equals(cachedCode)) {
+        if (StrUtil.isBlank(cachedCode) || !submittedCode.equals(cachedCode)
+                || (smsMockEnabled && !FIXED_SMS_CODE.equals(submittedCode))) {
             throw new BusinessException("AUTH_SMS_INVALID: 验证码错误或已过期");
         }
         LoginTarget target = loginByPhone(phone, req.getPromotionTraceNos());
         WechatLoginVO vo = buildLoginVO(target.user(), target.isNew());
         redisTemplate.delete(codeKey);
         return vo;
+    }
+
+    private String smsCodeKey(String phone) {
+        return (smsMockEnabled ? SMS_CODE_PREFIX : REAL_SMS_CODE_PREFIX) + phone;
+    }
+
+    private String sendRealSmsCode(String phone, int validMinutes) {
+        if ("MOCK".equalsIgnoreCase(smsCodeProvider.providerCode())) {
+            throw new BusinessException(503, "AUTH_SMS_PROVIDER_UNAVAILABLE: 请配置真实短信通道");
+        }
+        String code = smsCodeProvider.generateCode();
+        if (code == null || !code.matches("[0-9]{4}")) {
+            throw new BusinessException(503, "AUTH_SMS_SEND_FAILED: 短信验证码生成失败");
+        }
+        try {
+            smsCodeProvider.sendLoginCode(phone, code, validMinutes);
+        } catch (RuntimeException failure) {
+            // 不记录手机号、验证码、短信模板参数或第三方异常中的凭证。
+            log.warn("短信验证码发送失败，provider={}", smsCodeProvider.providerCode());
+            throw new BusinessException(503, "AUTH_SMS_SEND_FAILED: 短信发送失败，请稍后重试");
+        }
+        return code;
     }
 
     /**

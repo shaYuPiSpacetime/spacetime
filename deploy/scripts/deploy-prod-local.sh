@@ -61,6 +61,7 @@ load_env() {
   export REDIS_DATABASE="${REDIS_DATABASE:-1}"
   export OSS_URL_EXPIRE_SECONDS="${OSS_URL_EXPIRE_SECONDS:-300}"
   export SMS_PROVIDER="${SMS_PROVIDER:-aliyun}"
+  export SMS_MOCK_ENABLED="${SMS_MOCK_ENABLED:-true}"
   export SMS_ACCESS_KEY_ID="${SMS_ACCESS_KEY_ID:-$OSS_ACCESS_KEY_ID}"
   export SMS_ACCESS_KEY_SECRET="${SMS_ACCESS_KEY_SECRET:-$OSS_ACCESS_KEY_SECRET}"
   export SMS_ENDPOINT="${SMS_ENDPOINT:-dysmsapi.aliyuncs.com}"
@@ -121,6 +122,13 @@ load_env() {
   done
   [ "$WEBSITE_OSS_BUCKET_NAME" != "$OSS_BUCKET_NAME" ] \
     || fail "官网私有 OSS Bucket 不得与小程序公共 Bucket 相同"
+  case "${SMS_MOCK_ENABLED,,}" in
+    true|false) export SMS_MOCK_ENABLED="${SMS_MOCK_ENABLED,,}" ;;
+    *) fail "SMS_MOCK_ENABLED 只能为 true 或 false" ;;
+  esac
+  if [ "$SMS_MOCK_ENABLED" = "false" ] && [ "$SMS_PROVIDER" != "aliyun" ]; then
+    fail "关闭短信 mock 时 SMS_PROVIDER 必须为 aliyun"
+  fi
   case "${WECHAT_VIRTUAL_PAY_ENABLED,,}" in
     true|false) ;;
     *) fail "WECHAT_VIRTUAL_PAY_ENABLED 只能为 true 或 false" ;;
@@ -175,6 +183,7 @@ write_runtime_env() {
       REAL_NAME_ALIYUN_AUTH_CODE \
       SMS_ACCESS_KEY_ID SMS_ACCESS_KEY_SECRET \
       SMS_PROVIDER SMS_ENDPOINT SMS_SIGN_NAME SMS_TEMPLATE_CODE \
+      SMS_MOCK_ENABLED \
       WECHAT_PAY_APP_ID WECHAT_PAY_MCH_ID WECHAT_PAY_API_V3_KEY WECHAT_PAY_CERT_SERIAL_NO \
       WECHAT_PAY_PRIVATE_KEY_PATH WECHAT_PAY_MERCHANT_CERT_PATH WECHAT_PAY_NOTIFY_URL \
       WECHAT_PAY_FORCE_TEST_AMOUNT WECHAT_PAY_TEST_PAY_AMOUNT WECHAT_PAY_TEST_AMOUNT WECHAT_PAY_DESCRIPTION_PREFIX \

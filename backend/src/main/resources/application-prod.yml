@@ -79,5 +79,7 @@ gugudata:
     request-timeout-millis: ${GUGUDATA_COLLEGE_REQUEST_TIMEOUT_MILLIS:5000}
 
 sms:
+  # 当前体验测试保持 mock；正式上线设置 SMS_MOCK_ENABLED=false 并重建后端容器。
+  mock-enabled: ${SMS_MOCK_ENABLED:true}
   # 生产环境禁止静默使用 mock 通道；凭证缺失时由配置校验阻止启动。
   provider: ${SMS_PROVIDER:aliyun}

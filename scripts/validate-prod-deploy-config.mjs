@@ -235,6 +235,7 @@ for (const expected of [
   'OSS_ACCESS_KEY_ID=',
   'OSS_ACCESS_KEY_SECRET=',
   'SMS_PROVIDER=aliyun',
+  'SMS_MOCK_ENABLED=true',
   'SMS_ACCESS_KEY_ID=',
   'SMS_ACCESS_KEY_SECRET=',
   'SMS_ENDPOINT=dysmsapi.aliyuncs.com',
@@ -275,6 +276,7 @@ for (const expected of [
   'endpoint: ${OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}',
   'bucket-name: ${OSS_BUCKET_NAME:shikongxiehou}',
   'provider: ${SMS_PROVIDER:aliyun}',
+  'mock-enabled: ${SMS_MOCK_ENABLED:true}',
   'provider: ${PRD01_CONTENT_SECURITY_PROVIDER:wechat}',
 ]) {
   assertIncludes(prodConfig, expected, 'backend/src/main/resources/application-prod.yml');
@@ -300,6 +302,7 @@ for (const expected of [
 const devEnvExample = read('backend/.env.local.example');
 for (const expected of [
   'SMS_PROVIDER=mock',
+  'SMS_MOCK_ENABLED=true',
   'SMS_ACCESS_KEY_ID=',
   'SMS_ACCESS_KEY_SECRET=',
   'SMS_ENDPOINT=dysmsapi.aliyuncs.com',
@@ -317,6 +320,11 @@ assertIncludes(sslPem, 'BEGIN CERTIFICATE', 'deploy/nginx-prod/ssl/admin.shikong
 assertNotIncludes(sslPem, 'PRIVATE KEY', 'deploy/nginx-prod/ssl/admin.shikongxiehou.com.pem');
 
 const deployScript = read('deploy/scripts/deploy-prod-local.sh');
+const smsRuntimeEnvWriter = deployScript.slice(deployScript.indexOf('write_runtime_env()'),
+  deployScript.indexOf('ensure_runtime()'));
+assertIncludes(smsRuntimeEnvWriter, 'SMS_MOCK_ENABLED', '后端运行环境必须传入短信 mock 开关');
+assertIncludes(read('backend/src/main/resources/application.yml'),
+  'mock-enabled: ${SMS_MOCK_ENABLED:true}', '基础短信配置');
 for (const expected of [
   'SPACETIME_PROD_ENV_FILE',
   'registry_password_from_pipeline',
@@ -332,6 +340,9 @@ for (const expected of [
   'COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN',
   'SMS_ACCESS_KEY_ID SMS_ACCESS_KEY_SECRET',
   'SMS_PROVIDER SMS_ENDPOINT SMS_SIGN_NAME SMS_TEMPLATE_CODE',
+  'SMS_MOCK_ENABLED="${SMS_MOCK_ENABLED:-true}"',
+  'SMS_MOCK_ENABLED 只能为 true 或 false',
+  '关闭短信 mock 时 SMS_PROVIDER 必须为 aliyun',
   'TENCENT_IM_ENABLED TENCENT_IM_SDK_APP_ID TENCENT_IM_SECRET_KEY',
   'TENCENT_IM_ADMINISTRATOR TENCENT_IM_REST_BASE_URL',
   'TENCENT_IM_CALLBACK_PATH_TOKEN TENCENT_IM_CALLBACK_AUTH_TOKEN',
