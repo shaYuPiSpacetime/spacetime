@@ -36,7 +36,16 @@ jobs:
         env:
           MYSQL_PWD: ops-fixture-only
           OPS_FIXTURE_TEST: '1'
-        run: python3 scripts/test-recommend-reset-20261010.py
+        run: |
+          set +e
+          python3 scripts/test-recommend-reset-20261010.py > fixture-result.log 2>&1
+          fixture_status=$?
+          cat fixture-result.log
+          if [ "$fixture_status" != '0' ]; then
+            fixture_error="$(tail -n 15 fixture-result.log | tr '\n' ' ' | cut -c1-1800)"
+            echo "::error title=Recommendation reset fixture failed::$fixture_error"
+            exit "$fixture_status"
+          fi
 
       - name: Copy one-time SQL to production host
         uses: appleboy/scp-action@v0.1.7
