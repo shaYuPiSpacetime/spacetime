@@ -1,4 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
+import { refreshRetainedItems } from '@/domain/retainedList'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
@@ -120,6 +122,8 @@ export default function QianxunInteractionsPage() {
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState<MainSection>('interaction')
   const [filter, setFilter] = useState<InteractionFilter>('commented')
+  const interactionScroll = useRetainedScroll(`${auth.userId}:${filter}`)
+  const historyScroll = useRetainedScroll(`${auth.userId}:history`)
   const [records, setRecords] = useState<InteractionRecord[]>([])
   const [history, setHistory] = useState<InteractionRecord[]>([])
   const [myPosts, setMyPosts] = useState<MyPostSnapshot[]>([])
@@ -177,8 +181,10 @@ export default function QianxunInteractionsPage() {
         userId: item.targetUserId, nickname: item.nickname, avatar: item.avatar,
         description: item.description, interactionTime: item.interactionTime, post: item.post,
       }))
-      if (type === 'viewed') setHistory(items)
-      else setRecords(current => [...current.filter(item => item.kind !== type), ...items])
+      // 再次打开旧动态会更新浏览时间；保留本次列表的日期分组，避免返回时卡片跨组移动。
+      if (type === 'viewed') setHistory(current => refreshRetainedItems(current, items, item => item.id)
+        .map((item, index) => ({ ...item, interactionTime: current[index]?.interactionTime || item.interactionTime })))
+      else setRecords(current => [...current.filter(item => item.kind !== type), ...refreshRetainedItems(current.filter(item => item.kind === type), items, item => item.id)])
       loadedLists.current.add(type)
     }).catch(error => { if (!cancelled) void showError(config, error) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -383,7 +389,7 @@ export default function QianxunInteractionsPage() {
         <MainTabs active={section} onChange={changeSection} />
         <View id="qianxun-interactions-panel-interaction" data-section-panel="interaction" style={sectionPanelStyle(section === 'interaction')}>
           <FilterTabs active={filter} onChange={setFilter} />
-          <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '80rpx', bottom: 0 }} showScrollbar={false}>
+          <ScrollView scrollY scrollTop={interactionScroll.scrollTop} onScroll={interactionScroll.onScroll} style={{ position: 'absolute', left: 0, right: 0, top: '80rpx', bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : (filter === 'unlocked' ? visibleRecords.length > 0 : visiblePostGroups.length > 0) ? (
               filter === 'unlocked'
                 ? <View style={{ padding: '20rpx 26rpx 40rpx' }}>{visibleRecords.map(item => <InteractionRow key={item.id} item={item} />)}</View>
@@ -393,7 +399,7 @@ export default function QianxunInteractionsPage() {
         </View>
         <View id="qianxun-interactions-panel-history" data-section-panel="history" style={sectionPanelStyle(section === 'history')}>
           {history.length && !loading ? <View id="qianxun-history-more" role="button" onClick={() => void openHistoryActions()} style={{ position: 'absolute', right: '20rpx', top: '4rpx', width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}><Text style={{ color: '#8D929B', fontSize: '32rpx', letterSpacing: '3rpx' }}>···</Text></View> : null}
-          <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} showScrollbar={false}>
+          <ScrollView scrollY scrollTop={historyScroll.scrollTop} onScroll={historyScroll.onScroll} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} showScrollbar={false}>
             {loading ? <LoadingRows /> : historyGroups.length ? (
               <InteractionPostGroups groups={historyGroups} scope="history" onDelete={postId => void deleteHistoryItem(postId)} />
             ) : <HistoryEmpty config={config} />}
@@ -481,8 +487,9 @@ function sectionPanelStyle(active: boolean) {
 }
 
 function MinePanel({ loading, posts, likingPostIds, config, onLike, onManagePost, onFailure, onManageHiddenAuthors }: { loading: boolean; posts: MyPostSnapshot[]; likingPostIds: number[]; config?: CommunityConfig; onLike: (item: MyPostSnapshot) => void; onManagePost: (item: MyPostSnapshot) => void; onFailure: (item: MyPostSnapshot) => void; onManageHiddenAuthors: () => void }) {
+  const scroll = useRetainedScroll('mine')
   return (
-    <ScrollView id="qianxun-mine-scroll" scrollY style={{ height: '100%' }} showScrollbar={false}>
+    <ScrollView id="qianxun-mine-scroll" scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ height: '100%' }} showScrollbar={false}>
       <View style={{ padding: '6rpx 26rpx 54rpx' }}>
         <View id="qianxun-hidden-authors-entry" onClick={onManageHiddenAuthors} style={{ height: '82rpx', marginBottom: '18rpx', padding: '0 24rpx', borderRadius: '12rpx', background: '#F5F8FC', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ color: '#333333', fontSize: '25rpx' }}>不看 TA 动态的用户</Text>

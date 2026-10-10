@@ -1,4 +1,5 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
@@ -76,6 +77,7 @@ export default function QianxunMyPostsPage() {
     followerCount: readNonNegativeNumber(summary?.stats?.followerCount),
     receivedLikeCount: readNonNegativeNumber(summary?.stats?.receivedLikeCount),
   }
+  const scroll = useRetainedScroll(String(auth.userId))
   const [receipts, setReceipts] = useState<MyPostReceipt[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<MyPostReceipt>()
@@ -175,7 +177,7 @@ export default function QianxunMyPostsPage() {
       <ProfileHeader profile={profile} statsReady={Boolean(summary)} />
       <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '430rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
         <MainTabs />
-        <ScrollView scrollY style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
+        <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
           <View style={{ padding: '0 25rpx 60rpx' }}>
             <PublishBanner />
             {loading ? <MyPostsLoading /> : receipts.length ? receipts.map(receipt => (

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import type {
   MessageWhisperItem,
   MessageWhisperPage,
@@ -62,6 +63,8 @@ export default function WhisperListPage() {
   const loadingKeys = useRef(new Set<string>())
   const touchStartX = useRef(0)
   const directionRef = useRef(direction)
+  const openedWhisperRef = useRef<string>()
+  const scroll = useRetainedScroll(direction)
 
   const acknowledgeRendered = async (items: MessageWhisperItem[]) => {
     const whisperNos = items
@@ -149,11 +152,34 @@ export default function WhisperListPage() {
     setSwipedNo('')
     setLoaded(false)
     setSections(emptySections())
+    scroll.reset()
     refresh(direction)
   }, [direction, isMockScene])
 
   useDidShow(() => {
-    if (!isMockScene) refresh(directionRef.current)
+    if (isMockScene) return
+    if (!loaded) { refresh(directionRef.current); return }
+    const whisperNo = openedWhisperRef.current
+    openedWhisperRef.current = undefined
+    if (!whisperNo) return
+    const requestedDirection = directionRef.current
+    // 返回只同步打开的申请，保留两个分组的后续页和游标。
+    void service.getWhisper(whisperNo).then(detail => {
+      if (directionRef.current !== requestedDirection) return
+      setSections(current => {
+        const source: WhisperBucket = current.pending.list.some(item => item.whisperNo === whisperNo) ? 'pending' : 'processed'
+        const original = current[source].list.find(item => item.whisperNo === whisperNo)
+        if (!original) return current
+        const target: WhisperBucket = detail.status === 'pending' ? 'pending' : 'processed'
+        const updated = { ...original, status: detail.status, displayStatus: detail.displayStatus, peerUser: detail.peerUser, canReply: detail.actions.canReply, unread: false }
+        if (source === target) return { ...current, [source]: { ...current[source], list: current[source].list.map(item => item.whisperNo === whisperNo ? updated : item) } }
+        return {
+          ...current,
+          [source]: { ...current[source], list: current[source].list.filter(item => item.whisperNo !== whisperNo), totalCount: Math.max(0, current[source].totalCount - 1) },
+          [target]: { ...current[target], list: [updated, ...current[target].list.filter(item => item.whisperNo !== whisperNo)], totalCount: current[target].totalCount + 1 },
+        }
+      })
+    }).catch(() => {})
   })
 
   const openDetail = (item: MessageWhisperItem) => {
@@ -161,6 +187,7 @@ export default function WhisperListPage() {
       setSwipedNo('')
       return
     }
+    openedWhisperRef.current = item.whisperNo
     void Taro.navigateTo({
       url: `/pages/message/whisper-detail?whisperNo=${encodeURIComponent(item.whisperNo)}${isMockScene ? '&mockScene=whisper-compose' : ''}`,
     })
@@ -303,6 +330,8 @@ export default function WhisperListPage() {
       </MessageNav>
       <ScrollView
         scrollY
+        scrollTop={scroll.scrollTop}
+        onScroll={scroll.onScroll}
         className="whisper-scroll"
         showScrollbar={false}
         onScrollToLower={() => {

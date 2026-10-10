@@ -12,6 +12,7 @@ import { navigateToPendingVerification } from '@/features/verification/navigateT
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
@@ -45,6 +46,7 @@ interface QianxunZhiyinTabProps {
 export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePostChange }: QianxunZhiyinTabProps) {
   const currentUserId = useAuthStore(state => state.userId)
   const [activeTab, setActiveTab] = useState<ZhiyinTab>('YUEMU')
+  const scroll = useRetainedScroll(`${currentUserId}:${activeTab}`)
   const [soulmatePosts, setSoulmatePosts] = useState<CommunityPostVO[]>()
   const [sincerePosts, setSincerePosts] = useState<CommunityPostVO[]>()
   const [loading, setLoading] = useState<Partial<Record<ZhiyinTab, boolean>>>({ YUEMU: true })
@@ -126,7 +128,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
       void refreshReturnedPost(returnFromPostDetail)
       return
     }
-    void refreshActive()
+    // 普通页面返回保留已加载列表，主动重试和分类首次进入仍可加载。
   })
 
   const openPostDetail = async (postId: number, focusComments = false) => {
@@ -144,6 +146,16 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
     setActiveTab(tab)
     if (tab === 'YUEMU' && soulmatePosts === undefined) void loadSoulmate()
     if (tab === 'SINCERE' && sincerePosts === undefined) void loadSincere()
+  }
+
+  const openPostAuthor = async (post: CommunityPostVO) => {
+    returnFromPostDetailRef.current = post.id
+    try {
+      await openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)
+    } catch (error) {
+      returnFromPostDetailRef.current = undefined
+      await showError(config, error)
+    }
   }
 
   const requireInteraction = () => {
@@ -241,7 +253,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   return (
     <>
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
-      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
+      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
         {activeTab === 'YUEMU' ? (
           <ZhiyinPostContent
             contentId="qianxun-soulmate-content"
@@ -253,7 +265,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
             config={config}
             optionLabel={optionLabel}
             onRetry={() => void loadSoulmate()}
-            onAuthor={post => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)}
+            onAuthor={post => void openPostAuthor(post)}
             onOpen={post => void openPostDetail(post.id)}
             onTopic={post => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
             onComment={post => void openPostDetail(post.id, true)}
@@ -273,7 +285,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
             config={config}
             optionLabel={optionLabel}
             onRetry={() => void loadSincere()}
-            onAuthor={post => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)}
+            onAuthor={post => void openPostAuthor(post)}
             onOpen={post => void openPostDetail(post.id)}
             onTopic={post => post.topicId && void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` })}
             onComment={post => void openPostDetail(post.id, true)}

@@ -7,6 +7,8 @@ import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
 import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { refreshRetainedItems } from '@/domain/retainedList'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import {
@@ -75,6 +77,7 @@ export default function CommunityPage() {
   const router = useRouter()
   const currentUserId = useAuthStore(state => state.userId)
   const [activeTab, setActiveTab] = useState<HeartTab>(() => readRequestedTab() || (router.params.tab === 'visitors' ? 'visitors' : 'likes'))
+  const scroll = useRetainedScroll(`${currentUserId}:${activeTab}`)
   const [unlockStage, setUnlockStage] = useState<UnlockStage>('closed')
   const [likesPage, setLikesPage] = useState<LikesMePageVO | null>(null)
   const [likesBadgeCount, setLikesBadgeCount] = useState(0)
@@ -125,27 +128,32 @@ export default function CommunityPage() {
     }
   }
 
-  const loadLikes = async (page = 1) => {
+  const loadLikes = async (page = 1, preserve = false) => {
+    let retaining = preserve && likesRecords.length > 0
     if (likesLoadingRef.current) return
     likesLoadingRef.current = true
     if (page === 1) {
-      setLikesState('loading')
+      if (!retaining) setLikesState('loading')
       setLikesError('')
-      snapshotCursorRef.current = undefined
+      if (!retaining) snapshotCursorRef.current = undefined
     } else {
       setLikesLoadingMore(true)
     }
     try {
-      const pageData = await getLikesMePage(page, 20, page > 1 ? snapshotCursorRef.current : undefined)
-      const nextRecords = page === 1 ? (pageData.records || []) : [...likesRecords, ...(pageData.records || [])]
-      setLikesPage(pageData)
-      setLikesPageNo(page)
+      const pageData = await getLikesMePage(page, 20, (page > 1 || retaining) ? snapshotCursorRef.current : undefined)
+      if (retaining && likesPage?.accessMode !== pageData.accessMode) retaining = false
+      const updates = retaining ? (await Promise.all(Array.from({ length: likesPageNo }, (_, index) => index === 0
+        ? Promise.resolve(pageData) : getLikesMePage(index + 1, 20, snapshotCursorRef.current)))).flatMap(result => result.records || []) : pageData.records || []
+      const nextRecords = retaining ? refreshRetainedItems(likesRecords, updates, item => item.recordNo)
+        : page === 1 ? (pageData.records || []) : [...likesRecords, ...(pageData.records || [])]
+      setLikesPage(current => retaining && current ? { ...pageData, current: current.current, hasMore: current.hasMore } : pageData)
+      if (!retaining) setLikesPageNo(page)
       setLikesRecords(nextRecords)
       setLikesState(resolveState(nextRecords))
       if (page === 1) {
         setLikesBadgeCount(pageData.newCount)
-        snapshotCursorRef.current = pageData.readCursor || undefined
-        await acknowledgeLikesAfterPaint(pageData)
+        if (!retaining) snapshotCursorRef.current = pageData.readCursor || undefined
+        if (!retaining) await acknowledgeLikesAfterPaint(pageData)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '喜欢列表加载失败'
@@ -158,13 +166,14 @@ export default function CommunityPage() {
     }
   }
 
-  const loadVisitors = async (page = 1) => {
+  const loadVisitors = async (page = 1, preserve = false) => {
+    let retaining = preserve && visitorRecords.length > 0
     if (visitorsLoadingRef.current) return
     visitorsLoadingRef.current = true
     if (page === 1) {
-      setVisitorsState('loading')
+      if (!retaining) setVisitorsState('loading')
       setVisitorsError('')
-      visitorSnapshotCursorRef.current = undefined
+      if (!retaining) visitorSnapshotCursorRef.current = undefined
     } else {
       setVisitorsLoadingMore(true)
     }
@@ -172,19 +181,26 @@ export default function CommunityPage() {
       const pageData = await getRecentViewersPage(
         page,
         20,
-        page > 1 ? visitorSnapshotCursorRef.current : undefined,
+        (page > 1 || retaining) ? visitorSnapshotCursorRef.current : undefined,
       )
-      const nextRecords = page === 1 ? (pageData.records || []) : [...visitorRecords, ...(pageData.records || [])]
-      if (page === 1) {
+      if (retaining && visitorsPage?.accessMode !== pageData.accessMode) retaining = false
+      const updates = retaining ? (await Promise.all(Array.from({ length: visitorsPageNo }, (_, index) => index === 0
+        ? Promise.resolve(pageData) : getRecentViewersPage(index + 1, 20, visitorSnapshotCursorRef.current)))).flatMap(result => result.records || []) : pageData.records || []
+      const nextRecords = retaining ? refreshRetainedItems(visitorRecords, updates, item => item.recordNo)
+        : page === 1 ? (pageData.records || []) : [...visitorRecords, ...(pageData.records || [])]
+      if (page === 1 && !retaining) {
         visitorSnapshotCursorRef.current = pageData.readCursor || undefined
         visitorDisplayedCursorRef.current = pageData.readCursor || null
         setVisitorsPage(pageData)
-      } else {
+      } else if (retaining) {
+        setVisitorsPage(currentPage => currentPage ? { ...pageData, current: currentPage.current,
+          hasMore: currentPage.hasMore, readCursor: currentPage.readCursor } : pageData)
+      } else if (!retaining) {
         setVisitorsPage(currentPage => currentPage
           ? { ...currentPage, current: pageData.current, hasMore: pageData.hasMore }
           : pageData)
       }
-      setVisitorsPageNo(page)
+      if (!retaining) setVisitorsPageNo(page)
       setVisitorRecords(nextRecords)
       setVisitorsState(resolveState(nextRecords))
       if (page === 1) {
@@ -208,11 +224,11 @@ export default function CommunityPage() {
     }
   }
 
-  const refreshRelationFeedback = async () => {
+  const refreshRelationFeedback = async (preserve = false) => {
     if (access.status?.coreAccessStatus !== 'CORE_ALLOWED') return
     await Promise.all([
-      loadLikes(1),
-      loadVisitors(1),
+      loadLikes(1, preserve),
+      loadVisitors(1, preserve),
       getPendingMatchPopup()
         .then(data => setMatchPopup(data || null))
         .catch(error => Taro.showToast({ title: error instanceof Error ? error.message : '匹配提醒加载失败', icon: 'none' })),
@@ -231,7 +247,7 @@ export default function CommunityPage() {
       didShowOnceRef.current = true
       return
     }
-    void refreshRelationFeedback()
+    void refreshRelationFeedback(true)
   })
 
   useEffect(() => {
@@ -294,8 +310,8 @@ export default function CommunityPage() {
   }
 
   const refreshActiveList = async () => {
-    if (activeTab === 'likes') await loadLikes(1)
-    else await loadVisitors(1)
+    if (activeTab === 'likes') await loadLikes(1, true)
+    else await loadVisitors(1, true)
   }
 
   const currentUnlockScene = activeTab === 'visitors' ? 'viewers_unlock_one' : 'likes_unlock_one'
@@ -387,7 +403,7 @@ export default function CommunityPage() {
 
   return (
     <View id="relation-feedback-page" style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
-      <ScrollView scrollY style={{ width: '750rpx', height: '100vh' }} showScrollbar={false}>
+      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ width: '750rpx', height: '100vh' }} showScrollbar={false}>
         <View id="relation-scroll-content" style={{ minHeight: '1624rpx', paddingBottom: showMembershipEntry ? '310rpx' : '180rpx', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
           <HeartTabsHeader
             active={activeTab}

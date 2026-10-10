@@ -43,6 +43,7 @@ function renderUnlockSheet(tab) {
     exports: {},
     require: name => {
       if (name === 'react') return hooks
+      if (name === '@/hooks/useRetainedScroll') return { useRetainedScroll: () => ({ scrollTop: 0, onScroll: () => {}, reset: () => {} }) }
       if (name === 'react/jsx-runtime') return { jsx: makeElement, jsxs: makeElement }
       if (name === '@tarojs/taro') return { ...taro, default: taro }
       if (name === '@tarojs/components') return { View: 'View', Text: 'Text', Image: 'Image', ScrollView: 'ScrollView' }

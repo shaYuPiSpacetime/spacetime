@@ -203,7 +203,7 @@ export default function HeartUserPage() {
   }, [targetUserId, sourceScene, eventNo, isLoggedIn])
 
   useDidShow(() => {
-    setCommunityPostsLoading(true)
+    if (!communityPosts.length) setCommunityPostsLoading(true)
     setCommunityPostsError('')
     if (!isLoggedIn) {
       void getSharedUserCommunityPosts(targetUserId).then(page => {

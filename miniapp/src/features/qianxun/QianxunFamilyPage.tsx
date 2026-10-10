@@ -10,6 +10,7 @@ import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/Whi
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import {
   COMMUNITY_COPY_KEYS,
   deleteCommunityPost,
@@ -97,8 +98,8 @@ export default function RecommendFamilyPage() {
   const [zhiyinSharePost, setZhiyinSharePost] = useState<CommunityPostVO>()
   const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | null>(null)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
-  // 删除动态等主动回顶场景使用受控 scrollTop；其余时间非受控，避免干扰渲染层滚动位置。
-  const [feedScrollTop, setFeedScrollTop] = useState<number>()
+  // 分类各自保存滚动偏移；删除等主动重载场景显式归零。
+  const feedScroll = useRetainedScroll(`${currentUserId}:${activeTab}`)
   // 分享落地定位到指定动态卡片（scrollIntoView 目标 id）。
   const [focusPostId, setFocusPostId] = useState<string>()
   const requestSequenceRef = useRef<Record<CommunityScene, number>>({ FOLLOWING: 0, CITY: 0, SCHOOL: 0, HOT: 0 })
@@ -243,7 +244,7 @@ export default function RecommendFamilyPage() {
         void loadContext()
         void refreshReturnedPost(returnFromPostDetail)
       }
-      else refreshFamily()
+      else void loadContext()
     }
   })
 
@@ -257,10 +258,20 @@ export default function RecommendFamilyPage() {
     }
   }
 
+  const openPostAuthor = async (post: CommunityPostVO) => {
+    returnFromPostDetailRef.current = post.id
+    try {
+      await openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)
+    } catch (error) {
+      returnFromPostDetailRef.current = undefined
+      await showError(config, error)
+    }
+  }
+
   const changeTab = (tab: CommunityScene) => {
     if (tab === activeTab) return
     setActiveTab(tab)
-    void loadScene(tab)
+    if (postsByScene[tab] === undefined && !loadingBySceneRef.current[tab]) void loadScene(tab)
     if (tab === 'HOT' && !topicHome) void loadTopicHome()
   }
 
@@ -371,7 +382,7 @@ export default function RecommendFamilyPage() {
       setSelectedPost(undefined)
       setSheet(null)
       resetFeedPagination()
-      setFeedScrollTop(0)
+      feedScroll.reset()
       await loadScene(activeTab)
       await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.deleteSuccess), icon: 'success' })
     } catch (error) {
@@ -416,7 +427,8 @@ export default function RecommendFamilyPage() {
         <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
         <ScrollView
           scrollY
-          scrollTop={feedScrollTop}
+          scrollTop={feedScroll.scrollTop}
+          onScroll={feedScroll.onScroll}
           scrollIntoView={focusPostId}
           lowerThreshold={120}
           onScrollToLower={() => void loadScene(activeTab, true)}
@@ -431,7 +443,7 @@ export default function RecommendFamilyPage() {
                 post={post}
                 optionLabel={optionLabel}
                 isSelf={post.authorId === currentUserId}
-                onAuthor={() => runWithCoreAccess(() => void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo))}
+                onAuthor={() => runWithCoreAccess(() => void openPostAuthor(post))}
                 onOpen={() => runWithCoreAccess(() => void openPostDetail(post.id))}
                 onTopic={() => runWithCoreAccess(() => { if (post.topicId) void Taro.navigateTo({ url: `/pages/qianxun/topic?topicId=${post.topicId}` }) })}
                 onComment={() => runWithCoreAccess(() => void openPostDetail(post.id, true))}

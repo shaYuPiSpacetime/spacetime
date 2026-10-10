@@ -5,7 +5,10 @@ import AccessBlockedPage from '@/components/AccessBlockedPage'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
 import avatarImage from '@/assets/lanhu/heart-message/heart-avatar.webp'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { refreshRetainedItems } from '@/domain/retainedList'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import { navigateToOrRedirect } from '@/utils/navigation'
+import { getPublicProfile } from '@/services/profile'
 import {
   getGivenLikes,
   type GivenLikeItemVO,
@@ -26,8 +29,11 @@ export default function MyLikesPage() {
   const loadingMoreRef = useRef(false)
   const requestGenerationRef = useRef(0)
   const previousAllowedRef = useRef(access.allowed)
+  const scroll = useRetainedScroll('given-likes')
+  const openedUserRef = useRef<number>()
 
-  const load = async (pageNo = 1) => {
+  const load = async (pageNo = 1, preserve = false) => {
+    const retaining = preserve && recordsRef.current.length > 0
     const refreshing = pageNo === 1
     if (!refreshing && loadingMoreRef.current) return
     const requestGeneration = refreshing
@@ -36,7 +42,7 @@ export default function MyLikesPage() {
     if (refreshing) {
       loadingMoreRef.current = false
       setLoadingMore(false)
-      setState('loading')
+      if (!retaining) setState('loading')
       setError('')
     } else {
       loadingMoreRef.current = true
@@ -44,15 +50,21 @@ export default function MyLikesPage() {
     }
     try {
       const data = await getGivenLikes(pageNo, 20)
+      const openedUserId = preserve ? openedUserRef.current : undefined
+      openedUserRef.current = undefined
+      const returnedProfile = openedUserId ? await getPublicProfile(openedUserId).catch(() => null) : null
       if (requestGeneration !== requestGenerationRef.current) return
-      const nextRecords = mergeGivenLikesByLikeNo(
+      const nextRecords = retaining ? refreshRetainedItems(recordsRef.current, data.records || [], item => item.likeNo) : mergeGivenLikesByLikeNo(
         refreshing ? [] : recordsRef.current,
         data.records || [],
       )
-      setPage(data)
-      recordsRef.current = nextRecords
-      setRecords(nextRecords)
-      setState(nextRecords.length ? 'ready' : 'empty')
+      setPage(current => retaining && current ? { ...data, current: current.current, hasMore: current.hasMore } : data)
+      const visibleRecords = returnedProfile ? nextRecords
+        .filter(item => item.userId !== openedUserId || returnedProfile.liked !== false)
+        .map(item => item.userId === openedUserId ? { ...item, matched: Boolean(returnedProfile.matched), canEnterConversation: Boolean(returnedProfile.canEnterConversation) } : item) : nextRecords
+      recordsRef.current = visibleRecords
+      setRecords(visibleRecords)
+      setState(visibleRecords.length ? 'ready' : 'empty')
     } catch (reason) {
       if (requestGeneration !== requestGenerationRef.current) return
       const message = reason instanceof Error ? reason.message : '我喜欢的人加载失败'
@@ -68,7 +80,7 @@ export default function MyLikesPage() {
   }
 
   useDidShow(() => {
-    if (access.allowed === true) void load(1)
+    if (access.allowed === true) void load(1, true)
   })
 
   useEffect(() => {
@@ -86,7 +98,7 @@ export default function MyLikesPage() {
   return (
     <View id="my-likes-page" style={{ height: '100vh', background: '#FFFFFF', fontFamily: 'PingFang SC, sans-serif' }}>
       <HeartMessageHeader title={`我喜欢的(${page?.total || 0}人)`} align="center" showBack />
-      <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)' }}>
+      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ height: 'calc(100vh - 176rpx)' }}>
         <View style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto' }}>
           {state === 'loading' ? <ListState id="my-likes-loading-state" text="正在加载我喜欢的人" /> : null}
           {state === 'empty' ? <ListState id="my-likes-empty-state" text="还没有喜欢的人" action="去发现心动" onAction={() => void Taro.switchTab({ url: '/pages/recommend/index' })} /> : null}
@@ -101,7 +113,7 @@ export default function MyLikesPage() {
                 </View>
                 <Text style={{ display: 'block', marginTop: '10rpx', color: '#999999', fontSize: '20rpx' }}>{buildProfileText(person)}</Text>
               </View>
-              <View onClick={() => void navigateToOrRedirect(`/pages/heart/user?targetUserId=${person.userId}&sourceScene=profile&from=my-likes`)} style={{ width: '168rpx', height: '72rpx', borderRadius: '12rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <View onClick={() => { openedUserRef.current = person.userId; void navigateToOrRedirect(`/pages/heart/user?targetUserId=${person.userId}&sourceScene=profile&from=my-likes`) }} style={{ width: '168rpx', height: '72rpx', borderRadius: '12rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#333333', fontSize: '26rpx' }}>查看主页</Text>
               </View>
             </View>

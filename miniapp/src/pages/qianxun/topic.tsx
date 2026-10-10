@@ -15,12 +15,15 @@ import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
+import { refreshRetainedItems } from '@/domain/retainedList'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { findConversationByPeerUserId } from '@/services/message'
 import {
   COMMUNITY_COPY_KEYS,
   getCommunityMeta,
+  getCommunityPostDetail,
   getCommunityTopicDetail,
   getCommunityTopicPosts,
   hideCommunityAuthor,
@@ -46,6 +49,7 @@ export default function QianxunTopicPage() {
   const [fallbackName, setFallbackName] = useState(resolveCommunityCopy(undefined, COMMUNITY_COPY_KEYS.topicDefaultName))
   const [posts, setPosts] = useState<CommunityPostVO[]>([])
   const [sort, setSort] = useState<'HOT' | 'LATEST'>('HOT')
+  const scroll = useRetainedScroll(`${currentUserId}:${topicId}:${sort}`)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [config, setConfig] = useState<CommunityConfig>()
@@ -57,16 +61,19 @@ export default function QianxunTopicPage() {
   const topicIdRef = useRef<number>()
   const resumeRefreshRef = useRef(false)
   const requestSequenceRef = useRef(0)
+  const openedPostRef = useRef<number>()
   useShareAppMessage(event => shareMessage(
     event.from === 'button' && selectedOwnPost
       ? postShare(selectedOwnPost)
       : topicShare(topicId, topic?.name, topic?.coverUrl)
   ))
 
-  const loadTopic = async (id: number, requestedSort: 'HOT' | 'LATEST' = sort) => {
+  const loadTopic = async (id: number, requestedSort: 'HOT' | 'LATEST' = sort, preserve = false) => {
+    const openedPostId = preserve ? openedPostRef.current : undefined
+    openedPostRef.current = undefined
     const sequence = requestSequenceRef.current + 1
     requestSequenceRef.current = sequence
-    setLoading(true)
+    if (!preserve) setLoading(true)
     setLoadError('')
     try {
       const [runtime, detail, page] = await Promise.all([
@@ -74,12 +81,18 @@ export default function QianxunTopicPage() {
         getCommunityTopicDetail(id),
         getCommunityTopicPosts(id, requestedSort, 1, 30),
       ])
+      const returnedPost = openedPostId ? await getCommunityPostDetail(openedPostId).catch(() => null) : null
       if (requestSequenceRef.current !== sequence) return
       setConfig(runtime)
       setTopic(detail)
-      setPosts(page.records || [])
+      setPosts(items => {
+        const next = preserve ? refreshRetainedItems(items, page.records || [], item => item.id) : page.records || []
+        if (!returnedPost) return next
+        return returnedPost.hiddenAuthor ? next.filter(item => item.authorId !== returnedPost.authorId)
+          : next.map(item => item.id === returnedPost.id ? { ...item, ...returnedPost } : item.authorId === returnedPost.authorId ? { ...item, followingAuthor: returnedPost.followingAuthor } : item)
+      })
     } catch (error) {
-      if (requestSequenceRef.current === sequence) setLoadError(resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, error))
+      if (requestSequenceRef.current === sequence && !preserve) setLoadError(resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, error))
     } finally {
       if (requestSequenceRef.current === sequence) setLoading(false)
     }
@@ -106,11 +119,12 @@ export default function QianxunTopicPage() {
   useDidShow(() => {
     if (!resumeRefreshRef.current || !topicIdRef.current) return
     resumeRefreshRef.current = false
-    void loadTopic(topicIdRef.current, sort)
+    void loadTopic(topicIdRef.current, sort, true)
   })
 
   const changeSort = (next: 'HOT' | 'LATEST') => {
     if (next === sort || !topicIdRef.current) return
+    scroll.reset(`${currentUserId}:${topicId}:${next}`)
     setSort(next)
     void loadTopic(topicIdRef.current, next)
   }
@@ -214,9 +228,9 @@ export default function QianxunTopicPage() {
         <SortTab label="热门" selected={sort === 'HOT'} onClick={() => changeSort('HOT')} />
         <SortTab label="最新" selected={sort === 'LATEST'} onClick={() => changeSort('LATEST')} />
       </View>
-      <ScrollView scrollY style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
+      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ position: 'absolute', left: 0, right: 0, top: '82rpx', bottom: 0 }} showScrollbar={false}>
         <View style={{ padding: '18rpx 25rpx calc(160rpx + env(safe-area-inset-bottom))' }}>
-          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} currentUserId={currentUserId} optionLabel={optionLabel} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => void openPostContact(post)} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
+          {loading && !posts.length ? <LoadingCards /> : loadError ? <TopicState title={loadError} onRetry={topicId ? () => void loadTopic(topicId, sort) : undefined} /> : posts.length ? posts.map(post => <TopicPostCard key={post.id} post={post} currentUserId={currentUserId} onNavigate={() => { openedPostRef.current = post.id }} optionLabel={optionLabel} onLike={() => void likePost(post)} onMore={() => void openPostActions(post)} onContact={() => void openPostContact(post)} />) : <TopicState title={resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.emptyTopicPosts)} />}
         </View>
       </ScrollView>
     </View>
@@ -248,10 +262,11 @@ function SortTab({ label, selected, onClick }: { label: string; selected: boolea
   return <View onClick={onClick} style={{ position: 'relative', height: '82rpx', minWidth: '76rpx', marginRight: '26rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: selected ? NAVY : '#9DA3AE', fontSize: '26rpx', fontWeight: selected ? 600 : 400 }}>{label}</Text>{selected ? <View style={{ position: 'absolute', left: '50%', bottom: '3rpx', width: '44rpx', height: '5rpx', borderRadius: '3rpx', background: BLUE, transform: 'translateX(-50%)' }} /> : null}</View>
 }
 
-function TopicPostCard({ post, currentUserId, optionLabel, onLike, onMore, onContact }: { post: CommunityPostVO; currentUserId: number | null; optionLabel: (type: string, code: string) => string; onLike: () => void; onMore: () => void; onContact: () => void }) {
-  const openPost = () => void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })
+function TopicPostCard({ onNavigate, post, currentUserId, optionLabel, onLike, onMore, onContact }: { onNavigate: () => void; post: CommunityPostVO; currentUserId: number | null; optionLabel: (type: string, code: string) => string; onLike: () => void; onMore: () => void; onContact: () => void }) {
+  const openPost = () => { onNavigate(); void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` }) }
   const openAuthor = (event: { stopPropagation: () => void }) => {
     event.stopPropagation()
+    onNavigate()
     void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)
   }
   const openContact = (event: { stopPropagation: () => void }) => {

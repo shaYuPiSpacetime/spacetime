@@ -6,6 +6,8 @@ import type { MessageConversationItem } from '@/types/message'
 import { MESSAGE_AVATAR, MessageNav } from './shared'
 import NotificationBadge from '@/components/NotificationBadge'
 import { applyConversationReadCache } from '@/domain/conversationReadCache'
+import { refreshRetainedItems } from '@/domain/retainedList'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import './message.scss'
 
 function formatDate(value?: string | null): string {
@@ -24,8 +26,9 @@ export default function PrivateListPage() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const loadingRef = useRef(false)
+  const scroll = useRetainedScroll('conversations')
 
-  const load = async (append = false) => {
+  const load = async (append = false, preserve = false) => {
     if (loadingRef.current) return
     loadingRef.current = true
     setLoading(true)
@@ -34,9 +37,12 @@ export default function PrivateListPage() {
       const service = isMockScene ? mockMessageService : messageService
       const page = await service.listConversations(append ? cursor : undefined, 20)
       const normalized = applyConversationReadCache(page.list)
-      setConversations(current => (append ? [...current, ...normalized] : normalized))
-      setCursor(page.nextCursor || undefined)
-      setHasMore(page.hasMore)
+      setConversations(current => applyConversationReadCache(append ? [...current, ...normalized]
+        : preserve ? refreshRetainedItems(current, normalized, item => item.conversationNo) : normalized))
+      if (!preserve || !conversations.length) {
+        setCursor(page.nextCursor || undefined)
+        setHasMore(page.hasMore)
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '私信列表加载失败')
     } finally {
@@ -50,7 +56,7 @@ export default function PrivateListPage() {
   }, [isMockScene])
 
   useDidShow(() => {
-    if (!isMockScene) void load(false)
+    if (!isMockScene) void load(false, true)
   })
 
   return (
@@ -58,6 +64,8 @@ export default function PrivateListPage() {
       <MessageNav title="私信" center />
       <ScrollView
         scrollY
+        scrollTop={scroll.scrollTop}
+        onScroll={scroll.onScroll}
         className="private-list-scroll"
         showScrollbar={false}
         onScrollToLower={() => {

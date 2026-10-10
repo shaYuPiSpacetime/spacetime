@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import {
   confirmIdealUnlock,
   getIdealResults,
@@ -30,6 +31,7 @@ interface Props {
 /** 推荐页与独立结果页复用内容；内嵌时只由推荐主页面拥有底部导航。 */
 export default function IdealResultsContent({ snapshotNo, embedded = false, onRecommend, active = true, resolvingSnapshot = false, resolutionError = '', onRetry }: Props) {
   const [page, setPage] = useState<IdealResultPageVO | null>(null)
+  const scroll = useRetainedScroll(snapshotNo)
   const [items, setItems] = useState<IdealResultItemVO[]>([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
@@ -69,6 +71,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
       return
     }
     await load(page.nextCursor, false)
+    scroll.reset()
   }
   const refreshResults = () => {
     if (pendingCheck.current) return
@@ -76,8 +79,8 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
       | { snapshotNo?: string; quoteToken?: string; requestId?: string }
       | undefined
     if (!pending?.quoteToken || pending.snapshotNo !== snapshotNo) {
-      // 页面重新显示时以服务端实时结果替换旧卡片，避免其他入口解锁后仍显示。
-      void load()
+      // 普通跳转返回不覆盖已加载批次；新快照、主动刷新和解锁回执单独处理。
+      if (!page || page.snapshotNo !== snapshotNo) void load()
       return
     }
     // 常驻但隐藏的面板只预取内容，不能在用户浏览推荐时自动执行待确认的解锁。
@@ -159,6 +162,8 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
       ) : (
         <ScrollView
           scrollY
+          scrollTop={scroll.scrollTop}
+          onScroll={scroll.onScroll}
           showScrollbar={false}
           onScrollToLower={() => {
             if (page?.nextCursor && !loadingMore) void load(page.nextCursor)
