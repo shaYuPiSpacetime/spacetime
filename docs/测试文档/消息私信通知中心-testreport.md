@@ -738,3 +738,21 @@ P0 4/4、P1 1/1，无失败、无跳过。本轮判定：**✅ 通过**。为避
 - 修复：仅当会话角色为空时，按当前管理员 ID 从数据库补查启用角色；仍只允许 `risk/risk_control/super_admin`，没有扩大普通配置编辑权限。
 - 自动化：`MessageConfigAdminServiceImplTest` 与 `AuthServiceImplTest` 共 **10 条通过**。
 - 真实验证：构造 `roles=null` 的 peter 旧会话，成功关闭全局发送后再次恢复为开启；最终开关状态保持开启。
+
+## 11. 2026-10-10 女性保护期允许零天
+
+### 变更与边界
+
+女性保护期允许配置为 0 至 30 的整数，0 表示新建会话不受保护，不生成保护截止时间。历史会话保留创建时的配置版本及保护快照。悄悄话有效期与冷却期仍要求 1 至 30 天；空值及小数均不可保存。本次不修改线上配置或历史会话。
+
+### 测试结果
+
+| 层级 | 执行内容 | 结果 |
+|---|---|---|
+| L3 后端 | `MessageConfigAdminServiceImplTest,MessageConversationLifecycleServiceImplTest,MiniappMessageServiceImplTest,TencentImCallbackServiceImplTest` | 50 条通过，0 失败、错误、跳过 |
+| 管理端构建 | `cd frontend && npm run build` | TypeScript 与 Vite 构建通过；保留既有 chunk 提示 |
+| L4 Mock 页面 | `BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_CHANNEL=chrome npx playwright test prd03-admin-closure.spec.ts -g '女性保护期零天配置' --retries=0` | 1 条通过；覆盖 0/1/30 保存、零天状态回显及 6 组非法输入 |
+| L1 真实配置写入 | 未执行 | 避免改动线上实际配置；发布持久化由后端定向测试覆盖 |
+| 真机会话复验 | 未执行 | 不将 Mock 页面通过视为真机验收 |
+
+对应增量用例 `CFG03-P0-03`、`CFG03-P0-04`、`CFG03-P0-05`、`CFG03-P1-06` 自动化覆盖通过。页面测试初次执行遇到浏览器 channel、服务端口、标签定位及 Toast 重复定位问题，调整测试环境与脚本后最终单次通过，无产品失败遗留。发布及自动部署证据待本轮交付后补充。

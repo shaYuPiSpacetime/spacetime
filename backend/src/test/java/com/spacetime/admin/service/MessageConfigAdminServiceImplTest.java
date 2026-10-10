@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 
 import java.util.List;
 
@@ -68,6 +70,47 @@ class MessageConfigAdminServiceImplTest {
                 && Integer.valueOf(1).equals(value.getActiveMarker())
                 && Long.valueOf(7L).equals(value.getPublishedBy())));
         verify(operationLogDao).insert(argThat(value -> "MESSAGE_CONFIG".equals(value.getBizType())));
+    }
+
+    @Test
+    void shouldPublishZeroProtectionDaysWithoutChangingWhisperRules() {
+        UserContextHolder.set(new UserContext(7L, "运营", List.of("operator"),
+                List.of("message:config:edit")));
+        when(ruleDao.selectCurrent("global")).thenReturn(currentRule("MSG-CFG-001"));
+        when(ruleDao.retireCurrent(1L)).thenReturn(1);
+        when(runtimeDao.selectByControlKey("global_send_enabled")).thenReturn(runtime(true, 3));
+        MessageConfigPublishReq req = publishRequest("MSG-CFG-001");
+        req.setFemaleProtectionDays(0);
+
+        MessageConfigVO result = service().publishVersion(req);
+
+        assertThat(result.getFemaleProtectionDays()).isZero();
+        assertThat(result.getWhisperExpireDays()).isEqualTo(7);
+        assertThat(result.getWhisperCooldownDays()).isEqualTo(7);
+        verify(ruleDao).insert(argThat(value -> Integer.valueOf(0).equals(value.getFemaleProtectionDays())));
+        verify(operationLogDao).insert(any());
+    }
+
+    @Test
+    void shouldAllowZeroOnlyForFemaleProtectionDays() {
+        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+            MessageConfigPublishReq req = publishRequest("MSG-CFG-001");
+            for (int days : new int[]{0, 1, 30}) {
+                req.setFemaleProtectionDays(days);
+                assertThat(validator.validate(req)).isEmpty();
+            }
+            for (Integer days : new Integer[]{-1, 31, null}) {
+                req.setFemaleProtectionDays(days);
+                assertThat(validator.validate(req)).extracting(v -> v.getPropertyPath().toString())
+                        .containsExactly("femaleProtectionDays");
+            }
+            req.setFemaleProtectionDays(0);
+            req.setWhisperExpireDays(0);
+            req.setWhisperCooldownDays(0);
+            assertThat(validator.validate(req)).extracting(v -> v.getPropertyPath().toString())
+                    .containsExactlyInAnyOrder("whisperExpireDays", "whisperCooldownDays");
+        }
     }
 
     @Test

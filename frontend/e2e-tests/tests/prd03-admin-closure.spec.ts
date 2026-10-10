@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:5173';
+test.use({ channel: process.env.PLAYWRIGHT_CHANNEL });
 const permissions = [
   'message:record:list', 'message:record:export', 'message:sensitive-content:view',
   'message:config:view', 'message:config:edit', 'community:report:list',
@@ -153,6 +154,63 @@ test('社交权限配置只展示一期能力并通过版本接口保存', async
   await expect(page.getByText('当前配置版本')).toHaveCount(0);
   await expect(page.getByText('MSG-CFG-004')).toHaveCount(0);
   await page.screenshot({ path: '../docs/测试文档/截图/PRD03后台补漏/社交权限与消息配置.png', fullPage: true });
+});
+
+test.describe('女性保护期零天配置', () => {
+  test('保存零天并拒绝非法天数', async ({ page }) => {
+    const config = {
+      versionNo: 'MSG-CFG-003', femaleProtectionEnabled: true, femaleProtectionDays: 3,
+      whisperExpireDays: 7, whisperCooldownDays: 7, ordinaryMessageRetainDays: 180,
+      systemMessageVisibleDays: 730, reportEvidenceRetainDays: 1095,
+      severeEvidenceRetainDays: 1825, sensitiveAuditRetainDays: 1095,
+      globalSend: { enabled: true, version: 3 },
+    };
+    let published: Record<string, unknown> | undefined;
+    await page.route('**/api/admin/message/config', route => route.fulfill({ json: { code: 200, data: config } }));
+    await page.route('**/api/admin/message/config/versions', async route => {
+      published = route.request().postDataJSON();
+      await route.fulfill({ json: { code: 200, data: { ...config, ...published, versionNo: 'MSG-CFG-004' } } });
+    });
+    await page.goto(`${BASE_URL}/mobile-config/message-social`);
+    const femaleDays = page.getByLabel('女性保护期天数');
+    await expect(femaleDays).toHaveAttribute('min', '0');
+    for (const [label, value] of [
+      ['女性保护期天数', '-1'], ['女性保护期天数', '31'], ['女性保护期天数', '1.5'],
+      ['女性保护期天数', ''], ['悄悄话有效期', '0'], ['到期后冷却期', '0'],
+    ]) {
+      await femaleDays.fill('0');
+      await page.getByLabel('悄悄话有效期').fill('7');
+      await page.getByLabel('到期后冷却期').fill('7');
+      await page.getByLabel(label).fill(value);
+      await page.getByRole('button', { name: '保存当前配置' }).click();
+      await page.getByPlaceholder('填写5-100字变更原因').fill('验证女性保护期配置边界');
+      await page.getByRole('button', { name: '确认保存' }).click();
+      await expect(page.getByText('女性保护期须为0至30的整数，悄悄话天数须为1至30的整数')).toBeVisible();
+      expect(published).toBeUndefined();
+      await page.getByRole('alert').click();
+      await page.getByRole('button', { name: '取消', exact: true }).click();
+    }
+    await femaleDays.fill('0');
+    await page.getByLabel('到期后冷却期').fill('7');
+    await page.getByRole('button', { name: '保存当前配置' }).click();
+    await page.getByPlaceholder('填写5-100字变更原因').fill('将新会话女性保护期设为零');
+    await page.getByRole('button', { name: '确认保存' }).click();
+    await expect.poll(() => published).toMatchObject({
+      expectedVersion: 'MSG-CFG-003', femaleProtectionDays: 0, whisperExpireDays: 7, whisperCooldownDays: 7,
+    });
+    await expect(femaleDays).toHaveValue('0');
+    await expect(page.getByText('0 天', { exact: true })).toBeVisible();
+    const protectionCard = page.locator('article').filter({ has: page.getByText('女性保护', { exact: true }) });
+    await expect(protectionCard.getByText('关闭', { exact: true })).toBeVisible();
+    for (const days of ['1', '30']) {
+      await femaleDays.fill(days);
+      await page.getByRole('button', { name: '保存当前配置' }).click();
+      await page.getByPlaceholder('填写5-100字变更原因').fill('验证保护期合法边界保存');
+      await page.getByRole('button', { name: '确认保存' }).click();
+      await expect.poll(() => published?.femaleProtectionDays).toBe(Number(days));
+      await expect(protectionCard.getByText('开启', { exact: true })).toBeVisible();
+    }
+  });
 });
 
 test('现有举报处理兼容悄悄话冻结证据和受控正文查看', async ({ page }) => {

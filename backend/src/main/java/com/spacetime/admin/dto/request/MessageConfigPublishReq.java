@@ -16,7 +16,7 @@ public class MessageConfigPublishReq {
     @Size(min = 5, max = 100, message = "变更说明长度必须为5-100个字符")
     private String remark;
     @NotNull private Boolean femaleProtectionEnabled;
-    @NotNull @Min(1) @Max(30) private Integer femaleProtectionDays;
+    @NotNull @Min(0) @Max(30) private Integer femaleProtectionDays;
     @NotNull @Min(1) @Max(30) private Integer whisperExpireDays;
     @NotNull @Min(1) @Max(30) private Integer whisperCooldownDays;
     @NotNull @Min(30) @Max(3650) private Integer ordinaryMessageRetainDays;

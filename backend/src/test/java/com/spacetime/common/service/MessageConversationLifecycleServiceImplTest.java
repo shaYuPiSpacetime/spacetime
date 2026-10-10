@@ -71,6 +71,52 @@ class MessageConversationLifecycleServiceImplTest {
     }
 
     @Test
+    void shouldDisableProtectionForZeroDaysEvenWhenSwitchEnabled() {
+        AppMessageRuleVersion rule = new AppMessageRuleVersion();
+        rule.setVersionNo("MSG-CFG-ZERO");
+        rule.setFemaleProtectionEnabled(1);
+        rule.setFemaleProtectionDays(0);
+        when(ruleDao.selectCurrent("global")).thenReturn(rule);
+        doAnswer(invocation -> {
+            AppMessageConversation created = invocation.getArgument(0);
+            created.setId(30L);
+            return null;
+        }).when(conversationDao).insert(any(AppMessageConversation.class));
+
+        AppMessageConversation result = service().ensureForMatch(
+                match(), RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode(), LocalDateTime.now());
+
+        assertThat(result.getProtectionEnabled()).isZero();
+        assertThat(result.getProtectionUntil()).isNull();
+        assertThat(result.getConfigVersion()).isEqualTo("MSG-CFG-ZERO");
+        org.mockito.Mockito.verifyNoInteractions(userDao);
+        verify(memberDao, org.mockito.Mockito.times(2)).insert(any(AppMessageConversationMember.class));
+    }
+
+    @Test
+    void shouldKeepExistingConversationProtectionSnapshot() {
+        AppMessageConversation existing = new AppMessageConversation();
+        existing.setId(30L);
+        existing.setMatchId(20L);
+        existing.setUserLowId(1L);
+        existing.setUserHighId(2L);
+        existing.setProtectionEnabled(1);
+        existing.setConfigVersion("MSG-CFG-OLD");
+        LocalDateTime until = LocalDateTime.of(2026, 10, 13, 20, 0);
+        existing.setProtectionUntil(until);
+        when(conversationDao.selectByMatchIdForUpdate(20L)).thenReturn(existing);
+
+        AppMessageConversation result = service().ensureForMatch(
+                match(), RelationMatchSourceTypeEnum.DOUBLE_LIKE.getCode(), LocalDateTime.now());
+
+        assertThat(result).isSameAs(existing);
+        assertThat(result.getProtectionEnabled()).isEqualTo(1);
+        assertThat(result.getProtectionUntil()).isEqualTo(until);
+        assertThat(result.getConfigVersion()).isEqualTo("MSG-CFG-OLD");
+        org.mockito.Mockito.verifyNoInteractions(ruleDao, userDao);
+    }
+
+    @Test
     void shouldCreateNewConversationWhenSamePairMatchesAgainAfterOldConversationInvalidated() {
         AppMessageConversation oldConversation = new AppMessageConversation();
         oldConversation.setId(30L);

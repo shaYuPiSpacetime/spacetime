@@ -108,6 +108,11 @@ public class MessageConversationLifecycleServiceImpl implements MessageConversat
             conversation.setProtectionEnabled(0);
             return;
         }
+        int days = rule.getFemaleProtectionDays() == null ? 3 : rule.getFemaleProtectionDays();
+        if (days <= 0) {
+            conversation.setProtectionEnabled(0);
+            return;
+        }
         AppUser low = userDao.selectById(conversation.getUserLowId());
         AppUser high = userDao.selectById(conversation.getUserHighId());
         AppUser female = isGender(low, GenderEnum.FEMALE) ? low
@@ -118,11 +123,10 @@ public class MessageConversationLifecycleServiceImpl implements MessageConversat
             conversation.setProtectionEnabled(0);
             return;
         }
-        int days = rule.getFemaleProtectionDays() == null ? 3 : rule.getFemaleProtectionDays();
         conversation.setProtectionEnabled(1);
         conversation.setFemaleUserId(female.getId());
         conversation.setMaleUserId(male.getId());
-        conversation.setProtectionUntil(eventTime.plusDays(Math.max(1, days)));
+        conversation.setProtectionUntil(eventTime.plusDays(days));
     }
 
     private boolean isGender(AppUser user, GenderEnum gender) {
