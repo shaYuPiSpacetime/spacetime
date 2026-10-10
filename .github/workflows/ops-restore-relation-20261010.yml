@@ -1,0 +1,96 @@
+name: ops-restore-relation-20261010
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'scripts/ops/restore-relation-cancel-20261010.sql'
+      - 'scripts/test-relation-restore-20261010.py'
+      - '.github/workflows/ops-restore-relation-20261010.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spacetime-prod-data-ops
+  cancel-in-progress: false
+
+jobs:
+  restore-relation:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ops-fixture-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -pops-fixture-only"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - name: Checkout operation files
+        uses: actions/checkout@v4
+
+      - name: Verify scope and repeat protection in isolated MySQL
+        env:
+          MYSQL_PWD: ops-fixture-only
+          OPS_FIXTURE_TEST: '1'
+        run: |
+          set +e
+          python3 scripts/test-relation-restore-20261010.py > fixture-result.log 2>&1
+          fixture_status=$?
+          cat fixture-result.log
+          if [ "$fixture_status" != '0' ]; then
+            fixture_error="$(tail -n 15 fixture-result.log | tr '\n' ' ' | cut -c1-1800)"
+            echo "::error title=Relationship restore fixture failed::$fixture_error"
+            exit "$fixture_status"
+          fi
+
+      - name: Copy one-time SQL to production host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'scripts/ops/restore-relation-cancel-20261010.sql'
+          target: '/mnt/data/spacetime-prod'
+
+      - name: Execute guarded relationship restore
+        id: reset
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script: |
+            set +e
+            cd /mnt/data/spacetime-prod
+            set -a
+            . secrets/prod.env
+            set +a
+            reset_output="$(MYSQL_PWD="$DB_PASSWORD" mysql -h"$DB_HOST" -P"${DB_PORT:-3306}" \
+              -u"$DB_USER" --default-character-set=utf8mb4 --batch "$DB_NAME" \
+              < scripts/ops/restore-relation-cancel-20261010.sql 2>&1)"
+            reset_status=$?
+            reset_tail="$(printf '%s\n' "$reset_output" | tail -n 20 | base64 -w0)"
+            printf 'OPS_RESULT|%s|%s\n' "$reset_status" "$reset_tail"
+            exit 0
+
+      - name: Publish guarded reset result
+        if: always()
+        env:
+          RESET_OUTCOME: ${{ steps.reset.outcome }}
+          RESET_STDOUT: ${{ steps.reset.outputs.stdout }}
+        run: |
+          result_line="$(printf '%s\n' "$RESET_STDOUT" | grep '^OPS_RESULT|' | tail -n 1)"
+          reset_status="$(printf '%s' "$result_line" | cut -d'|' -f2)"
+          encoded_summary="$(printf '%s' "$result_line" | cut -d'|' -f3)"
+          summary="$(printf '%s' "$encoded_summary" | base64 -d 2>/dev/null | tr '\n' ' ' | cut -c1-900)"
+          if [ "$RESET_OUTCOME" != 'success' ] || [ "$reset_status" != '0' ]; then
+            echo "::error title=Guarded relationship restore failed::${summary:-no diagnostic captured}"
+            exit 1
+          fi
+          echo "::notice title=Guarded relationship restore completed::${summary:-completed without stdout}"
