@@ -118,6 +118,38 @@ class AppUserCompleteHardDeleteMigrationTest {
                 .contains("CAST(p_user_id AS CHAR)");
     }
 
+    @Test
+    @DisplayName("最终残留校验的单条 SQL 不得重复打开同一临时范围表")
+    void shouldNotReopenTemporaryScopeInSingleStatement() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+        String residueCheck = sql.substring(
+                sql.indexOf("SET v_remaining_count ="),
+                sql.indexOf("IF v_remaining_count <> 0 THEN"));
+        List<String> temporaryScopes = List.of(
+                "tmp_spacetime_delete_messages",
+                "tmp_spacetime_delete_whispers",
+                "tmp_spacetime_delete_conversations",
+                "tmp_spacetime_delete_reports");
+
+        for (String statement : residueCheck.split(";")) {
+            for (String temporaryScope : temporaryScopes) {
+                assertThat(countOccurrences(statement, temporaryScope))
+                        .as("单条 SQL 重复读取临时表 %s，MySQL 会报 1137 Can't reopen table", temporaryScope)
+                        .isLessThanOrEqualTo(1);
+            }
+        }
+    }
+
+    private long countOccurrences(String source, String target) {
+        long count = 0;
+        int start = 0;
+        while ((start = source.indexOf(target, start)) >= 0) {
+            count++;
+            start += target.length();
+        }
+        return count;
+    }
+
     /**
      * 从仓库根目录读取迁移文件。
      *

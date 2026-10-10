@@ -394,57 +394,71 @@ delete_main: BEGIN
     DELETE FROM app_user_security_audit_log WHERE user_id = p_user_id;
 
     -- 删除主表前对关键直接用户引用做最终核验；发现残留则由 Spring 事务整体回滚。
-    SET v_remaining_count =
-          (SELECT COUNT(*) FROM app_message_record
-            WHERE sender_user_id = p_user_id OR receiver_user_id = p_user_id)
-        + (SELECT COUNT(*) FROM app_message_conversation
-            WHERE user_low_id = p_user_id OR user_high_id = p_user_id
-               OR female_user_id = p_user_id OR male_user_id = p_user_id
-               OR blocked_by_user_id = p_user_id)
-        + (SELECT COUNT(*) FROM app_message_conversation_member
-            WHERE user_id = p_user_id OR peer_user_id = p_user_id)
-        + (SELECT COUNT(*) FROM app_message_whisper
-            WHERE sender_user_id = p_user_id OR receiver_user_id = p_user_id
-               OR user_low_id = p_user_id OR user_high_id = p_user_id)
-        + (SELECT COUNT(*) FROM app_whisper
-            WHERE sender_user_id = p_user_id OR receiver_user_id = p_user_id)
-        + (SELECT COUNT(*) FROM app_system_message WHERE receiver_user_id = p_user_id)
-        + (SELECT COUNT(*) FROM app_assistant_message WHERE receiver_user_id = p_user_id)
-        + (SELECT COUNT(*) FROM app_message_event_inbox
-            WHERE receiver_user_id = p_user_id
-               OR biz_no COLLATE utf8mb4_unicode_ci IN (
-                    SELECT biz_no FROM tmp_spacetime_delete_messages
-               )
-               OR biz_no COLLATE utf8mb4_unicode_ci IN (
-                    SELECT biz_no FROM tmp_spacetime_delete_whispers
-               )
-               OR biz_no COLLATE utf8mb4_unicode_ci IN (
-                    SELECT biz_no FROM tmp_spacetime_delete_conversations
-               ))
-        + (SELECT COUNT(*) FROM app_message_delivery_outbox
-            WHERE sender_user_id = p_user_id OR receiver_user_id = p_user_id
-               OR (aggregate_type = 'message'
-                   AND aggregate_id IN (SELECT id FROM tmp_spacetime_delete_messages))
-               OR (aggregate_type = 'whisper'
-                   AND aggregate_id IN (SELECT id FROM tmp_spacetime_delete_whispers)))
-        + (SELECT COUNT(*) FROM app_user_im_account WHERE user_id = p_user_id)
-        + (SELECT COUNT(*) FROM community_report_evidence
-            WHERE report_id IN (SELECT id FROM tmp_spacetime_delete_reports)
-               OR sender_user_id = p_user_id OR receiver_user_id = p_user_id
-               OR source_biz_no COLLATE utf8mb4_unicode_ci IN (
-                    SELECT biz_no FROM tmp_spacetime_delete_messages
-               )
-               OR source_biz_no COLLATE utf8mb4_unicode_ci IN (
-                    SELECT biz_no FROM tmp_spacetime_delete_whispers
-               )
-               OR conversation_no COLLATE utf8mb4_unicode_ci IN (
-                    SELECT biz_no FROM tmp_spacetime_delete_conversations
-               ))
-        + (SELECT COUNT(*) FROM community_report
-            WHERE reporter_id = p_user_id OR target_user_id = p_user_id
-               OR reported_user_id = p_user_id
-               OR (UPPER(target_type) = 'USER'
-                   AND target_id = CAST(p_user_id AS CHAR)));
+    -- MySQL 临时表在同一条语句中不能被重复打开。这里必须逐项累加，不能把
+    -- Inbox、Outbox、举报证据三个子查询合并到同一个 SET 表达式中。
+    SET v_remaining_count = 0;
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_message_record
+          WHERE sender_user_id = p_user_id OR receiver_user_id = p_user_id);
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_message_conversation
+          WHERE user_low_id = p_user_id OR user_high_id = p_user_id
+             OR female_user_id = p_user_id OR male_user_id = p_user_id
+             OR blocked_by_user_id = p_user_id);
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_message_conversation_member
+          WHERE user_id = p_user_id OR peer_user_id = p_user_id);
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_message_whisper
+          WHERE sender_user_id = p_user_id OR receiver_user_id = p_user_id
+             OR user_low_id = p_user_id OR user_high_id = p_user_id);
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_whisper
+          WHERE sender_user_id = p_user_id OR receiver_user_id = p_user_id);
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_system_message WHERE receiver_user_id = p_user_id);
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_assistant_message WHERE receiver_user_id = p_user_id);
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_message_event_inbox
+          WHERE receiver_user_id = p_user_id
+             OR biz_no COLLATE utf8mb4_unicode_ci IN (
+                  SELECT biz_no FROM tmp_spacetime_delete_messages
+             )
+             OR biz_no COLLATE utf8mb4_unicode_ci IN (
+                  SELECT biz_no FROM tmp_spacetime_delete_whispers
+             )
+             OR biz_no COLLATE utf8mb4_unicode_ci IN (
+                  SELECT biz_no FROM tmp_spacetime_delete_conversations
+             ));
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_message_delivery_outbox
+          WHERE sender_user_id = p_user_id OR receiver_user_id = p_user_id
+             OR (aggregate_type = 'message'
+                 AND aggregate_id IN (SELECT id FROM tmp_spacetime_delete_messages))
+             OR (aggregate_type = 'whisper'
+                 AND aggregate_id IN (SELECT id FROM tmp_spacetime_delete_whispers)));
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM app_user_im_account WHERE user_id = p_user_id);
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM community_report_evidence
+          WHERE report_id IN (SELECT id FROM tmp_spacetime_delete_reports)
+             OR sender_user_id = p_user_id OR receiver_user_id = p_user_id
+             OR source_biz_no COLLATE utf8mb4_unicode_ci IN (
+                  SELECT biz_no FROM tmp_spacetime_delete_messages
+             )
+             OR source_biz_no COLLATE utf8mb4_unicode_ci IN (
+                  SELECT biz_no FROM tmp_spacetime_delete_whispers
+             )
+             OR conversation_no COLLATE utf8mb4_unicode_ci IN (
+                  SELECT biz_no FROM tmp_spacetime_delete_conversations
+             ));
+    SET v_remaining_count = v_remaining_count +
+        (SELECT COUNT(*) FROM community_report
+          WHERE reporter_id = p_user_id OR target_user_id = p_user_id
+             OR reported_user_id = p_user_id
+             OR (UPPER(target_type) = 'USER'
+                 AND target_id = CAST(p_user_id AS CHAR)));
     IF v_remaining_count <> 0 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = '用户关联数据仍有残留，已停止删除';
