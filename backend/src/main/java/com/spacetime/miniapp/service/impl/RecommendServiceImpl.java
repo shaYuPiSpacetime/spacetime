@@ -76,6 +76,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /** 推荐业务服务实现。 */
@@ -192,43 +193,53 @@ public class RecommendServiceImpl implements RecommendService {
 
         int resultLimit = Math.min(PAGE_SIZE, remaining);
         List<String> targetCities = parseList(preference.getTargetCityCodes());
-        List<String> neighborCities = effectiveTargetCities(preference).stream()
+        List<String> preferredCities = effectiveTargetCities(preference);
+        List<String> neighborCities = preferredCities.stream()
                 .filter(code -> !MunicipalityLocationCodes.matchesAny(targetCities, code)).toList();
-        boolean neighborPhase = cursor != null && cursor.startsWith("neighbor:");
-        if (neighborPhase && neighborCities.isEmpty()) {
+        CandidatePhase phase = CandidatePhase.fromCursor(cursor);
+        if (phase == CandidatePhase.NEIGHBOR && neighborCities.isEmpty()) {
             throw new BusinessException(409, "周边城市配置已更新，请刷新推荐");
         }
+        Predicate<AppUser> preferredCandidate = preferredCandidateMatcher(
+                preference, advancedFilterEffective, preferredCities);
+        Set<Long> viewedCandidateIds = viewedCandidateIdsInCycle(userId, cycle);
+        Set<Long> emittedCandidateIds = new LinkedHashSet<>();
         List<RecommendCandidateVO> items = new ArrayList<>();
         AppUser lastAccepted = null;
-        String scanCursor = neighborPhase ? cursor.substring("neighbor:".length()) : cursor;
+        String scanCursor = phase.scanCursor(cursor);
         String previousScanCursor = null;
         String continuationCursor = null;
         int scannedBatches = 0;
         while (items.size() < resultLimit && scannedBatches < MAX_CANDIDATE_SCAN_BATCHES) {
             LambdaQueryWrapper<AppUser> wrapper = candidateWrapper(
                     current, preference, advancedFilterEffective, scanCursor,
-                    neighborPhase ? neighborCities : targetCities);
+                    phase == CandidatePhase.NEIGHBOR ? neighborCities : targetCities, phase);
             List<AppUser> queried = safeUsers(appUserDao.selectList(wrapper));
             scannedBatches++;
             if (queried.isEmpty()) {
-                if (!neighborPhase && !neighborCities.isEmpty()) {
-                    neighborPhase = true;
+                phase = phase.next(!neighborCities.isEmpty());
+                if (phase != null) {
                     scanCursor = null;
                     previousScanCursor = null;
-                    if (scannedBatches >= MAX_CANDIDATE_SCAN_BATCHES) continuationCursor = "neighbor:";
+                    continuationCursor = phase.cursor(null);
                     continue;
                 }
+                continuationCursor = null;
                 break;
             }
-            Map<Long, String> access = accessProjectionService.projectAll(queried);
-            List<AppUser> openCandidates = queried.stream()
+            // 全池包含此前精确阶段的用户；按同一偏好语义排除，跨页预取也不会重复。
+            List<AppUser> phaseCandidates = phase == CandidatePhase.FALLBACK
+                    ? queried.stream().filter(preferredCandidate.negate()).toList() : queried;
+            Map<Long, String> access = phaseCandidates.isEmpty()
+                    ? Map.of() : accessProjectionService.projectAll(phaseCandidates);
+            List<AppUser> openCandidates = phaseCandidates.stream()
                     .filter(candidate -> "OPEN".equals(access.get(candidate.getId())))
                     .toList();
             List<Long> openCandidateIds = openCandidates.stream().map(AppUser::getId).toList();
             Set<Long> blockedCandidateIds = blockedCandidateIds(userId, openCandidateIds);
             Set<Long> likedCandidateIds = activeLikedCandidateIds(userId, openCandidateIds);
-            Set<Long> viewedCandidateIds = viewedCandidateIdsInCycle(userId, cycle);
             List<AppUser> visibleCandidates = openCandidates.stream()
+                    .filter(candidate -> !emittedCandidateIds.contains(candidate.getId()))
                     .filter(candidate -> !blockedCandidateIds.contains(candidate.getId()))
                     .filter(candidate -> !likedCandidateIds.contains(candidate.getId()))
                     .filter(candidate -> !viewedCandidateIds.contains(candidate.getId()))
@@ -249,42 +260,40 @@ public class RecommendServiceImpl implements RecommendService {
                 item.setCommunicationMode(profile.getCommunicationMode());
                 item.setActualCity(profile.getCurrentCity());
                 items.add(item);
+                emittedCandidateIds.add(candidate.getId());
                 lastAccepted = candidate;
             }
 
             if (items.size() >= resultLimit) {
+                continuationCursor = phase.cursor(encodeCursor(lastAccepted));
                 break;
             }
             if (queried.size() < CANDIDATE_SCAN_BATCH_SIZE) {
-                if (!neighborPhase && !neighborCities.isEmpty()) {
-                    neighborPhase = true;
+                phase = phase.next(!neighborCities.isEmpty());
+                if (phase != null) {
                     scanCursor = null;
                     previousScanCursor = null;
-                    if (scannedBatches >= MAX_CANDIDATE_SCAN_BATCHES) continuationCursor = "neighbor:";
+                    continuationCursor = phase.cursor(null);
                     continue;
                 }
+                continuationCursor = null;
                 break;
             }
             String nextScanCursor = encodeCursor(queried.getLast());
             if (Objects.equals(nextScanCursor, scanCursor)
                     || Objects.equals(nextScanCursor, previousScanCursor)) {
-                break;
+                throw new BusinessException(409, "推荐候选已更新，请刷新推荐");
             }
+            continuationCursor = phase.cursor(nextScanCursor);
             if (scannedBatches >= MAX_CANDIDATE_SCAN_BATCHES) {
-                continuationCursor = (neighborPhase ? "neighbor:" : "") + nextScanCursor;
                 break;
             }
             previousScanCursor = scanCursor;
             scanCursor = nextScanCursor;
         }
         result.setItems(items);
-        result.setWaitingReason(items.isEmpty() ? "no_candidate" : null);
-        if (items.size() == resultLimit) {
-            result.setNextCursor(lastAccepted == null ? null
-                    : (neighborPhase ? "neighbor:" : "") + encodeCursor(lastAccepted));
-        } else if (continuationCursor != null) {
-            result.setNextCursor(continuationCursor);
-        }
+        result.setNextCursor(continuationCursor);
+        result.setWaitingReason(items.isEmpty() && continuationCursor == null ? "no_candidate" : null);
         recordIssuedCandidates(userId, items, preference.getVersion(),
                 RecommendBrowseCycle.current().currentTime());
         return result;
@@ -617,16 +626,19 @@ public class RecommendServiceImpl implements RecommendService {
     private LambdaQueryWrapper<AppUser> candidateWrapper(AppUser current,
                                                           RecommendPreference preference,
                                                           boolean advancedFilterEffective,
-                                                          String cursor, List<String> targetCities) {
+                                                          String cursor, List<String> targetCities,
+                                                          CandidatePhase phase) {
         String opposite = GenderEnum.MALE.getCode().equals(current.getGender())
                 ? GenderEnum.FEMALE.getCode() : GenderEnum.MALE.getCode();
         LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
                 .ne(AppUser::getId, current.getId())
                 .eq(AppUser::getGender, opposite)
                 .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode());
-        ProfileAgeFilter.apply(wrapper, preference.getMinAge(), preference.getMaxAge());
-        MunicipalityLocationCodes.applyCityFilter(wrapper, targetCities);
-        if (advancedFilterEffective) {
+        if (phase != CandidatePhase.FALLBACK) {
+            ProfileAgeFilter.apply(wrapper, preference.getMinAge(), preference.getMaxAge());
+            MunicipalityLocationCodes.applyCityFilter(wrapper, targetCities);
+        }
+        if (phase != CandidatePhase.FALLBACK && advancedFilterEffective) {
             wrapper.ge(preference.getMinHeight() != null, AppUser::getHeight, preference.getMinHeight())
                     .le(preference.getMaxHeight() != null, AppUser::getHeight, preference.getMaxHeight())
                     .ge(preference.getMinWeight() != null, AppUser::getWeight, preference.getMinWeight())
@@ -653,6 +665,61 @@ public class RecommendServiceImpl implements RecommendService {
         return wrapper.orderByDesc(AppUser::getLastLoginTime)
                 .orderByAsc(AppUser::getId)
                 .last("LIMIT " + CANDIDATE_SCAN_BATCH_SIZE);
+    }
+
+    private Predicate<AppUser> preferredCandidateMatcher(RecommendPreference preference,
+                                                         boolean advancedFilterEffective,
+                                                         List<String> cities) {
+        List<String> education = parseList(preference.getEducationCodes());
+        List<String> majors = parseList(preference.getMajorNames());
+        List<String> hometowns = parseList(preference.getHometowns());
+        return candidate -> matchesRange(ProfileAgeFilter.currentAge(candidate),
+                preference.getMinAge(), preference.getMaxAge())
+                && (cities.isEmpty() || MunicipalityLocationCodes.matchesAny(cities, candidate.getLocationCity()))
+                && (!advancedFilterEffective || (
+                matchesRange(candidate.getHeight(), preference.getMinHeight(), preference.getMaxHeight())
+                && matchesRange(candidate.getWeight(), preference.getMinWeight(), preference.getMaxWeight())
+                && (education.isEmpty() || education.contains(candidate.getEducationLevel()))
+                && (majors.isEmpty() || majors.contains(candidate.getMajor()))
+                && (hometowns.isEmpty() || MunicipalityLocationCodes.matchesAny(hometowns, candidate.getHometownCity()))));
+    }
+
+    private boolean matchesRange(Integer value, Integer minimum, Integer maximum) {
+        return (minimum == null && maximum == null)
+                || (value != null && (minimum == null || value >= minimum) && (maximum == null || value <= maximum));
+    }
+
+    /** 保持旧的精确/周边游标可用，新增全池候补阶段。 */
+    private enum CandidatePhase {
+        PREFERRED(""), NEIGHBOR("neighbor:"), FALLBACK("fallback:");
+
+        private final String prefix;
+
+        CandidatePhase(String prefix) {
+            this.prefix = prefix;
+        }
+
+        static CandidatePhase fromCursor(String cursor) {
+            if (cursor != null && cursor.startsWith(FALLBACK.prefix)) return FALLBACK;
+            if (cursor != null && cursor.startsWith(NEIGHBOR.prefix)) return NEIGHBOR;
+            return PREFERRED;
+        }
+
+        String scanCursor(String cursor) {
+            return cursor == null ? null : cursor.substring(prefix.length());
+        }
+
+        String cursor(String scanCursor) {
+            return prefix + (scanCursor == null ? "" : scanCursor);
+        }
+
+        CandidatePhase next(boolean hasNeighbors) {
+            return switch (this) {
+                case PREFERRED -> hasNeighbors ? NEIGHBOR : FALLBACK;
+                case NEIGHBOR -> FALLBACK;
+                case FALLBACK -> null;
+            };
+        }
     }
 
     private boolean isBlocked(Long userId, Long candidateId) {

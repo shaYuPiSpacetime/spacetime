@@ -45,6 +45,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.LongStream;
+import java.util.ArrayDeque;
+import java.util.concurrent.atomic.AtomicInteger;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -594,7 +600,7 @@ class RecommendServiceImplTest {
 
         assertThat(result.getItems()).singleElement()
                 .satisfies(item -> assertThat(item.getUserId()).isEqualTo(68L));
-        verify(appUserDao, times(2)).selectList(any());
+        verify(appUserDao, times(3)).selectList(any()); // 精确池尾部之后仍须查候补池。
     }
 
     @Test
@@ -638,7 +644,7 @@ class RecommendServiceImplTest {
             assertThat(item.getUserId()).isEqualTo(68L);
             assertThat(item.getLiked()).isFalse();
         });
-        verify(appUserDao, times(2)).selectList(any());
+        verify(appUserDao, times(3)).selectList(any());
         verify(relationLikeDao, times(2)).selectList(any());
     }
 
@@ -652,10 +658,12 @@ class RecommendServiceImplTest {
         first.setOccupation("SOFTWARE_ENGINEER");
         AppUser blocked = openUser(9L, 29, "310100");
         blocked.setGender("FEMALE");
+        RecommendPreference preference = basicPreference(7L, 2);
+        preference.setTargetCityCodes("[\"310100\"]");
 
         when(appUserDao.selectById(7L)).thenReturn(current);
         when(accessProjectionService.project(current)).thenReturn("OPEN");
-        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 2));
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference);
         when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", "10")));
         when(viewLogDao.selectList(any())).thenReturn(List.of());
         when(appUserDao.selectList(any())).thenReturn(List.of(first, blocked));
@@ -763,7 +771,7 @@ class RecommendServiceImplTest {
         RecommendCandidatePageVO second = service.getCandidates(7L, first.getNextCursor());
         assertThat(second.getItems()).singleElement()
                 .satisfies(item -> assertThat(item.getUserId()).isEqualTo(188L));
-        verify(appUserDao, times(4)).selectList(any());
+        verify(appUserDao, times(5)).selectList(any());
     }
 
     @Test
@@ -1076,6 +1084,274 @@ class RecommendServiceImplTest {
         verify(relationLikeDao).selectList(any());
         verify(auditContentService).publicAvatars(candidateIds);
         verify(profileDictionaryService, times(2)).labels(any(), any());
+    }
+
+    @Test
+    @DisplayName("高级偏好没有精确候选时推荐其他准入用户，不清除偏好")
+    void candidatesShouldFallBackWithoutChangingSavedPreferences() {
+        RecommendPreference preference = basicPreference(7L, 20);
+        preference.setHometowns("[\"110100\"]");
+        preference.setMinHeight(165);
+        stubCandidateBrowsing(preference, 10);
+        enableAdvancedPreferences();
+        AppUser other = femaleCandidate(8L, 42, "310101");
+        other.setHometownCity("320100");
+        stubCandidateQueries(List.of(), List.of(other));
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(8L);
+        assertThat(result.getPreferenceVersion()).isEqualTo(20);
+        assertThat(preference.getHometowns()).isEqualTo("[\"110100\"]");
+        verify(preferenceDao, never()).insert(any());
+        verify(preferenceDao, never()).updateByVersion(any(), any());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<AppUser>> queries = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(appUserDao, times(2)).selectList(queries.capture());
+        assertThat(queries.getAllValues().getFirst().getSqlSegment()).contains("hometown_city", "height", "birthday");
+        assertThat(queries.getAllValues().getLast().getSqlSegment())
+                .contains("gender", "account_status").doesNotContain("hometown_city", "height", "birthday");
+    }
+
+    @Test
+    @DisplayName("候补按目标城市、周边城市、其他用户补足且全池不重复前两阶段")
+    void candidatesShouldKeepPreferredNeighborAndFallbackOrder() {
+        RecommendPreference preference = basicPreference(7L, 2);
+        preference.setAllowNeighborCity(1);
+        stubCandidateBrowsing(preference, 10);
+        when(appConfigDao.selectByKey("prd08.recommend.neighbor-city-map"))
+                .thenReturn(config("prd08.recommend.neighbor-city-map", "{\"320100\":[\"320200\"]}"));
+        AppUser preferred = femaleCandidate(8L, 28, "320100");
+        AppUser neighbor = femaleCandidate(9L, 28, "320200");
+        AppUser other = femaleCandidate(10L, 40, "110101");
+        stubCandidateQueries(List.of(preferred), List.of(neighbor), List.of(preferred, neighbor, other));
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(8L, 9L, 10L);
+        assertThat(result.getNextCursor()).isNull();
+    }
+
+    @Test
+    @DisplayName("精确页填满后跨页进入全池，不重发尚未浏览的精确候选")
+    void fallbackShouldExcludePreferredCandidatesFromEarlierPages() {
+        stubCandidateBrowsing(basicPreference(7L, 2), 2);
+        AppUser first = femaleCandidate(8L, 28, "320100");
+        AppUser second = femaleCandidate(9L, 28, "320100");
+        AppUser other = femaleCandidate(10L, 45, "320100");
+        stubCandidateQueries(List.of(first, second), List.of(), List.of(first, second, other));
+
+        RecommendCandidatePageVO preferred = service.getCandidates(7L, null);
+        RecommendCandidatePageVO fallback = service.getCandidates(7L, preferred.getNextCursor());
+
+        assertThat(preferred.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(8L, 9L);
+        assertThat(fallback.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(10L);
+        assertThat(fallback.getNextCursor()).isNull();
+    }
+
+    @Test
+    @DisplayName("超过千条无准入候选仍能按有界请求续扫到尾部合格用户")
+    void fallbackShouldTraverseMoreThanOneThousandCandidates() {
+        stubCandidateBrowsing(basicPreference(7L, 2), 10);
+        List<AppUser> pool = LongStream.rangeClosed(100, 1120)
+                .mapToObj(id -> femaleCandidate(id, 45, "310101")).toList();
+        ArrayDeque<List<AppUser>> batches = new ArrayDeque<>();
+        batches.add(List.of()); // 精确池为空。
+        for (int offset = 0; offset < pool.size(); offset += 60) {
+            batches.add(pool.subList(offset, Math.min(offset + 60, pool.size())));
+        }
+        AtomicInteger queries = new AtomicInteger();
+        when(appUserDao.selectList(any())).thenAnswer(invocation -> {
+            queries.incrementAndGet();
+            return batches.isEmpty() ? List.of() : batches.removeFirst();
+        });
+        when(accessProjectionService.projectAll(any())).thenAnswer(invocation -> {
+            List<AppUser> users = invocation.getArgument(0);
+            return users.stream().collect(java.util.stream.Collectors.toMap(AppUser::getId,
+                    user -> user.getId() == 1120L ? "OPEN" : "CLOSED"));
+        });
+        String cursor = null;
+        RecommendCandidatePageVO page;
+        int requests = 0;
+        do {
+            int before = queries.get();
+            page = service.getCandidates(7L, cursor);
+            assertThat(queries.get() - before).isLessThanOrEqualTo(3);
+            cursor = page.getNextCursor();
+            if (page.getItems().isEmpty()) {
+                assertThat(cursor).startsWith("fallback:");
+                assertThat(page.getWaitingReason()).as("尚有游标时不能宣告无候选").isNull();
+            }
+            assertThat(++requests).isLessThan(10);
+        } while (cursor != null);
+
+        assertThat(page.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(1120L);
+        assertThat(queries.get()).isEqualTo(19);
+    }
+
+    @Test
+    @DisplayName("候补全池确实扫描结束才返回 no_candidate")
+    void fallbackShouldReportNoCandidateOnlyAfterExhaustion() {
+        stubCandidateBrowsing(basicPreference(7L, 2), 10);
+        List<AppUser> closed = LongStream.rangeClosed(100, 159)
+                .mapToObj(id -> femaleCandidate(id, 45, "310101")).toList();
+        stubCandidateQueries(List.of(), closed, List.of());
+        when(accessProjectionService.projectAll(any())).thenReturn(Map.of());
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        verify(appUserDao, times(3)).selectList(any());
+        assertThat(result.getItems()).isEmpty();
+        assertThat(result.getNextCursor()).isNull();
+        assertThat(result.getWaitingReason()).isEqualTo("no_candidate");
+    }
+
+    @Test
+    @DisplayName("放宽偏好仍排除拉黑、不再推荐、已喜欢、已浏览及未准入用户")
+    void fallbackShouldPreserveSafetyAndBrowseExclusions() {
+        stubCandidateBrowsing(basicPreference(7L, 2), 10);
+        List<AppUser> pool = LongStream.rangeClosed(8, 14)
+                .mapToObj(id -> femaleCandidate(id, 45, "310101")).toList();
+        stubCandidateQueries(List.of(), pool);
+        when(accessProjectionService.projectAll(any())).thenReturn(Map.of(
+                8L, "OPEN", 9L, "OPEN", 10L, "OPEN", 11L, "OPEN", 12L, "CLOSED", 13L, "OPEN", 14L, "OPEN"));
+        when(relationBlockDao.selectActiveBetweenUserAndTargets(any(), any(), any()))
+                .thenReturn(List.of(block(7L, 8L, "NO_RECOMMEND"), block(9L, 7L, "BLACKLIST"),
+                        block(7L, 14L, "BLACKLIST")));
+        AppRelationLike liked = new AppRelationLike();
+        liked.setFromUserId(7L);
+        liked.setToUserId(10L);
+        liked.setLikeStatus("ACTIVE");
+        liked.setActiveMarker(1);
+        when(relationLikeDao.selectList(any())).thenReturn(List.of(liked));
+        when(viewLogDao.selectList(any())).thenReturn(List.of(viewLog(7L, 11L, "view", LocalDateTime.now())));
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(13L);
+        assertThat(result.getRemainingBrowseCount()).isEqualTo(9);
+    }
+
+    @Test
+    @DisplayName("候补中空登录时间用户可以继续游标，不重复或漏掉剩余候选")
+    void fallbackShouldPageUsersWithoutLoginTime() {
+        stubCandidateBrowsing(basicPreference(7L, 2), 10);
+        List<AppUser> pool = LongStream.rangeClosed(100, 111).mapToObj(id -> {
+            AppUser user = femaleCandidate(id, 45, "310101");
+            user.setLastLoginTime(null);
+            return user;
+        }).toList();
+        stubCandidateQueries(List.of(), pool, pool.subList(10, 12));
+
+        RecommendCandidatePageVO first = service.getCandidates(7L, null);
+        RecommendCandidatePageVO second = service.getCandidates(7L, first.getNextCursor());
+
+        assertThat(first.getItems()).hasSize(10);
+        assertThat(first.getNextCursor()).startsWith("fallback:");
+        assertThat(second.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(110L, 111L);
+        assertThat(second.getNextCursor()).isNull();
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<AppUser>> queries = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(appUserDao, times(3)).selectList(queries.capture());
+        assertThat(queries.getAllValues().getLast().getSqlSegment()).contains("last_login_time IS NULL", "id >");
+    }
+
+    @Test
+    @DisplayName("候补去重兼容生日周岁、直辖市编码、高级单侧边界和空字段")
+    void fallbackShouldUseActualAgeAndMunicipalityPreferenceSemantics() {
+        RecommendPreference preference = basicPreference(7L, 2);
+        preference.setTargetCityCodes("[\"310100\"]");
+        preference.setHometowns("[\"110100\"]");
+        preference.setMinHeight(165);
+        preference.setMaxWeight(70);
+        preference.setEducationCodes("[\"BACHELOR\"]");
+        preference.setMajorNames("[\"计算机\"]");
+        stubCandidateBrowsing(preference, 10);
+        enableAdvancedPreferences();
+        AppUser exact = femaleCandidate(8L, 45, "310101");
+        exact.setBirthday(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).minusYears(28));
+        exact.setHometownCity("110101");
+        exact.setHeight(165);
+        exact.setWeight(70);
+        exact.setEducationLevel("BACHELOR");
+        exact.setMajor("计算机");
+        AppUser missing = femaleCandidate(9L, 28, "310101");
+        AppUser outOfRange = femaleCandidate(10L, 28, "310101");
+        outOfRange.setBirthday(LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).minusYears(40));
+        stubCandidateQueries(List.of(exact), List.of(exact, missing, outOfRange));
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(8L, 9L, 10L);
+    }
+
+    @Test
+    @DisplayName("额度耗尽时不查询精确或候补池")
+    void exhaustedQuotaShouldNotScanAnyCandidatePool() {
+        stubCandidateBrowsing(basicPreference(7L, 2), 0);
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).isEmpty();
+        assertThat(result.getNextCursor()).isNull();
+        assertThat(result.getWaitingReason()).isEqualTo("browse_limit");
+        verify(appUserDao, never()).selectList(any());
+    }
+
+    @Test
+    @DisplayName("失效高级条件不参与精确匹配或候补去重")
+    void inactiveAdvancedPreferencesShouldNotChangeCandidatePriority() {
+        RecommendPreference preference = basicPreference(7L, 2);
+        preference.setMinHeight(190);
+        preference.setHometowns("[\"110100\"]");
+        stubCandidateBrowsing(preference, 10);
+        AppUser exact = femaleCandidate(8L, 28, "320100");
+        AppUser other = femaleCandidate(9L, 45, "320100");
+        stubCandidateQueries(List.of(exact), List.of(exact, other));
+
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+
+        assertThat(result.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(8L, 9L);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<AppUser>> queries = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(appUserDao, times(2)).selectList(queries.capture());
+        assertThat(queries.getAllValues().getFirst().getSqlSegment()).doesNotContain("height", "hometown_city");
+    }
+
+    private void stubCandidateBrowsing(RecommendPreference preference, int quota) {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), AppUser.class);
+        AppUser current = openUser(7L, 30, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(preference);
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.normal", String.valueOf(quota))));
+        lenient().when(viewLogDao.selectList(any())).thenReturn(List.of());
+        lenient().when(accessProjectionService.projectAll(any())).thenAnswer(invocation -> {
+            List<AppUser> users = invocation.getArgument(0);
+            if (users == null) return Map.of();
+            return users.stream().collect(java.util.stream.Collectors.toMap(AppUser::getId, ignored -> "OPEN"));
+        });
+    }
+
+    private void enableAdvancedPreferences() {
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(1));
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(vipService.getBenefits()).thenReturn(List.of(benefit("advanced_filter")));
+    }
+
+    @SafeVarargs
+    private final void stubCandidateQueries(List<AppUser>... pages) {
+        ArrayDeque<List<AppUser>> batches = new ArrayDeque<>(List.of(pages));
+        when(appUserDao.selectList(any())).thenAnswer(invocation -> batches.isEmpty() ? List.of() : batches.removeFirst());
+    }
+
+    private AppUser femaleCandidate(Long id, int age, String city) {
+        AppUser user = openUser(id, age, city);
+        user.setGender("FEMALE");
+        user.setLastLoginTime(LocalDateTime.of(2026, 10, 10, 8, 0).minusMinutes(id));
+        return user;
     }
 
     private AppUser openUser(Long id, int age, String city) {
