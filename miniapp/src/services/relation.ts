@@ -1,4 +1,6 @@
 import { del, get, post } from './request'
+import Taro from '@tarojs/taro'
+import { MATCH_POPUP_REFRESH_EVENT } from '@/domain/matchPopupRefresh'
 
 export type RelationDisplayStatus = 'blur' | 'clear'
 export type RelationAccessMode = 'BLUR_LIMIT' | 'MIXED' | 'VIP_ALL_CLEAR'
@@ -225,7 +227,10 @@ export function sendRelationLike(
   sourceScene: RelationSourceScene,
   requestId: string,
 ): Promise<RelationLikeActionVO> {
-  return post<RelationLikeActionVO>('/miniapp/relation/likes', { requestId, targetUserId, sourceScene })
+  return post<RelationLikeActionVO>('/miniapp/relation/likes', { requestId, targetUserId, sourceScene }).then(result => {
+    Taro.eventCenter.trigger(MATCH_POPUP_REFRESH_EVENT)
+    return result
+  })
 }
 
 export function cancelRelationLike(targetUserId: number): Promise<RelationLikeActionVO> {

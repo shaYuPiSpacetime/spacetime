@@ -1,3 +1,4 @@
+import MatchPopupHost from '@/components/MatchPopupHost'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
@@ -126,7 +127,7 @@ export default function IndexPage() {
     return <AccessBlockedPage status={cachedAccessStatus} loading={loading} error={entryError}
       blockReasons={cachedAccessStatus?.blockReasons || []} refresh={loadIndex} />
   }
-  if (contentAllowed) return <QianxunFamilyPage />
+  if (contentAllowed) return <><QianxunFamilyPage /><MatchPopupHost /></>
   return (
     <VerificationEntryView
       role="index-unverified"

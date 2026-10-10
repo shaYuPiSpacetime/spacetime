@@ -28,6 +28,7 @@ function harness(initialStatus) {
   const usePrd01Store = selector => selector(runtime)
   usePrd01Store.getState = () => runtime
   const stubs = {
+    '@/components/MatchPopupHost': { __esModule: true, default: 'MatchPopupHost' },
     react: {
       useState: initial => {
         const index = cursor++
@@ -161,7 +162,7 @@ for (const page of ['pages/index/index.tsx', 'pages/profile/index.tsx']) {
 
 test('千寻已有可见内容缓存时，新冻结状态必须覆盖缓存', () => {
   const app = harness(normal)
-  assert.equal(app.render('pages/index/index.tsx').type, 'QianxunFamilyPage')
+  assert.ok(nodes(app.render('pages/index/index.tsx')).some(item => item?.type === 'QianxunFamilyPage'))
   app.setStatus(frozen)
   assert.equal(app.render('pages/index/index.tsx').type, app.load('components/AccessBlockedPage.tsx').default)
 })

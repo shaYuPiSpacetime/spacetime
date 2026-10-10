@@ -20,7 +20,7 @@ async function loadDomainModule() {
   return import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
 }
 
-function renderUnlockSheet(tab) {
+function renderUnlockSheet(tab, balance = 8882, price = 8, quoteError = false, confirmPending) {
   const navigations = []
   const stateChanges = []
   const apiCalls = []
@@ -34,9 +34,12 @@ function renderUnlockSheet(tab) {
     useDidShow: () => {},
     getStorageSync: () => undefined,
     navigateTo: options => navigations.push(options.url),
+    showToast: async () => {},
   }
   const makeElement = (type, props) => ({ type, props })
-  const transpiled = ts.transpileModule(read('src/pages/community/index.tsx'), {
+  let source = read('src/pages/community/index.tsx').replace('useState<RelationCard | null>(null)', "useState<RelationCard | null>({ recordNo: 'LIK-test' } as RelationCard)")
+  if (confirmPending) source = source.replace('useState<UnlockQuoteVO | null>(null)', "useState<UnlockQuoteVO | null>({ quoteToken: 'quote', targetBizNo: 'LIK-test' } as UnlockQuoteVO)")
+  const transpiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText
   const context = {
@@ -50,7 +53,12 @@ function renderUnlockSheet(tab) {
       if (name === '@/hooks/useAccessStatus') return { useAccessStatus: () => ({ status: { coreAccessStatus: 'CORE_ALLOWED' } }) }
       if (name === '@/stores/authStore') return { useAuthStore: selector => selector({ userId: 1 }) }
       if (name === '@/constants/ossIcons') return { miniappOssIcons: {} }
-      if (name === '@/services/relation') return new Proxy({}, { get: (_, method) => () => apiCalls.push(method) })
+      if (name === '@/domain/relationFeedbackFlow') return { ensureUnlockAttempt: (previous, quoteToken, createId) => previous || { quoteToken, requestId: createId() }, createUnlockRequestId: () => 'request-test' }
+      if (name === '@/services/relation') return {
+        quoteRelationUnlock: async (...args) => { apiCalls.push(args); if (quoteError) throw new Error('offline'); return { quoteToken: 'quote', coinBalance: balance, unitPrice: price, alreadyUnlocked: false } },
+        confirmRelationUnlock: async (...args) => { apiCalls.push(args); return confirmPending },
+        getLikesMePage: async () => ({ records: [], newCount: 0 }),
+      }
       return {}
     },
   }
@@ -63,19 +71,46 @@ function renderUnlockSheet(tab) {
   const page = context.exports.default()
   const sheet = find(page, node => node.type?.name === 'UnlockSheet')
   const rendered = sheet.type({ ...sheet.props, visible: true, stage: 'confirm' })
-  return { rendered, find, navigations, stateChanges, apiCalls }
+  return { rendered, find, navigations, stateChanges, apiCalls, onConfirm: sheet.props.onConfirm }
 }
+
+test('确认解锁连点仅发送一次扣币请求，完成后展示成功', async () => {
+  let finish
+  const pending = new Promise(resolve => { finish = resolve })
+  const app = renderUnlockSheet('likes', 8882, 8, false, pending)
+  app.onConfirm(); app.onConfirm()
+  assert.deepEqual(app.apiCalls, [['quote', 'request-test']])
+  finish({ unlocked: true })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.ok(app.stateChanges.includes('success'))
+  assert.deepEqual(app.navigations, [])
+})
 
 for (const [tab, sourceScene] of [['likes', 'likes_unlock_one'], ['visitors', 'viewers_unlock_one']]) {
-  test(`只看ta直接进入充值页并保留来源 ${sourceScene}`, () => {
-    const { rendered, find, navigations, stateChanges, apiCalls } = renderUnlockSheet(tab)
+  for (const price of [0, 8]) {
+    test(`余额 8882，单价 ${price} 只看 TA 先报价确认 ${sourceScene}`, async () => {
+      const { rendered, find, navigations, stateChanges, apiCalls } = renderUnlockSheet(tab, 8882, price)
+      const click = find(rendered, node => node.props?.id === 'unlock-one-button').props.onClick
+      click(); click()
+      await new Promise(resolve => setImmediate(resolve))
+      assert.deepEqual(navigations, [])
+      assert.ok(stateChanges.includes('quote'))
+      assert.deepEqual(apiCalls, [[sourceScene, tab === 'likes' ? 'like' : 'visit', 'LIK-test']])
+    })
+  }
+  test(`只有余额不足才跳充值 ${sourceScene}`, async () => {
+    const { rendered, find, navigations } = renderUnlockSheet(tab, 7, 8)
     find(rendered, node => node.props?.id === 'unlock-one-button').props.onClick()
+    await new Promise(resolve => setImmediate(resolve))
     assert.deepEqual(navigations, [`/pages/coins/unlock-recharge?sourceScene=${sourceScene}`])
-    assert.ok(stateChanges.includes('closed'), '跳转时必须关闭弹窗')
-    assert.deepEqual(apiCalls, [], '点击只看ta不得调用报价或扣费接口')
+  })
+  test(`报价失败不跳充值 ${sourceScene}`, async () => {
+    const { rendered, find, navigations } = renderUnlockSheet(tab, 8882, 8, true)
+    find(rendered, node => node.props?.id === 'unlock-one-button').props.onClick()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.deepEqual(navigations, [])
   })
 }
-
 test('解锁全部仍进入会员解锁页', () => {
   const { rendered, find, navigations, apiCalls } = renderUnlockSheet('likes')
   const label = find(rendered, node => node.props?.children === '解锁全部')
@@ -174,23 +209,23 @@ test('页面源码不得保留假数据、URL 会员覆盖或文案猜错误码'
 })
 
 test('匹配弹窗必须先确认回执再关闭或跳转', () => {
-  const community = read('src/pages/community/index.tsx')
+  const community = read('src/components/MatchPopupHost.tsx')
   const appTabBar = read('src/components/AppTabBar/index.tsx')
 
   assert.match(community, /await markMatchPopupRead/)
-  assert.match(community, /setMatchPopup\(null\)/)
-  assert.doesNotMatch(community, /setMatchPopup\(null\)[\s\S]{0,180}markMatchPopupRead/)
+  assert.match(community, /setPopup\(null\)/)
+  assert.doesNotMatch(community, /setPopup\(null\)[\s\S]{0,180}markMatchPopupRead/)
   const tabBarShell = appTabBar.slice(appTabBar.indexOf('function TabBarShell'))
   const tabBarZIndex = Number(tabBarShell.match(/zIndex:\s*(\d+)/)?.[1])
-  const popupZIndex = Number(community.match(/id="relation-match-popup"[\s\S]{0,220}zIndex:\s*(\d+)/)?.[1])
+  const popupZIndex = Number(read('src/components/MatchPopupHost.tsx').match(/id="relation-match-popup"[\s\S]{0,220}zIndex:\s*(\d+)/)?.[1])
   assert.ok(Number.isFinite(tabBarZIndex) && Number.isFinite(popupZIndex), '必须能读取底部 Tab 和匹配弹窗层级')
   assert.ok(popupZIndex < tabBarZIndex, '匹配弹窗不得覆盖底部 Tab，用户必须始终能离开心动页')
 })
 
 test('匹配弹窗进入私信必须解析真实会话号，禁止用匹配号冒充会话号', () => {
-  const community = read('src/pages/community/index.tsx')
+  const community = read('src/components/MatchPopupHost.tsx')
 
-  assert.match(community, /resolveConversationByPeerUserId\(popup\.matchedUserId\)/)
+  assert.match(community, /resolveConversationByPeerUserId\(current\.matchedUserId\)/)
   assert.match(community, /conversationNo=\$\{encodeURIComponent\(conversation\.conversationNo\)\}/)
   assert.doesNotMatch(community, /conversationNo=\$\{popup\.matchNo\}/)
 })

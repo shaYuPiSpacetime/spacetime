@@ -16,7 +16,7 @@ test('基础准入完成后千寻默认进入成家同城', () => {
   const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
 
   assert.match(index, /coreAccessStatus === 'NON_CORE_ONLY'/, '千寻入口必须允许基础准入完成用户浏览内容')
-  assert.match(index, /if \(contentAllowed\) return <QianxunFamilyPage \/>/, '基础准入完成后必须渲染千寻内容页')
+  assert.match(index, /if \(contentAllowed\) return <><QianxunFamilyPage \/><MatchPopupHost \/><\/>/, '基础准入完成后必须渲染千寻内容页及前台匹配提醒')
   assert.match(family, /readRequestedScene\(\) \|\| 'CITY'/, '千寻成家默认二级 Tab 必须为同城')
   assert.match(family, /useState<Partial<Record<CommunityScene, boolean>>>\(\{ CITY: true \}\)/, '千寻首屏加载态必须与同城默认场景一致')
 })

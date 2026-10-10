@@ -200,7 +200,7 @@ test('查看对我心动后立即清除顶部角标并保留本次列表快照',
 
 test('心动单人解锁弹窗恢复已验收的场景文案和信息层级', () => {
   const heart = read('src/pages/community/index.tsx')
-  const sheet = functionSource(heart, 'function UnlockSheet', 'function MatchPopupSheet')
+  const sheet = heart.slice(heart.indexOf('function UnlockSheet'))
 
   assert.match(sheet, /'解锁Ta是谁'/, '弹窗标题必须使用已确认文案且不插入多余空格')
   assert.match(sheet, /'送出喜欢，即刻开聊'/, '喜欢场景必须展示已确认副标题')

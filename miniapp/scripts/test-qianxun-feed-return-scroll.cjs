@@ -34,13 +34,14 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   let nextSincerePage = false
   let hiddenAuthorId
   let detailFails = false
+  let navigationFails = false
   const taro = {
     useRouter: () => ({ params: {} }),
     useLoad: callback => React.useEffect(() => { callback({ topicId: '8' }) }, []),
     getStorageSync: key => storage.get(key),
     setStorageSync: (key, value) => storage.set(key, value),
     removeStorageSync: key => storage.delete(key),
-    navigateTo: async options => { navigation.push(options) },
+    navigateTo: async options => { navigation.push(options); if (navigationFails) throw new Error('navigateTo:fail webview count limit exceed') },
     showToast: async () => {},
     nextTick: callback => callback(),
     eventCenter: { on: () => {}, off: () => {} },
@@ -110,6 +111,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   }
   const store = selector => selector({ optionLabel: (_, code) => code, userId: 1 })
   const stubs = {
+    '@/components/MatchPopupHost': { __esModule: true, default: () => null },
     '@tarojs/components': { View, Text, Image, ScrollView, Button: host('button') },
     '@tarojs/taro': { ...taro, default: taro, __esModule: true },
     '@/constants/ossIcons': { miniappOssIcons: new Proxy({}, { get: () => 'icon.png' }) },
@@ -227,6 +229,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   return {
     container, navigation, requests, detailRequests, shareHandlers,
     render: () => act(async () => root.render(React.createElement(Component, { snapshotNo: 'SNAPSHOT-1' }))),
+    remount: () => act(async () => root.render(React.createElement(Component, { key: 'rebuilt', snapshotNo: 'SNAPSHOT-1' }))),
     loadMore: () => act(async () => { feedScrollProps.onScrollToLower() }),
     scroll: top => act(async () => { feedScrollProps.onScroll?.({ detail: { scrollTop: top } }) }),
     scrollTop: () => feedScrollProps.scrollTop,
@@ -235,6 +238,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     changeSincerePage: () => { nextSincerePage = true },
     hideAuthor: id => { hiddenAuthorId = id + 100 },
     failDetail: () => { detailFails = true },
+    failNavigation: () => { navigationFails = true },
   }
 }
 
@@ -249,6 +253,7 @@ test('关注信息流进入图片动态详情再返回时，保留已翻页的�
   await act(async () => app.container.querySelector('[data-post-id="2"] img').click())
   assert.match(app.navigation.at(-1).url, /post-detail\?id=2$/)
   await app.hide()
+  await app.scroll(0)
   app.changeFirstPage()
   await app.show()
   assert.deepEqual(ids(), [5, 4, 3, 2, 1])
@@ -360,13 +365,59 @@ test('我喜欢的第二页返回保留位置，主页取消喜欢后仅移除�
   await app.scroll(720)
   await act(async () => [...app.container.querySelectorAll('span')].filter(node => node.textContent === '查看主页')[2].click())
   await app.hide()
+  await app.scroll(0)
   app.changeFirstPage()
   await app.show()
   for (const id of [1, 2, 4]) assert.ok(app.container.textContent.includes(`嘉宾${id}`))
   assert.ok(!app.container.textContent.includes('嘉宾3'))
   assert.equal(app.scrollTop(), 720)
+  assert.deepEqual(app.requests.map(item => item.page), [1, 2], '返回不能重新拉第一页')
   await act(async () => app.container.querySelector('#my-likes-load-more').click())
   assert.equal(app.requests.at(-1).page, 3)
+})
+
+test('我喜欢的详情往返重建页面实例仍恢复第二页和原位置', async t => {
+  const app = mount(t, 'HOT', 'pages/heart/my-likes.tsx')
+  await app.render()
+  await app.show()
+  await act(async () => app.container.querySelector('#my-likes-load-more').click())
+  await app.scroll(760)
+  await act(async () => [...app.container.querySelectorAll('span')].filter(node => node.textContent === '查看主页')[2].click())
+  await app.hide()
+  await app.remount()
+  await app.show()
+  assert.ok(app.container.textContent.includes('嘉宾4'))
+  assert.equal(app.scrollTop(), 760)
+  await act(async () => app.container.querySelector('#my-likes-load-more').click())
+  assert.equal(app.requests.at(-1).page, 3)
+})
+
+test('我喜欢的打开主页失败不销毁列表或改成 redirectTo', async t => {
+  const app = mount(t, 'HOT', 'pages/heart/my-likes.tsx')
+  await app.render()
+  await app.show()
+  await act(async () => app.container.querySelector('#my-likes-load-more').click())
+  await app.scroll(760)
+  app.failNavigation()
+  await act(async () => [...app.container.querySelectorAll('span')].filter(node => node.textContent === '查看主页')[2].click())
+  await app.show()
+  assert.ok(app.container.textContent.includes('嘉宾4'))
+  assert.equal(app.scrollTop(), 760)
+  assert.deepEqual(app.requests.map(item => item.page), [1, 2])
+})
+
+test('我喜欢的详情快照只消费一次，并隔离其他账号', () => {
+  const source = fs.readFileSync(path.join(sourceRoot, 'domain/givenLikesReturn.ts'), 'utf8')
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
+  const mod = { exports: {} }
+  Function('exports', compiled)(mod.exports)
+  const snapshot = { userId: 1052, records: [], page: null, scrollTop: 760, openedUserId: 23 }
+  mod.exports.saveGivenLikesReturn(snapshot)
+  assert.equal(mod.exports.takeGivenLikesReturn(1053), undefined)
+  assert.equal(mod.exports.takeGivenLikesReturn(1052), undefined)
+  mod.exports.saveGivenLikesReturn(snapshot)
+  assert.equal(mod.exports.takeGivenLikesReturn(1052), snapshot)
+  assert.equal(mod.exports.takeGivenLikesReturn(1052), undefined)
 })
 
 test('悄悄话第二页详情处理后返回只迁移目标，不丢分页和位置', async t => {

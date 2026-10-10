@@ -1,3 +1,4 @@
+import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
@@ -165,6 +166,7 @@ export default function ProfilePage() {
         background: '#F3F5FB',
       }}
     >
+      <MatchPopupHost />
       <Image
         src={profileBg}
         mode="widthFix"

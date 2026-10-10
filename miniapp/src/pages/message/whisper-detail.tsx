@@ -1,3 +1,4 @@
+import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -253,6 +254,7 @@ export default function WhisperDetailPage() {
 
   return (
     <View className="message-page whisper-detail-page">
+      <MatchPopupHost />
       <MessageNav />
       <View className="whisper-profile" onClick={() => {
         const userId = record?.peerUser.userId || router.params.receiverUserId

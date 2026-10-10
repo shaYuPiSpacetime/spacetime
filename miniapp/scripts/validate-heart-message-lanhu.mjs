@@ -15,6 +15,7 @@ const readOptional = relativePath => {
 
 const chat = read('src/pages/chat/index.tsx')
 const heart = read('src/pages/community/index.tsx')
+const matchPopup = read('src/components/MatchPopupHost.tsx')
 const mutual = read('src/pages/heart/mutual.tsx')
 const user = read('src/pages/heart/user.tsx')
 const heartHeader = read('src/components/HeartMessageHeader.tsx')
@@ -40,8 +41,8 @@ assert.match(chat, /系统消息/, '新版消息首页必须提供系统消息�
 assert.match(heart, /accessMode !== 'VIP_ALL_CLEAR'/, '心动页会员状态必须以后端 accessMode 为准')
 assert.doesNotMatch(heart, /router\.params\.member/, '心动页不得使用 URL 参数伪造会员状态')
 assert.match(heart, /router\.params\.tab === 'visitors'/, '心动页必须覆盖对我心动和访客 Tab')
-assert.match(heart, /onQuote=\{goToRecharge\}/, '心动页只看ta必须直接进入千寻币充值页')
-assert.doesNotMatch(heart, /quoteRelationUnlock/, '进入千寻币充值页前不得调用解锁报价接口')
+assert.match(heart, /onQuote=\{\(\) => void requestUnlockQuote\(\)\}/, '只看ta必须先请求报价')
+assert.match(heart, /quote.coinBalance < quote.unitPrice/, '仅余额不足才跳充值')
 assert.match(heart, /confirmRelationUnlock/, '心动页必须通过真实接口确认单人解锁')
 assert.doesNotMatch(heart, /只看ta\(100|只看 Ta\(100/, '单人解锁不得硬编码币值')
 assert.match(heart, /\/pages\/heart\/mutual/, '胶囊左侧图标必须跳转相互喜欢页')
@@ -56,7 +57,8 @@ assert.doesNotMatch(
   '单人解锁场景不得复用“我的-千寻币”通用页面'
 )
 assert.match(heart, /\/pages\/heart\/membership-unlock/, '“解锁全部访客”必须进入独立会员页')
-assert.match(heart, /await markMatchPopupRead/, '匹配弹层必须等待动作回执成功')
+assert.match(heart, /<MatchPopupHost \/>/, '心动页必须挂载前台匹配提醒')
+assert.match(matchPopup, /await markMatchPopupRead/, '匹配弹层必须等待动作回执成功')
 assert.doesNotMatch(
   heart,
   /onUnlock=\{\(\) => setUnlockStage\('success'\)\}/,

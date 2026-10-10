@@ -1,3 +1,4 @@
+import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
@@ -577,6 +578,7 @@ export default function RecommendPage() {
         fontFamily: 'PingFang SC, sans-serif',
       }}
     >
+      <MatchPopupHost />
       <View id="ideal-content-panel" style={{ display: activeTab === 'ideal' ? 'block' : 'none' }}>
       {!idealTabResolved || idealSnapshotNo ? (
         <IdealResultsContent

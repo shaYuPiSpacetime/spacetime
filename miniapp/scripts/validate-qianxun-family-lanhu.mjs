@@ -53,7 +53,7 @@ assert.doesNotMatch(pageEntry, /QianxunFamilyPage/, '推荐 Tab 与千寻成家 
 assert.match(pageEntry, /getRecommendCandidates/, '推荐 Tab 必须读取独立推荐候选接口')
 assert.doesNotMatch(indexPage, /CORE_ALLOWED[\s\S]{0,180}switchTab\(\{ url: '\/pages\/recommend\/index' \}\)/, '已认证账号进入千寻后禁止二次跳到推荐 Tab')
 assert.match(indexPage, /CORE_ALLOWED[\s\S]{0,260}setContentAllowed\(true\)/, '已认证或基础准入完成账号必须在千寻 Tab 内直接渲染成家内容')
-assert.match(indexPage, /if \(contentAllowed\) return <QianxunFamilyPage \/>/, '千寻 Tab 必须在自身路由承载已认证或基础准入完成的成家页面')
+assert.match(indexPage, /if \(contentAllowed\) return <><QianxunFamilyPage \/><MatchPopupHost \/><\/>/, '千寻 Tab 必须在自身路由承载已认证或基础准入完成的成家页面')
 assert.doesNotMatch(page, /profilePreviewAvatar/, '千寻页本人头像和作者兜底禁止使用蓝湖演示人物头像')
 assert.doesNotMatch(page, /觅知音/, '不得残留旧版“觅知音”页结构')
 assert.match(page, /<QianxunZhiyinTab[\s\S]{0,160}secondaryTop=/, '知音必须作为千寻页内一级 Tab 渲染')

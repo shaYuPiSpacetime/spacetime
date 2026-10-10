@@ -265,7 +265,7 @@ test('I-04: 拉黑、解锁过期与账号不可访问显示不同原因且不�
 })
 
 test('R-03: 付费解锁或未知来源的匹配弹窗不能冒称相互喜欢', () => {
-  const source = read('pages/community/index.tsx')
+  const source = read('components/MatchPopupHost.tsx')
   const start = source.indexOf('function MatchPopupSheet(')
   const output = ts.transpileModule(source.slice(start), {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },

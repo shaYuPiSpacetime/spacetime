@@ -1,3 +1,4 @@
+import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
@@ -170,6 +171,7 @@ export default function ChatPage() {
     <View
       style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}
     >
+      <MatchPopupHost />
       <ScrollView
         scrollY
         style={{ width: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? '750rpx' : '100%', height: '100vh' }}

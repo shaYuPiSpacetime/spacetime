@@ -19,7 +19,7 @@ import {
   isIdentityVisible,
 } from '@/domain/relationFeedbackFlow'
 import { getApiErrorCode } from '@/services/request'
-import { resolveConversationByPeerUserId } from '@/services/message'
+import MatchPopupHost from '@/components/MatchPopupHost'
 import {
   acknowledgeVisitorCount,
   currentLocalDateKey,
@@ -30,16 +30,13 @@ import {
 import { useAuthStore } from '@/stores/authStore'
 import {
   confirmRelationUnlock,
+  quoteRelationUnlock,
   getLikesMePage,
-  getPendingMatchPopup,
   getRecentViewersPage,
   markLikesMeRead,
-  markMatchPopupRead,
   markRecentViewersRead,
   type LikesMeItemVO,
   type LikesMePageVO,
-  type MatchPopupAction,
-  type MatchPopupVO,
   type RecentViewerItemVO,
   type RecentViewersPageVO,
   type UnlockConfirmVO,
@@ -97,12 +94,11 @@ export default function CommunityPage() {
   const [unlockQuote, setUnlockQuote] = useState<UnlockQuoteVO | null>(null)
   const [unlockResult, setUnlockResult] = useState<UnlockConfirmVO | null>(null)
   const [unlockSubmitting, setUnlockSubmitting] = useState(false)
-  const [matchPopup, setMatchPopup] = useState<MatchPopupVO | null>(null)
-  const [matchSubmitting, setMatchSubmitting] = useState(false)
   const access = useAccessStatus('canCommunity')
   const snapshotCursorRef = useRef<string | undefined>(undefined)
   const acknowledgedCursorRef = useRef<string | null>(null)
   const unlockAttemptRef = useRef<UnlockAttempt | undefined>(undefined)
+  const unlockBusyRef = useRef(false)
   const likesLoadingRef = useRef(false)
   const visitorsLoadingRef = useRef(false)
   const visitorSnapshotCursorRef = useRef<string | undefined>(undefined)
@@ -229,9 +225,6 @@ export default function CommunityPage() {
     await Promise.all([
       loadLikes(1, preserve),
       loadVisitors(1, preserve),
-      getPendingMatchPopup()
-        .then(data => setMatchPopup(data || null))
-        .catch(error => Taro.showToast({ title: error instanceof Error ? error.message : '匹配提醒加载失败', icon: 'none' })),
     ])
   }
 
@@ -321,8 +314,35 @@ export default function CommunityPage() {
     void Taro.navigateTo({ url: `/pages/coins/unlock-recharge?sourceScene=${currentUnlockScene}` })
   }
 
+  const requestUnlockQuote = async () => {
+    if (!selectedCard || unlockBusyRef.current) return
+    unlockBusyRef.current = true
+    setUnlockSubmitting(true)
+    try {
+      const quote = await quoteRelationUnlock(currentUnlockScene, activeTab === 'visitors' ? 'visit' : 'like', selectedCard.recordNo)
+      if (quote.alreadyUnlocked) {
+        setUnlockStage('closed')
+        await refreshActiveList()
+        if (quote.targetUserId) await Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${quote.targetUserId}&sourceScene=${activeTab === 'visitors' ? 'recent_viewers' : 'likes_me'}` })
+        return
+      }
+      if (quote.coinBalance < quote.unitPrice) {
+        goToRecharge()
+        return
+      }
+      setUnlockQuote(quote)
+      setUnlockStage('quote')
+    } catch (error) {
+      await Taro.showToast({ title: error instanceof Error ? error.message : '报价失败，请重试', icon: 'none' })
+    } finally {
+      unlockBusyRef.current = false
+      setUnlockSubmitting(false)
+    }
+  }
+
   const confirmUnlock = async () => {
-    if (!unlockQuote?.quoteToken || unlockSubmitting) return
+    if (!unlockQuote?.quoteToken || unlockBusyRef.current) return
+    unlockBusyRef.current = true
     const attempt = ensureUnlockAttempt(
       unlockAttemptRef.current,
       unlockQuote.quoteToken,
@@ -347,6 +367,7 @@ export default function CommunityPage() {
       }
       await Taro.showToast({ title: error instanceof Error ? error.message : '解锁失败，请重试', icon: 'none' })
     } finally {
+      unlockBusyRef.current = false
       setUnlockSubmitting(false)
     }
   }
@@ -358,32 +379,6 @@ export default function CommunityPage() {
       return
     }
     openLockedCard(card)
-  }
-
-  const handleMatchAction = async (action: MatchPopupAction) => {
-    const popup = matchPopup
-    if (!popup || matchSubmitting) return
-    setMatchSubmitting(true)
-    try {
-      await markMatchPopupRead(popup.matchNo, action)
-      setMatchPopup(null)
-      if (action === 'profile') {
-        await Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${popup.matchedUserId}&sourceScene=profile` })
-      } else if (action === 'chat') {
-        if (!popup.canEnterConversation) {
-          await Taro.showToast({ title: '当前匹配暂不可聊天', icon: 'none' })
-          return
-        }
-        const conversation = await resolveConversationByPeerUserId(popup.matchedUserId)
-        await Taro.navigateTo({
-          url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}`,
-        })
-      }
-    } catch (error) {
-      await Taro.showToast({ title: error instanceof Error ? error.message : '操作确认失败，请重试', icon: 'none' })
-    } finally {
-      setMatchSubmitting(false)
-    }
   }
 
   if (access.status?.coreAccessStatus === 'NON_CORE_ONLY') {
@@ -458,11 +453,11 @@ export default function CommunityPage() {
         submitting={unlockSubmitting}
         sourceScene={activeTab === 'likes' ? 'likes_me' : 'recent_viewers'}
         onClose={() => !unlockSubmitting && setUnlockStage('closed')}
-        onQuote={goToRecharge}
+        onQuote={() => void requestUnlockQuote()}
         onConfirm={() => void confirmUnlock()}
       />
 
-      <MatchPopupSheet visible={matchPopup !== undefined} popup={matchPopup} submitting={matchSubmitting} onAction={action => void handleMatchAction(action)} />
+      <MatchPopupHost />
     </View>
   )
 }
@@ -677,26 +672,6 @@ function UnlockSheet({ visible = true, stage, card, quote, result, submitting, s
             <View onClick={() => !submitting && Taro.navigateTo({ url: '/pages/heart/membership-unlock' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#EAD8B6', fontSize: '28rpx' }}>解锁全部</Text></View>
           </View>
         )}
-      </View> : null}
-    </View>
-  )
-}
-
-function MatchPopupSheet({ visible = true, popup, submitting, onAction }: { visible?: boolean; popup?: MatchPopupVO | null; submitting: boolean; onAction: (action: MatchPopupAction) => void }) {
-  if (!popup) {
-    return <View style={{ position: 'fixed', inset: 0, zIndex: 9000, visibility: 'hidden', pointerEvents: 'none' }} />
-  }
-  return (
-    <View id="relation-match-popup" onClick={() => !submitting && onAction('close')} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
-      {visible ? <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '42rpx 34rpx 34rpx', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
-        <Image src={popup.avatar || personImage} mode="aspectFill" style={{ width: '132rpx', height: '132rpx', borderRadius: '50%' }} />
-        <Text style={{ marginTop: '24rpx', color: '#0C285A', fontSize: '34rpx', fontWeight: 700 }}>匹配成功</Text>
-        <Text style={{ marginTop: '12rpx', color: '#7F8494', fontSize: '24rpx' }}>{popup.mutualLiked ? `你和${popup.nickname}互相喜欢了` : `你已与${popup.nickname}建立匹配`}</Text>
-        <View style={{ width: '100%', marginTop: '34rpx', display: 'flex', gap: '18rpx', opacity: submitting ? 0.6 : 1 }}>
-          <View id="match-profile-button" onClick={() => !submitting && onAction('profile')} style={{ flex: 1, height: '82rpx', borderRadius: '41rpx', background: '#FFF0F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#F06C83', fontSize: '26rpx' }}>查看主页</Text></View>
-          <View id="match-chat-button" onClick={() => !submitting && onAction('chat')} style={{ flex: 1, height: '82rpx', borderRadius: '41rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '26rpx' }}>去聊天</Text></View>
-        </View>
-        <Text onClick={() => !submitting && onAction('later')} style={{ marginTop: '24rpx', color: '#A0A6B2', fontSize: '24rpx' }}>{submitting ? '正在确认...' : '稍后再说'}</Text>
       </View> : null}
     </View>
   )

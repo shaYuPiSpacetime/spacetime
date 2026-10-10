@@ -1,3 +1,4 @@
+import MatchPopupHost from '@/components/MatchPopupHost'
 import { shareMessage } from '@/utils/shareMessage'
 import { profileShare } from '@/domain/sharePresentation'
 import { Image, Text, View } from '@tarojs/components'
@@ -382,6 +383,7 @@ export default function HeartUserPage() {
 
   return (
     <View id="public-profile-page">
+      <MatchPopupHost />
       <ProfilePreviewPage
         variant="public-profile"
         model={previewModel}

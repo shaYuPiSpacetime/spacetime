@@ -1,3 +1,4 @@
+import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import { navigateToOrRedirect } from '@/utils/navigation'
 import Taro, { useDidHide, useDidShow, useRouter } from '@tarojs/taro'
@@ -161,6 +162,7 @@ function PendingWhisperChat({ pendingWhisperNo }: { pendingWhisperNo: string }) 
 
   return (
     <View className="message-page message-page--gray private-chat-page">
+      <MatchPopupHost />
       <MessageNav title={nickname} avatarUrl={avatar} onProfileClick={targetUserId ? () => void navigateToOrRedirect(`/pages/heart/user?targetUserId=${encodeURIComponent(targetUserId)}&sourceScene=profile`) : undefined} />
       <ScrollView scrollY className="private-chat-scroll" style={{ height: keyboardHeight > 0 ? `calc(100vh - 137px - ${keyboardHeight}px)` : undefined }} showScrollbar={false} onClick={dismissKeyboard}>
         <View className="chat-safety-card">
@@ -798,6 +800,7 @@ function EstablishedPrivateChatPage() {
 
   return (
     <View className="message-page message-page--gray private-chat-page">
+      <MatchPopupHost />
       <MessageNav
         title={detail?.peerUser.nickname || '私信'}
         avatarUrl={detail?.peerUser.avatarUrl || MESSAGE_AVATAR}

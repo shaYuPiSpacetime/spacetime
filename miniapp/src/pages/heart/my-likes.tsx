@@ -1,3 +1,4 @@
+import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
@@ -5,9 +6,9 @@ import AccessBlockedPage from '@/components/AccessBlockedPage'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
 import avatarImage from '@/assets/lanhu/heart-message/heart-avatar.webp'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
-import { refreshRetainedItems } from '@/domain/retainedList'
 import { useRetainedScroll } from '@/hooks/useRetainedScroll'
-import { navigateToOrRedirect } from '@/utils/navigation'
+import { clearGivenLikesReturn, saveGivenLikesReturn, takeGivenLikesReturn } from '@/domain/givenLikesReturn'
+import { useAuthStore } from '@/stores/authStore'
 import { getPublicProfile } from '@/services/profile'
 import {
   getGivenLikes,
@@ -19,21 +20,52 @@ type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 
 /** “我的-我喜欢的”真实有效关系列表。 */
 export default function MyLikesPage() {
+  const userId = useAuthStore(state => state.userId)
+  const [restored] = useState(() => takeGivenLikesReturn(userId))
   const access = useAccessStatus('canCommunity')
-  const [page, setPage] = useState<GivenLikesPageVO | null>(null)
-  const [records, setRecords] = useState<GivenLikeItemVO[]>([])
-  const [state, setState] = useState<LoadState>('loading')
+  const [page, setPage] = useState<GivenLikesPageVO | null>(restored?.page || null)
+  const [records, setRecords] = useState<GivenLikeItemVO[]>(restored?.records || [])
+  const [state, setState] = useState<LoadState>(restored?.records.length ? 'ready' : 'loading')
   const [error, setError] = useState('')
   const [loadingMore, setLoadingMore] = useState(false)
-  const recordsRef = useRef<GivenLikeItemVO[]>([])
+  const recordsRef = useRef<GivenLikeItemVO[]>(restored?.records || [])
   const loadingMoreRef = useRef(false)
   const requestGenerationRef = useRef(0)
   const previousAllowedRef = useRef(access.allowed)
-  const scroll = useRetainedScroll('given-likes')
-  const openedUserRef = useRef<number>()
+  const scroll = useRetainedScroll('given-likes', restored?.scrollTop || 0)
+  const openedUserRef = useRef<number | undefined>(restored?.openedUserId)
 
-  const load = async (pageNo = 1, preserve = false) => {
-    const retaining = preserve && recordsRef.current.length > 0
+  const refreshReturnedPerson = async () => {
+    const openedUserId = openedUserRef.current
+    openedUserRef.current = undefined
+    clearGivenLikesReturn()
+    if (!openedUserId) return
+    const generation = requestGenerationRef.current
+    const profile = await getPublicProfile(openedUserId).catch(() => null)
+    if (!profile || generation !== requestGenerationRef.current) return
+    const before = recordsRef.current
+    const next = before.filter(item => item.userId !== openedUserId || profile.liked !== false)
+      .map(item => item.userId === openedUserId ? { ...item, matched: Boolean(profile.matched), canEnterConversation: Boolean(profile.canEnterConversation) } : item)
+    recordsRef.current = next
+    setRecords(next)
+    setState(next.length ? 'ready' : 'empty')
+    if (next.length !== before.length) setPage(current => current ? { ...current, total: Math.max(0, current.total - (before.length - next.length)) } : current)
+  }
+
+  const openProfile = async (person: GivenLikeItemVO) => {
+    openedUserRef.current = person.userId
+    saveGivenLikesReturn({ userId, records: recordsRef.current, page, scrollTop: scroll.getScrollTop(), openedUserId: person.userId })
+    try {
+      // 入栈失败时保留列表；redirectTo 会销毁分页和侧滑返回目标。
+      await Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${person.userId}&sourceScene=profile&from=my-likes` })
+    } catch {
+      clearGivenLikesReturn()
+      openedUserRef.current = undefined
+      await Taro.showToast({ title: '暂时无法打开主页，请返回上一级后重试', icon: 'none' })
+    }
+  }
+
+  const load = async (pageNo = 1) => {
     const refreshing = pageNo === 1
     if (!refreshing && loadingMoreRef.current) return
     const requestGeneration = refreshing
@@ -42,7 +74,7 @@ export default function MyLikesPage() {
     if (refreshing) {
       loadingMoreRef.current = false
       setLoadingMore(false)
-      if (!retaining) setState('loading')
+      setState('loading')
       setError('')
     } else {
       loadingMoreRef.current = true
@@ -50,21 +82,15 @@ export default function MyLikesPage() {
     }
     try {
       const data = await getGivenLikes(pageNo, 20)
-      const openedUserId = preserve ? openedUserRef.current : undefined
-      openedUserRef.current = undefined
-      const returnedProfile = openedUserId ? await getPublicProfile(openedUserId).catch(() => null) : null
       if (requestGeneration !== requestGenerationRef.current) return
-      const nextRecords = retaining ? refreshRetainedItems(recordsRef.current, data.records || [], item => item.likeNo) : mergeGivenLikesByLikeNo(
+      const nextRecords = mergeGivenLikesByLikeNo(
         refreshing ? [] : recordsRef.current,
         data.records || [],
       )
-      setPage(current => retaining && current ? { ...data, current: current.current, hasMore: current.hasMore } : data)
-      const visibleRecords = returnedProfile ? nextRecords
-        .filter(item => item.userId !== openedUserId || returnedProfile.liked !== false)
-        .map(item => item.userId === openedUserId ? { ...item, matched: Boolean(returnedProfile.matched), canEnterConversation: Boolean(returnedProfile.canEnterConversation) } : item) : nextRecords
-      recordsRef.current = visibleRecords
-      setRecords(visibleRecords)
-      setState(visibleRecords.length ? 'ready' : 'empty')
+      setPage(data)
+      recordsRef.current = nextRecords
+      setRecords(nextRecords)
+      setState(nextRecords.length ? 'ready' : 'empty')
     } catch (reason) {
       if (requestGeneration !== requestGenerationRef.current) return
       const message = reason instanceof Error ? reason.message : '我喜欢的人加载失败'
@@ -80,13 +106,18 @@ export default function MyLikesPage() {
   }
 
   useDidShow(() => {
-    if (access.allowed === true) void load(1, true)
+    if (access.allowed !== true) return
+    if (recordsRef.current.length) void refreshReturnedPerson()
+    else void load(1)
   })
 
   useEffect(() => {
     const becameAllowed = previousAllowedRef.current !== true && access.allowed === true
     previousAllowedRef.current = access.allowed
-    if (becameAllowed) void load(1)
+    if (becameAllowed) {
+      if (recordsRef.current.length) void refreshReturnedPerson()
+      else void load(1)
+    }
   }, [access.allowed])
 
   useEffect(() => () => {
@@ -97,6 +128,7 @@ export default function MyLikesPage() {
 
   return (
     <View id="my-likes-page" style={{ height: '100vh', background: '#FFFFFF', fontFamily: 'PingFang SC, sans-serif' }}>
+      <MatchPopupHost />
       <HeartMessageHeader title={`我喜欢的(${page?.total || 0}人)`} align="center" showBack />
       <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ height: 'calc(100vh - 176rpx)' }}>
         <View style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto' }}>
@@ -113,7 +145,7 @@ export default function MyLikesPage() {
                 </View>
                 <Text style={{ display: 'block', marginTop: '10rpx', color: '#999999', fontSize: '20rpx' }}>{buildProfileText(person)}</Text>
               </View>
-              <View onClick={() => { openedUserRef.current = person.userId; void navigateToOrRedirect(`/pages/heart/user?targetUserId=${person.userId}&sourceScene=profile&from=my-likes`) }} style={{ width: '168rpx', height: '72rpx', borderRadius: '12rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <View onClick={() => void openProfile(person)} style={{ width: '168rpx', height: '72rpx', borderRadius: '12rpx', background: '#F7F8FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#333333', fontSize: '26rpx' }}>查看主页</Text>
               </View>
             </View>
