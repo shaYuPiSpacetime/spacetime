@@ -1,3 +1,4 @@
+import { withCommunityPersonalRefresh } from '@/domain/communityPersonalEvents'
 import { del, get, post, put } from './request'
 import type { PageVO } from '@/types/api'
 import {
@@ -297,16 +298,16 @@ export const getSincerePosts = (page = 1, size = 10) => get<PageVO<CommunityPost
 
 export const getCommunityPostDetail = (postId: number | string) => get<CommunityPostDetailVO>(`/miniapp/community/posts/${postId}`)
 export const getCommunityComments = (postId: number | string, page = 1, size = 20) => get<PageVO<CommunityCommentVO>>(`/miniapp/community/posts/${postId}/comments`, { page, size })
-export const createCommunityComment = (postId: number | string, content: string, parentCommentId?: number, replyUserId?: number) => post<CommunityCommentResultVO>('/miniapp/community/comments', { postId, content, parentCommentId, replyUserId })
-export const deleteCommunityComment = (commentId: number | string) => del<void>(`/miniapp/community/comments/${commentId}`)
-export const deleteCommunityPost = (postId: number | string) => del<void>(`/miniapp/community/posts/${postId}`)
+export const createCommunityComment = (postId: number | string, content: string, parentCommentId?: number, replyUserId?: number) => withCommunityPersonalRefresh(post<CommunityCommentResultVO>('/miniapp/community/comments', { postId, content, parentCommentId, replyUserId }))
+export const deleteCommunityComment = (commentId: number | string) => withCommunityPersonalRefresh(del<void>(`/miniapp/community/comments/${commentId}`))
+export const deleteCommunityPost = (postId: number | string) => withCommunityPersonalRefresh(del<void>(`/miniapp/community/posts/${postId}`))
 
 export const getCommunityConfig = () => get<CommunityConfig>('/miniapp/community/config')
 export const getCommunityMeta = async () => normalizeCommunityMeta(await get<CommunityMetaPayloadVO>('/miniapp/community/meta'))
 export const getFollowingCount = () => get<number>('/miniapp/community/following/count')
-export const toggleCommunityFollow = (targetUserId: number) => post<{ following: boolean; followingCount?: number; followerCount?: number }>(`/miniapp/community/follows/${targetUserId}`)
-export const toggleCommunityLike = (postId: number | string) => post<{ liked: boolean; likeCount: number }>(`/miniapp/community/posts/${postId}/like`)
-export const toggleCommunityCommentLike = (commentId: number | string) => post<{ liked: boolean; likeCount: number }>(`/miniapp/community/comments/${commentId}/like`)
+export const toggleCommunityFollow = (targetUserId: number) => withCommunityPersonalRefresh(post<{ following: boolean; followingCount?: number; followerCount?: number }>(`/miniapp/community/follows/${targetUserId}`))
+export const toggleCommunityLike = (postId: number | string) => withCommunityPersonalRefresh(post<{ liked: boolean; likeCount: number }>(`/miniapp/community/posts/${postId}/like`))
+export const toggleCommunityCommentLike = (commentId: number | string) => withCommunityPersonalRefresh(post<{ liked: boolean; likeCount: number }>(`/miniapp/community/comments/${commentId}/like`))
 
 export function reportCommunityTarget(targetType: CommunityReportTargetType, targetId: number | string, reasonCode: string) {
   return post<CommunityReportResultVO>('/miniapp/community/reports', { targetType, targetId: String(targetId), reasonCode })
@@ -315,23 +316,23 @@ export function reportCommunityTarget(targetType: CommunityReportTargetType, tar
 export const reportCommunityPost = (postId: number | string, reasonCode: string) => reportCommunityTarget('post', postId, reasonCode)
 
 export function publishCommunityPost(content: string, imageUrls: string[], topicId?: number, contentType: CommunityContentType = 'community_post') {
-  return post<CommunityPublishResultVO>('/miniapp/community/posts', {
+  return withCommunityPersonalRefresh(post<CommunityPublishResultVO>('/miniapp/community/posts', {
     contentType,
     postType: contentType,
     content,
     imageUrls,
     topicId,
-  })
+  }))
 }
 
 export function resubmitCommunityPost(postId: number | string, content: string, imageUrls: string[], topicId?: number, contentType: CommunityContentType = 'community_post') {
-  return put<CommunityPublishResultVO>(`/miniapp/community/posts/${postId}`, {
+  return withCommunityPersonalRefresh(put<CommunityPublishResultVO>(`/miniapp/community/posts/${postId}`, {
     contentType,
     postType: contentType,
     content,
     imageUrls,
     topicId,
-  })
+  }))
 }
 
 export const getCommunityDraft = (contentType: CommunityContentType) => get<CommunityDraftVO | null>(`/miniapp/community/drafts/${contentType}`)

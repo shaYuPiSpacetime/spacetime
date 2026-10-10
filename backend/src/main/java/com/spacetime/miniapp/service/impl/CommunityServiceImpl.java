@@ -11,6 +11,7 @@ import com.spacetime.common.community.*;
 import com.spacetime.common.config.OssConfig;
 import com.spacetime.common.dao.*;
 import com.spacetime.common.entity.*;
+import com.spacetime.common.model.community.CommunityInteractionProjection;
 import com.spacetime.common.enums.*;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.interceptor.UserContextHolder;
@@ -59,6 +60,8 @@ public class CommunityServiceImpl implements CommunityService {
     /** 面向用户的统一机审驳回说明，禁止暴露命中的敏感词或供应商标签。 */
     private static final String SAFE_MACHINE_REJECTION_REASON = "内容未通过安全审核，请修改后重新提交";
 
+    /** 个人区实时聚合与数据库分页查询。 */
+    private final CommunityPersonalQueryDao communityPersonalQueryDao;
     /** 社区内容（帖子）数据访问 */
     private final CommunityPostDao communityPostDao;
     /** 社区评论数据访问 */
@@ -107,8 +110,6 @@ public class CommunityServiceImpl implements CommunityService {
     private final OssUtil ossUtil;
     /** OSS 直传归属短期票据。 */
     private final StringRedisTemplate redisTemplate;
-    /** PRD-04 解锁历史只读依赖。 */
-    private final UserUnlockRecordDao userUnlockRecordDao;
     private final Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
 
     @Override
@@ -817,9 +818,7 @@ public class CommunityServiceImpl implements CommunityService {
     @Override
     public long countFollowing(Long userId) {
         requireUser(userId);
-        return communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
-                .eq(CommunityFollow::getFollowerId, userId)
-                .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())).size();
+        return communityPersonalQueryDao.countFollowing(userId);
     }
 
     /**
@@ -951,8 +950,12 @@ public class CommunityServiceImpl implements CommunityService {
                 "community_distribution_scene", "community_ip_block_period", "community_write_scope",
                 "community_topic_status", "community_topic_display_scene", "community_yes_no"
         );
+        Map<String, List<SysDictData>> dictionaries = dictDataDao.selectList(new LambdaQueryWrapper<SysDictData>()
+                .in(SysDictData::getDictType, dictTypes)
+                .eq(SysDictData::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .orderByAsc(SysDictData::getDictSort)).stream().collect(Collectors.groupingBy(SysDictData::getDictType));
         for (String dictType : dictTypes) {
-            result.getDictionaries().put(dictType, toDictOptions(dictDataDao.selectByDictType(dictType)));
+            result.getDictionaries().put(dictType, toDictOptions(dictionaries.getOrDefault(dictType, List.of())));
         }
         result.getDictionaries().put("topics", config.getTopics());
         result.getDictionaries().put("reportReasons", config.getReportReasons());
@@ -1035,7 +1038,7 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(CommunityPost::getAuthorId, targetUserId)
                 .eq(!mine, CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
                 .notIn(mine, CommunityPost::getStatus, List.of("deleted", "blocked"))
-                .orderByDesc(CommunityPost::getCreateTime);
+                .orderByDesc(CommunityPost::getCreateTime, CommunityPost::getId);
         Page<CommunityPost> data = communityPostDao.selectPage(new Page<>(safePage(page), safeSize(size, 100)), wrapper);
         return toPostCardPage(currentUserId, data);
     }
@@ -1060,73 +1063,59 @@ public class CommunityServiceImpl implements CommunityService {
         if (!Set.of("commented", "liked", "unlocked", "viewed").contains(normalized)) {
             throw error("unsupported_interaction_type");
         }
-        List<CommunityInteractionRecordVO> records = new ArrayList<>();
-        if ("commented".equals(normalized)) {
-            List<CommunityComment> comments = communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
-                    .eq(CommunityComment::getAuthorId, userId)
-                    .eq(CommunityComment::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
-                    .orderByDesc(CommunityComment::getCreateTime));
-            Map<Long, CommunityPost> postsById = postsById(comments.stream()
-                    .map(CommunityComment::getPostId).filter(Objects::nonNull).distinct().toList());
-            for (CommunityComment item : comments) {
-                CommunityPost post = postsById.get(item.getPostId());
-                if (post != null && isPublishedPost(post)) {
-                    CommunityInteractionRecordVO record = interactionRecord("commented", "comment-" + item.getId(), item.getCreateTime(), userId, post);
-                    // 互动记录展示本次评论内容，避免同一动态的多条评论显示为相同卡片。
-                    record.setDescription(item.getContent());
-                    records.add(record);
-                }
-            }
-        } else if ("liked".equals(normalized)) {
-            List<CommunityLike> likes = communityLikeDao.selectList(new LambdaQueryWrapper<CommunityLike>()
-                    .eq(CommunityLike::getUserId, userId).eq(CommunityLike::getStatus, CommonStatusEnum.ENABLED.getCode())
-                    .orderByDesc(CommunityLike::getUpdateTime));
-            Map<Long, CommunityPost> postsById = postsById(likes.stream()
-                    .map(CommunityLike::getPostId).filter(Objects::nonNull).distinct().toList());
-            for (CommunityLike item : likes) {
-                CommunityPost post = postsById.get(item.getPostId());
-                if (post != null && isPublishedPost(post)) records.add(interactionRecord("liked", "like-" + item.getId(), item.getUpdateTime(), userId, post));
-            }
-        } else if ("viewed".equals(normalized)) {
-            List<CommunityViewHistory> views = communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
-                    .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt));
-            Map<Long, CommunityPost> postsById = postsById(views.stream()
-                    .map(CommunityViewHistory::getPostId).filter(Objects::nonNull).distinct().toList());
-            for (CommunityViewHistory item : views) {
-                CommunityPost post = postsById.get(item.getPostId());
-                if (post != null && isPublishedPost(post)) records.add(interactionRecord("viewed", "view-" + item.getId(), item.getViewedAt(), userId, post));
-            }
-        } else {
-            for (UserUnlockRecord item : userUnlockRecordDao.selectList(new LambdaQueryWrapper<UserUnlockRecord>()
-                    .eq(UserUnlockRecord::getUserId, userId).orderByDesc(UserUnlockRecord::getEffectiveTime))) {
-                AppUser target = item.getTargetUserId() == null ? null : appUserDao.selectById(item.getTargetUserId());
-                CommunityInteractionRecordVO vo = new CommunityInteractionRecordVO();
-                vo.setId(item.getUnlockNo());
-                vo.setInteractionType("unlocked");
-                vo.setTargetUserId(item.getTargetUserId());
-                vo.setTargetUserNo(userNo(item.getTargetUserId()));
-                vo.setNickname(target == null ? null : target.getNickname());
-                vo.setAvatar(item.getTargetUserId() == null ? null : auditContentService.publicAvatar(item.getTargetUserId()));
-                vo.setDescription(target == null ? null : profileDescription(target));
-                vo.setInteractionTime(formatTime(item.getEffectiveTime()));
-                records.add(vo);
-            }
+        Page<CommunityInteractionProjection> data = communityPersonalQueryDao.selectInteractions(
+                new Page<>(safePage(page), safeSize(size, 100)), userId, normalized);
+        List<CommunityInteractionProjection> rows = data.getRecords();
+        Page<CommunityInteractionRecordVO> result = new Page<>(data.getCurrent(), data.getSize(), data.getTotal());
+        if (rows.isEmpty()) {
+            result.setRecords(List.of());
+            return result;
         }
-        return slice(records, page, size);
+        // 1. 只在当前页内批量获取动态及作者，查询次数不随记录数量增长。
+        Map<Long, CommunityPost> posts = postsById(rows.stream().map(CommunityInteractionProjection::getPostId)
+                .filter(Objects::nonNull).distinct().toList());
+        PostCardBatch cards = postCardBatch(userId, new ArrayList<>(posts.values()));
+        RelationProfileBatch profiles = "unlocked".equals(normalized)
+                ? relationProfileBatch(userId, rows.stream().map(CommunityInteractionProjection::getTargetUserId)
+                        .filter(Objects::nonNull).distinct().toList(), false)
+                : RelationProfileBatch.empty();
+        List<CommunityInteractionRecordVO> records = new ArrayList<>();
+        for (CommunityInteractionProjection row : rows) {
+            CommunityInteractionRecordVO record = new CommunityInteractionRecordVO();
+            record.setId(row.getId());
+            record.setInteractionType(normalized);
+            record.setTargetUserId(row.getTargetUserId());
+            record.setInteractionTime(formatTime(row.getInteractionTime()));
+            AppUser author;
+            if ("unlocked".equals(normalized)) {
+                author = profiles.users().get(row.getTargetUserId());
+                record.setAvatar(profiles.avatars().get(row.getTargetUserId()));
+                record.setDescription(author == null ? null : profileDescription(author,
+                        profiles.cityLabels(), profiles.occupationLabels()));
+            } else {
+                CommunityPost post = posts.get(row.getPostId());
+                // 分页后若审核/删除发生变化，不回显已不可见的动态。
+                if (!isPublishedPost(post)) continue;
+                author = cards.authors().get(post.getAuthorId());
+                record.setAvatar(cards.avatars().get(post.getAuthorId()));
+                record.setDescription("commented".equals(normalized) ? row.getDescription()
+                        : author == null ? null : profileDescription(author, cards.cityLabels(), cards.occupationLabels()));
+                record.setPost(toPostCard(post, cards));
+            }
+            record.setNickname(author == null ? null : author.getNickname());
+            record.setTargetUserNo(userNo(row.getTargetUserId()));
+            records.add(record);
+        }
+        result.setRecords(records);
+        return result;
     }
 
     @Override
     public Page<CommunityPostCardVO> getViewHistory(Long userId, int page, int size) {
-        requireUser(userId);
-        List<CommunityViewHistory> views = communityExtensionDao.selectViews(new LambdaQueryWrapper<CommunityViewHistory>()
-                .eq(CommunityViewHistory::getUserId, userId).orderByDesc(CommunityViewHistory::getViewedAt));
-        Map<Long, CommunityPost> postsById = postsById(views.stream()
-                .map(CommunityViewHistory::getPostId).filter(Objects::nonNull).distinct().toList());
-        List<CommunityPostCardVO> records = views.stream()
-                .map(item -> postsById.get(item.getPostId()))
-                .filter(Objects::nonNull)
-                .map(item -> toPostCard(userId, item)).toList();
-        return slice(records, page, size);
+        Page<CommunityInteractionRecordVO> history = getInteractionHistory(userId, "viewed", page, size);
+        Page<CommunityPostCardVO> result = new Page<>(history.getCurrent(), history.getSize(), history.getTotal());
+        result.setRecords(history.getRecords().stream().map(CommunityInteractionRecordVO::getPost).toList());
+        return result;
     }
 
     /** 按 ID 列表批量查询帖子，消除浏览/互动记录的逐条查询。 */
@@ -1184,7 +1173,7 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(fans, CommunityFollow::getTargetUserId, userId)
                 .eq(!fans, CommunityFollow::getFollowerId, userId)
                 .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())
-                .orderByDesc(CommunityFollow::getUpdateTime));
+                .orderByDesc(CommunityFollow::getUpdateTime, CommunityFollow::getId));
         List<CommunityFollow> pageRecords = follows == null || follows.getRecords() == null
                 ? List.of() : follows.getRecords();
         List<Long> targetIds = pageRecords.stream()
@@ -1208,40 +1197,31 @@ public class CommunityServiceImpl implements CommunityService {
     @Override
     public Page<CommunityRelationUserVO> getPostInteractors(Long userId, String postRef, String type, int page, int size) {
         CommunityPost post = requirePostRef(postRef);
-        Map<Long, LocalDateTime> users = new LinkedHashMap<>();
-        Map<Long, String> summaries = new HashMap<>();
-        if ("liked".equalsIgnoreCase(type)) {
-            for (CommunityLike item : communityLikeDao.selectList(new LambdaQueryWrapper<CommunityLike>()
-                    .eq(CommunityLike::getPostId, post.getId()).eq(CommunityLike::getStatus, CommonStatusEnum.ENABLED.getCode())
-                    .orderByDesc(CommunityLike::getUpdateTime))) {
-                users.putIfAbsent(item.getUserId(), item.getUpdateTime());
-            }
-        } else if ("commented".equalsIgnoreCase(type)) {
-            for (CommunityComment item : communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
-                    .eq(CommunityComment::getPostId, post.getId()).eq(CommunityComment::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
-                    .orderByDesc(CommunityComment::getCreateTime))) {
-                users.putIfAbsent(item.getAuthorId(), item.getCreateTime());
-                summaries.putIfAbsent(item.getAuthorId(), item.getContent());
-            }
-        } else {
-            throw error("unsupported_interactor_type");
-        }
-        List<CommunityRelationUserVO> records = users.entrySet().stream()
-                .map(item -> toRelationUser(userId, item.getKey(), item.getValue(), summaries.get(item.getKey())))
-                .filter(Objects::nonNull).toList();
-        return slice(records, page, size);
+        String normalized = StrUtil.blankToDefault(type, "").toLowerCase(Locale.ROOT);
+        if (!Set.of("liked", "commented").contains(normalized)) throw error("unsupported_interactor_type");
+        return toPersonalRelationPage(userId, communityPersonalQueryDao.selectInteractors(
+                new Page<>(safePage(page), safeSize(size, 100)), post.getId(), normalized));
     }
 
     @Override
     public Page<CommunityRelationUserVO> getHiddenAuthors(Long userId, int page, int size) {
-        List<CommunityRelationUserVO> records = communityExtensionDao.selectPreferences(new LambdaQueryWrapper<CommunityContentPreference>()
-                        .eq(CommunityContentPreference::getUserId, userId)
-                        .eq(CommunityContentPreference::getActionType, "hide_author_posts")
-                        .eq(CommunityContentPreference::getStatus, "enabled")
-                        .orderByDesc(CommunityContentPreference::getUpdateTime))
-                .stream().map(item -> toRelationUser(userId, item.getTargetUserId(), item.getUpdateTime(), null))
-                .filter(Objects::nonNull).toList();
-        return slice(records, page, size);
+        return toPersonalRelationPage(userId, communityPersonalQueryDao.selectHiddenAuthors(
+                new Page<>(safePage(page), safeSize(size, 100)), userId));
+    }
+
+    /** 当前页资料与双向关注状态统一批量获取。 */
+    private Page<CommunityRelationUserVO> toPersonalRelationPage(Long userId, Page<CommunityInteractionProjection> data) {
+        List<Long> ids = data.getRecords().stream().map(CommunityInteractionProjection::getTargetUserId)
+                .filter(Objects::nonNull).distinct().toList();
+        RelationProfileBatch batch = relationProfileBatch(userId, ids, false);
+        // 名单来源不是关注列表，必须查询当前真实关注状态。
+        batch = new RelationProfileBatch(batch.users(), batch.avatars(), batch.cityLabels(), batch.occupationLabels(),
+                activeFollowTargets(userId, ids), batch.followedByIds());
+        RelationProfileBatch profiles = batch;
+        Page<CommunityRelationUserVO> result = new Page<>(data.getCurrent(), data.getSize(), data.getTotal());
+        result.setRecords(data.getRecords().stream().map(row -> toRelationUser(profiles,
+                row.getTargetUserId(), row.getInteractionTime(), row.getDescription())).filter(Objects::nonNull).toList());
+        return result;
     }
 
     @Override
@@ -1264,19 +1244,11 @@ public class CommunityServiceImpl implements CommunityService {
         result.setAvatar(auditContentService.publicAvatar(userId));
         result.setDescription(profileDescription(user));
         CommunityProfileSummaryVO.Stats stats = new CommunityProfileSummaryVO.Stats();
-        List<CommunityPost> ownPosts = communityPostDao.selectList(new LambdaQueryWrapper<CommunityPost>()
-                .eq(CommunityPost::getAuthorId, userId).notIn(CommunityPost::getStatus, List.of("deleted", "blocked")));
-        stats.setPostCount((long) ownPosts.size());
-        stats.setFollowingCount((long) communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
-                .eq(CommunityFollow::getFollowerId, userId).eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())).size());
-        stats.setFollowerCount((long) communityFollowDao.selectList(new LambdaQueryWrapper<CommunityFollow>()
-                .eq(CommunityFollow::getTargetUserId, userId).eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())).size());
-        long postLikes = ownPosts.stream().mapToLong(item -> defaultZero(item.getLikeCount())).sum();
-        List<Long> commentIds = communityCommentDao.selectList(new LambdaQueryWrapper<CommunityComment>()
-                        .eq(CommunityComment::getAuthorId, userId)).stream().map(CommunityComment::getId).toList();
-        long commentLikes = commentIds.isEmpty() ? 0 : communityExtensionDao.selectCommentLikes(new LambdaQueryWrapper<CommunityCommentLike>()
-                .in(CommunityCommentLike::getCommentId, commentIds).eq(CommunityCommentLike::getStatus, "enabled")).size();
-        stats.setReceivedLikeCount(postLikes + commentLikes);
+        var aggregate = communityPersonalQueryDao.selectStats(userId);
+        stats.setPostCount(aggregate.getPostCount());
+        stats.setFollowingCount(aggregate.getFollowingCount());
+        stats.setFollowerCount(aggregate.getFollowerCount());
+        stats.setReceivedLikeCount(aggregate.getReceivedLikeCount());
         result.setStats(stats);
         return result;
     }
@@ -1724,22 +1696,6 @@ public class CommunityServiceImpl implements CommunityService {
         return result;
     }
 
-    private CommunityInteractionRecordVO interactionRecord(String type, String id, LocalDateTime time,
-                                                            Long currentUserId, CommunityPost post) {
-        CommunityInteractionRecordVO result = new CommunityInteractionRecordVO();
-        result.setId(id);
-        result.setInteractionType(type);
-        result.setTargetUserId(post.getAuthorId());
-        result.setTargetUserNo(userNo(post.getAuthorId()));
-        AppUser author = appUserDao.selectById(post.getAuthorId());
-        result.setNickname(author == null ? null : author.getNickname());
-        result.setAvatar(auditContentService.publicAvatar(post.getAuthorId()));
-        result.setDescription(author == null ? null : profileDescription(author));
-        result.setInteractionTime(formatTime(time));
-        result.setPost(toPostCard(currentUserId, post));
-        return result;
-    }
-
     private CommunityRelationUserVO toRelationUser(Long currentUserId, Long targetUserId,
                                                     LocalDateTime time, String commentSummary) {
         AppUser target = targetUserId == null ? null : appUserDao.selectById(targetUserId);
@@ -1812,6 +1768,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private Set<Long> activeFollowTargets(Long userId, List<Long> targetUserIds) {
+        if (userId == null || targetUserIds.isEmpty()) return Set.of();
         List<CommunityFollow> values = communityFollowDao.selectList(
                 new LambdaQueryWrapper<CommunityFollow>()
                         .eq(CommunityFollow::getFollowerId, userId)
@@ -1824,6 +1781,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private Set<Long> activeFollowers(Long userId, List<Long> targetUserIds) {
+        if (userId == null || targetUserIds.isEmpty()) return Set.of();
         List<CommunityFollow> values = communityFollowDao.selectList(
                 new LambdaQueryWrapper<CommunityFollow>()
                         .in(CommunityFollow::getFollowerId, targetUserIds)

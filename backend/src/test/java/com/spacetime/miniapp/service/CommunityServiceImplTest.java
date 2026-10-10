@@ -10,6 +10,8 @@ import com.spacetime.common.community.*;
 import com.spacetime.common.config.OssConfig;
 import com.spacetime.common.dao.*;
 import com.spacetime.common.entity.*;
+import com.spacetime.common.model.community.CommunityInteractionProjection;
+import com.spacetime.common.model.community.CommunityPersonalStats;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.dto.request.CommunityCommentCreateReq;
 import com.spacetime.miniapp.dto.request.CommunityPostCreateReq;
@@ -56,6 +58,7 @@ import static org.mockito.Mockito.*;
 class CommunityServiceImplTest {
 
     @Mock private CommunityPostDao communityPostDao;
+    @Mock private CommunityPersonalQueryDao communityPersonalQueryDao;
     @Mock private CommunityCommentDao communityCommentDao;
     @Mock private CommunityLikeDao communityLikeDao;
     @Mock private CommunityFollowDao communityFollowDao;
@@ -136,6 +139,86 @@ class CommunityServiceImplTest {
             return keys.stream().map(key -> appConfig(key, runtimeConfigs.get(key))).toList();
         });
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    }
+
+    @Test
+    void personalSummaryUsesRealtimeAggregateWithoutLoadingHistory() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        CommunityPersonalStats counts = new CommunityPersonalStats();
+        counts.setPostCount(3L); counts.setFollowingCount(5L);
+        counts.setFollowerCount(7L); counts.setReceivedLikeCount(11L);
+        when(communityPersonalQueryDao.selectStats(1L)).thenReturn(counts);
+        var result = communityService.getProfileSummary(1L);
+        assertThat(result.getStats().getPostCount()).isEqualTo(3L);
+        assertThat(result.getStats().getFollowingCount()).isEqualTo(5L);
+        assertThat(result.getStats().getFollowerCount()).isEqualTo(7L);
+        assertThat(result.getStats().getReceivedLikeCount()).isEqualTo(11L);
+        verifyNoInteractions(communityPostDao, communityCommentDao, communityLikeDao, communityFollowDao, communityExtensionDao);
+    }
+
+    @Test
+    void interactionPageBatchesRepeatedAuthorsAndRetainsCommentBodyAndTotal() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        AppUser author = author(2L, "author");
+        CommunityInteractionProjection first = new CommunityInteractionProjection();
+        first.setId("comment-1"); first.setPostId(100L); first.setTargetUserId(2L);
+        first.setDescription("first comment"); first.setInteractionTime(LocalDateTime.of(2026,10,10,10,0));
+        CommunityInteractionProjection second = new CommunityInteractionProjection();
+        second.setId("comment-2"); second.setPostId(100L); second.setTargetUserId(2L);
+        second.setDescription("second comment"); second.setInteractionTime(first.getInteractionTime());
+        Page<CommunityInteractionProjection> data = new Page<>(2, 50, 1000);
+        data.setRecords(List.of(first, second));
+        when(communityPersonalQueryDao.selectInteractions(any(), eq(1L), eq("commented"))).thenReturn(data);
+        when(communityPostDao.selectList(any())).thenReturn(List.of(post));
+        when(appUserDao.selectByIds(any())).thenReturn(List.of(author));
+        when(auditContentService.publicAvatars(anyCollection())).thenReturn(Map.of(2L,"avatar"));
+        var result = communityService.getInteractionHistory(1L, "COMMENTED", 2, 50);
+        assertThat(result.getTotal()).isEqualTo(1000);
+        assertThat(result.getCurrent()).isEqualTo(2);
+        assertThat(result.getRecords()).extracting(CommunityInteractionRecordVO::getDescription)
+                .containsExactly("first comment", "second comment");
+        assertThat(result.getRecords()).extracting(CommunityInteractionRecordVO::getTargetUserNo).containsOnly("USR-000000000002");
+        verify(appUserDao, never()).selectById(2L);
+        verify(appUserDao).selectByIds(any());
+        verify(auditContentService).publicAvatars(anyCollection());
+        verify(auditContentService, never()).publicAvatar(2L);
+    }
+
+    @Test
+    void emptyInteractionPageClampsPaginationAndDoesNotLoadCards() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityPersonalQueryDao.selectInteractions(any(), eq(1L), eq("liked")))
+                .thenAnswer(call -> { Page<CommunityInteractionProjection> page = call.getArgument(0); return page; });
+        var result = communityService.getInteractionHistory(1L, "liked", -1, 10000);
+        assertThat(result.getCurrent()).isEqualTo(1);
+        assertThat(result.getSize()).isEqualTo(100);
+        assertThat(result.getRecords()).isEmpty();
+        verifyNoInteractions(communityPostDao, communityLikeDao, communityFollowDao);
+    }
+
+    @Test
+    void viewHistoryReusesPagedInteractionCardsAndInvalidTypeFailsClosed() {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        Page<CommunityInteractionProjection> data = new Page<>(3, 20, 40);
+        when(communityPersonalQueryDao.selectInteractions(any(), eq(1L), eq("viewed"))).thenReturn(data);
+        var result = communityService.getViewHistory(1L, 3, 20);
+        assertThat(result.getCurrent()).isEqualTo(3);
+        assertThat(result.getTotal()).isEqualTo(40);
+        assertThatThrownBy(() -> communityService.getInteractionHistory(1L, "injected", 1, 20))
+                .isInstanceOf(BusinessException.class);
+        verifyNoInteractions(communityExtensionDao);
+    }
+
+    @Test
+    void hiddenAuthorPageDoesNotAssumeEveryListedUserIsFollowed() {
+        CommunityInteractionProjection row = new CommunityInteractionProjection(); row.setTargetUserId(2L);
+        Page<CommunityInteractionProjection> page = new Page<>(1,20,1); page.setRecords(List.of(row));
+        when(communityPersonalQueryDao.selectHiddenAuthors(any(),eq(1L))).thenReturn(page);
+        when(appUserDao.selectByIds(any())).thenReturn(List.of(author(2L,"hidden")));
+        var result = communityService.getHiddenAuthors(1L,1,20);
+        assertThat(result.getRecords()).hasSize(1);
+        assertThat(result.getRecords().getFirst().getFollowing()).isFalse();
+        verify(appUserDao,never()).selectById(2L);
     }
 
     @Test

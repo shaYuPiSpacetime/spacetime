@@ -1,6 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat } from '@/components/QianxunCommunityIcons'
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
@@ -13,7 +13,6 @@ import {
   COMMUNITY_COPY_KEYS,
   deleteCommunityPost,
   getCommunityMeta,
-  getCommunityProfileSummary,
   getMyCommunityPosts,
   resolveCommunityCopy,
   resolveCommunityFeedback,
@@ -21,7 +20,7 @@ import {
   type CommunityConfig,
   type CommunityPostVO,
 } from '@/services/community'
-import { prd01Api } from '@/services/prd01'
+import { useCommunityPersonalSummary } from '@/hooks/useCommunityPersonalSummary'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -65,7 +64,17 @@ const emptyProfile: ProfileSummary = {
 }
 
 export default function QianxunMyPostsPage() {
-  const [profile, setProfile] = useState<ProfileSummary>(emptyProfile)
+  const { summary } = useCommunityPersonalSummary()
+  const auth = useAuthStore.getState()
+  const profile: ProfileSummary = {
+    nickname: summary?.nickname || auth.nickname || emptyProfile.nickname,
+    avatar: normalizeAvatarUrl(summary?.avatar || auth.avatar, defaultAvatar),
+    description: summary?.description || emptyProfile.description,
+    postCount: readNonNegativeNumber(summary?.stats?.postCount),
+    followingCount: readNonNegativeNumber(summary?.stats?.followingCount),
+    followerCount: readNonNegativeNumber(summary?.stats?.followerCount),
+    receivedLikeCount: readNonNegativeNumber(summary?.stats?.receivedLikeCount),
+  }
   const [receipts, setReceipts] = useState<MyPostReceipt[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<MyPostReceipt>()
@@ -79,33 +88,18 @@ export default function QianxunMyPostsPage() {
     void loadPage()
   })
 
+  const postsRequest = useRef(0)
   const loadPage = async () => {
-    setLoading(true)
+    const request = ++postsRequest.current
+    void getCommunityMeta().then(setConfig).catch(() => {})
     try {
-      const [runtime, home, summary, postPage] = await Promise.all([
-        getCommunityMeta(),
-        prd01Api.getHomeDetail(),
-        getCommunityProfileSummary(),
-        getMyCommunityPosts(1, 50),
-      ])
-      setConfig(runtime)
-      const serverPosts = (postPage.records || []).filter(item => shouldDisplayMyCommunityPost(item.status)).map(toPostReceipt)
-      setReceipts(serverPosts)
-      const auth = useAuthStore.getState()
-      const source = home.profile || {}
-      setProfile({
-        nickname: String(source.nickname || auth.nickname || resolveCommunityCopy(runtime, COMMUNITY_COPY_KEYS.profilePendingNickname)),
-        avatar: normalizeAvatarUrl(String(source.avatar || auth.avatar || ''), defaultAvatar),
-        description: buildProfileDescription(source, runtime),
-        postCount: readNonNegativeNumber(summary.stats?.postCount),
-        followingCount: readNonNegativeNumber(summary.stats?.followingCount),
-        followerCount: readNonNegativeNumber(summary.stats?.followerCount),
-        receivedLikeCount: readNonNegativeNumber(summary.stats?.receivedLikeCount),
-      })
+      const postPage = await getMyCommunityPosts(1, 50)
+      if (request !== postsRequest.current) return
+      setReceipts((postPage.records || []).filter(item => shouldDisplayMyCommunityPost(item.status)).map(toPostReceipt))
     } catch (error) {
-      await showError(config, error)
+      if (request === postsRequest.current) await showError(config, error)
     } finally {
-      setLoading(false)
+      if (request === postsRequest.current) setLoading(false)
     }
   }
 
@@ -141,6 +135,7 @@ export default function QianxunMyPostsPage() {
       const postRef = deleteReceipt.postNo || deleteReceipt.postId
       if (!postRef) throw new Error('当前动态暂时无法删除')
       await deleteCommunityPost(postRef)
+      postsRequest.current++
       setReceipts(items => items.filter(item => item.id !== deleteReceipt.id))
       setSelected(undefined)
       setDeleteReceipt(undefined)
@@ -155,6 +150,7 @@ export default function QianxunMyPostsPage() {
     setLikingPostIds(ids => [...ids, receipt.postId as number])
     try {
       const result = await toggleCommunityLike(receipt.postId)
+      postsRequest.current++
       setReceipts(items => items.map(item => item.id === receipt.id
         ? { ...item, liked: result.liked, likeCount: result.likeCount }
         : item))
@@ -167,7 +163,7 @@ export default function QianxunMyPostsPage() {
 
   return (
     <View id="qianxun-my-posts-page" style={{ height: '100vh', background: 'linear-gradient(105deg, #EEFFFC 0%, #F2F6FF 55%, #FEFFF4 100%)', overflow: 'hidden' }}>
-      <ProfileHeader profile={profile} />
+      <ProfileHeader profile={profile} statsReady={Boolean(summary)} />
       <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '430rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
         <MainTabs />
         <ScrollView scrollY style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
@@ -187,7 +183,7 @@ export default function QianxunMyPostsPage() {
   )
 }
 
-function ProfileHeader({ profile }: { profile: ProfileSummary }) {
+function ProfileHeader({ profile, statsReady }: { profile: ProfileSummary; statsReady: boolean }) {
   const openOwnProfile = () => {
     const currentUserId = useAuthStore.getState().userId
     if (!currentUserId) {
@@ -214,7 +210,7 @@ function ProfileHeader({ profile }: { profile: ProfileSummary }) {
         </View>
       </View>
       <View style={{ position: 'absolute', left: '28rpx', top: '356rpx', width: '550rpx', height: '62rpx', display: 'flex', alignItems: 'center' }}>
-        {stats.map(item => <View key={item.label} onClick={item.onClick} style={{ minWidth: '116rpx', height: '62rpx', marginRight: '5rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#9A9FA8', fontSize: '22rpx', marginRight: '10rpx' }}>{item.label}</Text><Text style={{ color: NAVY, fontSize: '30rpx', fontWeight: 600 }}>{item.value}</Text></View>)}
+        {stats.map(item => <View key={item.label} onClick={item.onClick} style={{ minWidth: '116rpx', height: '62rpx', marginRight: '5rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#9A9FA8', fontSize: '22rpx', marginRight: '10rpx' }}>{item.label}</Text><Text style={{ color: NAVY, fontSize: '30rpx', fontWeight: 600 }}>{statsReady ? item.value : '—'}</Text></View>)}
       </View>
     </View>
   )
@@ -346,11 +342,6 @@ function toPostReceipt(post: CommunityPostVO): MyPostReceipt {
     liked: Boolean(post.liked),
     failureMessage: post.auditRemark || post.statusMessage,
   }
-}
-
-function buildProfileDescription(source: Record<string, unknown>, config?: CommunityConfig) {
-  const birthYear = source.birthYear || (typeof source.birthday === 'string' ? source.birthday.slice(0, 4) : '')
-  return [birthYear ? `${birthYear}年` : '', source.locationCityName, source.occupationLabel].filter(Boolean).join(' · ') || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profilePendingDescription)
 }
 
 function readNonNegativeNumber(value: unknown) {

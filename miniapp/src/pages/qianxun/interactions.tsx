@@ -1,6 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
@@ -16,7 +16,7 @@ import {
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import { normalizeAvatarUrl } from '@/utils/avatar'
-import { prd01Api } from '@/services/prd01'
+import { useCommunityPersonalSummary } from '@/hooks/useCommunityPersonalSummary'
 import {
   COMMUNITY_COPY_KEYS,
   clearCommunityViewHistory,
@@ -26,7 +26,6 @@ import {
   getCommunityFollowRelations,
   getCommunityInteractions,
   getCommunityPostInteractors,
-  getCommunityProfileSummary,
   getCommunityComments,
   getHiddenCommunityAuthors,
   getMyCommunityPosts,
@@ -106,10 +105,17 @@ function resolveOwnAvatar(value?: string | null) {
 }
 
 export default function QianxunInteractionsPage() {
-  const [profile, setProfile] = useState<ProfileSummary>(() => {
-    const auth = useAuthStore.getState()
-    return { ...emptyProfile, nickname: auth.nickname || emptyProfile.nickname, avatar: '' }
-  })
+  const { summary } = useCommunityPersonalSummary()
+  const auth = useAuthStore.getState()
+  const profile: ProfileSummary = {
+    nickname: summary?.nickname || auth.nickname || emptyProfile.nickname,
+    avatar: resolveOwnAvatar(summary?.avatar || auth.avatar),
+    description: summary?.description || emptyProfile.description,
+    postCount: readNonNegativeNumber(summary?.stats?.postCount),
+    followingCount: readNonNegativeNumber(summary?.stats?.followingCount),
+    followerCount: readNonNegativeNumber(summary?.stats?.followerCount),
+    receivedLikeCount: readNonNegativeNumber(summary?.stats?.receivedLikeCount),
+  }
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState<MainSection>('interaction')
   const [filter, setFilter] = useState<InteractionFilter>('commented')
@@ -143,11 +149,40 @@ export default function QianxunInteractionsPage() {
     if (options.interactionType === 'commented') setInteractorType('commented')
   })
 
+  const [showVersion, setShowVersion] = useState(0)
+  const loadedLists = useRef(new Set<string>())
   useDidShow(() => {
-    void loadIdentity()
-    void loadPage()
-    void loadMyPosts()
+    void getCommunityMeta().then(setConfig).catch(() => {})
+    setShowVersion(value => value + 1)
   })
+
+  // 当前栏目独立加载；慢浏览记录不会阻塞统计或其他互动筛选。
+  useEffect(() => {
+    if (roster || interactorPostId || likeSummaryVisible || !showVersion) return
+    if (section === 'mine') {
+      void loadMyPosts()
+      return () => { myPostsRequest.current++ }
+    }
+    let cancelled = false
+    const type = section === 'history' ? 'viewed' : filter
+    setLoading(!loadedLists.current.has(type))
+    const request = type === 'viewed'
+      ? getCommunityInteractions('viewed', 1, 50)
+      : getCommunityInteractions(type, 1, 50)
+    void request.then(page => {
+      if (cancelled) return
+      const items = (page.records || []).map(item => ({
+        id: String(item.id), kind: (type === 'viewed' ? 'commented' : type) as InteractionFilter,
+        userId: item.targetUserId, nickname: item.nickname, avatar: item.avatar,
+        description: item.description, interactionTime: item.interactionTime, post: item.post,
+      }))
+      if (type === 'viewed') setHistory(items)
+      else setRecords(current => [...current.filter(item => item.kind !== type), ...items])
+      loadedLists.current.add(type)
+    }).catch(error => { if (!cancelled) void showError(config, error) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [section, filter, roster, interactorPostId, likeSummaryVisible, showVersion])
 
   useEffect(() => {
     if (!roster) return
@@ -165,77 +200,18 @@ export default function QianxunInteractionsPage() {
     }).catch(error => showError(config, error)).finally(() => setRosterLoading(false))
   }, [interactorPostId, interactorType])
 
-  const loadPage = async () => {
-    setLoading(true)
-    try {
-      const [runtime, summary, commented, liked, unlocked, viewHistory] = await Promise.all([
-        getCommunityMeta(),
-        getCommunityProfileSummary(),
-        getCommunityInteractions('commented', 1, 50),
-        getCommunityInteractions('liked', 1, 50),
-        getCommunityInteractions('unlocked', 1, 50),
-        getCommunityInteractions('viewed', 1, 50),
-      ])
-      setConfig(runtime)
-      setProfile(current => ({
-        ...current,
-        postCount: readNonNegativeNumber(summary.stats?.postCount),
-        followingCount: readNonNegativeNumber(summary.stats?.followingCount),
-        followerCount: readNonNegativeNumber(summary.stats?.followerCount),
-        receivedLikeCount: readNonNegativeNumber(summary.stats?.receivedLikeCount),
-      }))
-      setRecords([...commented.records, ...liked.records, ...unlocked.records].map(item => ({
-        id: String(item.id),
-        kind: item.interactionType as InteractionFilter,
-        userId: item.targetUserId,
-        nickname: item.nickname,
-        avatar: item.avatar,
-        description: item.description,
-        interactionTime: item.interactionTime,
-        post: item.post,
-      })))
-      setHistory((viewHistory.records || []).map(item => ({
-        id: String(item.id),
-        kind: 'commented',
-        userId: item.targetUserId,
-        nickname: item.nickname,
-        avatar: item.avatar,
-        description: item.description,
-        interactionTime: item.interactionTime,
-        post: item.post,
-      })))
-    } catch (error) {
-      await showError(config, error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadIdentity = async () => {
-    try {
-      const ownerId = useAuthStore.getState().userId
-      const home = await prd01Api.getHomeDetail()
-      const auth = useAuthStore.getState()
-      if (auth.userId !== ownerId) return
-      const source = home.profile || {}
-      const nickname = String(source.nickname || auth.nickname || emptyProfile.nickname)
-      const avatar = resolveOwnAvatar(String(source.avatar || ''))
-      setProfile(current => ({ ...current, nickname, avatar, description: buildProfileDescription(source, config) }))
-      auth.updateIdentity(ownerId, nickname, avatar)
-    } catch {
-      // 资料刷新失败时继续展示本人缓存，互动记录可独立加载。
-    }
-  }
-
+  const myPostsRequest = useRef(0)
   const loadMyPosts = async () => {
-    setMyPostsLoading(true)
+    const request = ++myPostsRequest.current
+    setMyPostsLoading(myPosts.length === 0)
     try {
       const page = await getMyCommunityPosts(1, 50)
+      if (request !== myPostsRequest.current) return
       setMyPosts((page.records || []).filter(item => shouldDisplayMyCommunityPost(item.status)).map(toMyPostSnapshot))
     } catch (error) {
       await showError(config, error)
     } finally {
-      setMyPostsLoading(false)
+      if (request === myPostsRequest.current) setMyPostsLoading(false)
     }
   }
 
@@ -323,6 +299,8 @@ export default function QianxunInteractionsPage() {
     setLikingPostIds(ids => [...ids, item.postId as number])
     try {
       const result = await toggleCommunityLike(item.postId)
+      myPostsRequest.current++
+      setMyPostsLoading(false)
       setMyPosts(posts => posts.map(post => post.id === item.id
         ? { ...post, liked: result.liked, likeCount: result.likeCount }
         : post))
@@ -355,6 +333,8 @@ export default function QianxunInteractionsPage() {
       })
       if (!confirmation.confirm) return
       await deleteCommunityPost(postRef)
+      myPostsRequest.current++
+      setMyPostsLoading(false)
       setMyPosts(posts => posts.filter(post => post.id !== item.id))
       await Taro.showToast({ title: resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.deleteSuccess), icon: 'success' })
     } catch (error) {
@@ -385,6 +365,7 @@ export default function QianxunInteractionsPage() {
     <View id="qianxun-interactions-page" style={{ height: '100vh', background: 'linear-gradient(105deg, #EEFFFC 0%, #F2F6FF 55%, #FEFFF4 100%)', overflow: 'hidden' }}>
       <ProfileHeader
         profile={profile}
+        statsReady={Boolean(summary)}
         onFollowing={() => setRoster('following')}
         onFollowers={() => setRoster('followers')}
         onLikes={() => setLikeSummaryVisible(true)}
@@ -421,7 +402,7 @@ export default function QianxunInteractionsPage() {
   )
 }
 
-function ProfileHeader({ profile, onFollowing, onFollowers, onLikes, onMine }: { profile: ProfileSummary; onFollowing: () => void; onFollowers: () => void; onLikes: () => void; onMine: () => void }) {
+function ProfileHeader({ profile, statsReady, onFollowing, onFollowers, onLikes, onMine }: { profile: ProfileSummary; statsReady: boolean; onFollowing: () => void; onFollowers: () => void; onLikes: () => void; onMine: () => void }) {
   const stats = [
     { label: '动态', value: profile.postCount, onClick: onMine },
     { label: '关注', value: profile.followingCount, onClick: onFollowing },
@@ -444,7 +425,7 @@ function ProfileHeader({ profile, onFollowing, onFollowers, onLikes, onMine }: {
         {stats.map(item => (
           <View key={item.label} onClick={item.onClick} style={{ minWidth: '116rpx', height: '62rpx', marginRight: '5rpx', display: 'flex', alignItems: 'center' }}>
             <Text style={{ color: '#9A9FA8', fontSize: '24rpx', lineHeight: '34rpx', marginRight: '10rpx' }}>{item.label}</Text>
-            <Text style={{ color: NAVY, fontSize: '38rpx', lineHeight: '48rpx', fontWeight: 600 }}>{item.value}</Text>
+            <Text style={{ color: NAVY, fontSize: '38rpx', lineHeight: '48rpx', fontWeight: 600 }}>{statsReady ? item.value : '—'}</Text>
           </View>
         ))}
       </View>
@@ -878,11 +859,6 @@ function toMyPostSnapshot(post: CommunityPostVO): MyPostSnapshot {
     liked: Boolean(post.liked),
     failureMessage: post.auditRemark || post.statusMessage,
   }
-}
-
-function buildProfileDescription(source: Record<string, unknown>, config?: CommunityConfig) {
-  const birthYear = source.birthYear || (typeof source.birthday === 'string' ? source.birthday.slice(0, 4) : '')
-  return [birthYear ? `${birthYear}年` : '', source.locationCityName, source.occupationLabel].filter(Boolean).join(' · ') || resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.profilePendingDescription)
 }
 
 function readNonNegativeNumber(value: unknown) {
