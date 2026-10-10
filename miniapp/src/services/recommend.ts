@@ -69,6 +69,8 @@ export interface RecommendCandidatePageVO {
   viewedCandidateNos?: string[]
   nextCursor?: string | null
   remainingBrowseCount?: number | null
+  /** 本周期配置总额度，会员升级或配置调整后允许角标重新计算。 */
+  browseQuota?: number | null
   nextResetAt?: string | null
   waitingReason?: 'no_candidate' | 'browse_limit' | null
   preferenceVersion: number

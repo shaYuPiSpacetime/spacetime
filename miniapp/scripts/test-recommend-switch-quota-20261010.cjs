@@ -46,6 +46,21 @@ test('U-03: 收集分页过程中额度变化拒绝旧额度混合结果', async
   await assert.rejects(collectRecommendCandidatePages(async cursor => cursor ? page(1, {remainingBrowseCount:1}) : page(1, {remainingBrowseCount:2,nextCursor:'next'})), /条件已变化/)
 })
 
+test('U-02B: 会员升级或后台总额度改变允许数字恢复，后续旧数仍不能反弹', async () => {
+  const {createRecommendBadgeRuntime, collectRecommendCandidatePages} = await domain()
+  let result = page(10, {browseQuota:20})
+  const runtime = createRecommendBadgeRuntime({fetchPage:async () => result, now:() => 100000})
+  runtime.publishPage(50, page(0, {browseQuota:10}))
+  await runtime.refresh(50, true)
+  assert.equal(runtime.getSnapshot().count,10)
+  runtime.publishPage(50, page(9, {browseQuota:20}))
+  await runtime.refresh(50,true)
+  assert.equal(runtime.getSnapshot().count,9)
+  await assert.rejects(collectRecommendCandidatePages(async cursor => cursor
+    ? page(1, {remainingBrowseCount:2,browseQuota:20})
+    : page(1, {remainingBrowseCount:2,browseQuota:10,nextCursor:'next'})), /条件已变化/)
+})
+
 function viewHarness() {
   const source = read('src/pages/recommend/index.tsx')
   const start = source.indexOf('  const ensureCandidateView =')

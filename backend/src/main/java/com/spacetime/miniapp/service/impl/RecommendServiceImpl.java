@@ -179,11 +179,13 @@ public class RecommendServiceImpl implements RecommendService {
         boolean advancedFilterEffective = hasEffectiveBenefit(userId, ADVANCED_FILTER_BENEFIT);
         RecommendPreference preference = resolvePreference(current);
         RecommendBrowseCycle cycle = RecommendBrowseCycle.current();
-        int remaining = remainingBrowseCount(userId, vipEffective, cycle);
+        int quota = browseQuota(vipEffective);
+        int remaining = remainingBrowseCount(userId, quota, cycle);
 
         RecommendCandidatePageVO result = new RecommendCandidatePageVO();
         result.setPreferenceVersion(preference.getVersion());
         result.setRemainingBrowseCount(remaining);
+        result.setBrowseQuota(quota);
         result.setNextResetAt(cycle.nextResetAt());
         if (remaining == 0) {
             result.setItems(List.of());
@@ -895,6 +897,10 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private int remainingBrowseCount(Long userId, boolean vipEffective, RecommendBrowseCycle cycle) {
+        return remainingBrowseCount(userId, browseQuota(vipEffective), cycle);
+    }
+
+    private int browseQuota(boolean vipEffective) {
         String key = vipEffective ? VIP_QUOTA_KEY : NORMAL_QUOTA_KEY;
         List<AppConfig> configs = appConfigDao.selectByKeys(List.of(key));
         int quota = vipEffective ? 20 : 10;
@@ -905,6 +911,10 @@ public class RecommendServiceImpl implements RecommendService {
                 // 配置异常时使用安全默认值，不把错误误判为额度为零。
             }
         }
+        return quota;
+    }
+
+    private int remainingBrowseCount(Long userId, int quota, RecommendBrowseCycle cycle) {
         List<RecommendViewLog> views = viewLogDao.selectList(browseViewsInCycle(userId, cycle));
         long uniqueCandidates = views == null ? 0 : views.stream()
                 .map(RecommendViewLog::getCandidateUserId)

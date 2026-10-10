@@ -9,6 +9,7 @@
 - 曝光 nextTick 前切到理想型或隐藏页面时，原代码仍提交 view。现在取消未形成有效曝光的动作，重新显示后可以正常曝光。
 - 额度按不同候选去重，每日北京时间中午 12 点重置。新增数据库用户行锁，在事务第一次普通读取之前串行化同账号浏览；保护多设备和多实例并发的最后一个额度。
 - 底部普通/选中图标改为常驻、互斥显示，避免切换 src 的加载闪烁。同步了相互矛盾的图标门禁，并使既有社区门禁识别分页参数、举报条件绑定和带序列保护的导航回调；没有放宽业务权限。
+- 补充边界：候选接口返回 browseQuota 总额度。同周期普通额度升级到会员额度，或后台调整额度时允许数字重新计算；额度未变时继续防止旧数字反弹。分页中总额度改变同样拒绝混合结果。
 
 ## 执行证据
 
@@ -20,6 +21,7 @@
 | 微信模拟器内容切换 | 等待与理想型往返 3 轮，内容显隐、主路由和页面栈均正确；只使用本地模拟接口，不写生产浏览记录 |
 | 旧代码缺陷复现 | 数字从 17 反弹至 20；混合分页返回过期额度 2，均成功复现 |
 | 全部 prebuild:weapp 门禁 | 在 master 3be30c9e + 本次修改快照通过，退出码 0；包含导航、Tab、社区、关系反馈和体验版启动页门禁 |
+| 会员升级边界增量回归 | 推荐状态、角标、理想型共 20/20 通过，包含耗尽后升级恢复数字及分页总额度变化 |
 
 Java 命令：`mvn -Dtest=RecommendServiceImplTest,RecommendControllerTest,RecommendBrowseCycleTest test`。Node 命令：`node --test scripts/test-recommend-switch-quota-20261010.cjs scripts/test-recommend-badge-20260929.cjs scripts/test-recommend-ideal-switch.cjs scripts/test-feishu-bobo-20261009.cjs scripts/test-0831-miniapp-experience-fixes.cjs`。
 
@@ -35,4 +37,8 @@ Java 命令：`mvn -Dtest=RecommendServiceImplTest,RecommendControllerTest,Recom
 
 测试确认：会员配置为 20 时，17 位不同候选应剩 3 位；满 20 后新人被拒绝，同人重试不重复扣。当前页面看到的推荐数字表示未浏览的实际候选人数，不能单凭它替代生产周期和去重浏览记录核对。
 
-生产构建、上传回执、远端提交核对及后端部署结果将在完成后补记。
+发布前重新 fetch 并同步 origin/master，使用 b7639e04536482c7f0e22209ad408c0c85e31ba7 当前源码构建，上传前 ls-remote 再次确认远端仍为同一提交。采用源码快照构建，不混入其他任务未提交文件；正式预构建门禁已在验证阶段通过，发布阶段不重复全量测试。
+
+微信 CLI 上传体验版 `1.0.20261010.1029` 成功，退出码 0，上传 JSON 回执已核对。总包 2,627,568 字节；构建产物门禁通过：87 个页面注册正确，无开发 Token，主包 1.49 MiB、总包 2.60 MiB。
+
+后端首次自动部署：[spacetime-backend-prod / 38016979936](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38016979936)。GitHub API 已确认 b7639e04 对应的构建与部署均 success。健康接口曾短暂返回 502，随后恢复 `code=200, data=ok`。会员升级总额度字段补充变更将另行记录最终部署和体验版回执。

@@ -939,7 +939,9 @@ class RecommendServiceImplTest {
         for (long id = 10; id < 27; id++) views.add(viewLog(7L, id, "view", LocalDateTime.now()));
         when(viewLogDao.selectList(any())).thenAnswer(invocation -> List.copyOf(views));
         when(appUserDao.selectList(any())).thenReturn(List.of());
-        assertThat(service.getCandidates(7L, null).getRemainingBrowseCount()).isEqualTo(3);
+        RecommendCandidatePageVO seventeen = service.getCandidates(7L, null);
+        assertThat(seventeen.getRemainingBrowseCount()).isEqualTo(3);
+        assertThat(seventeen.getBrowseQuota()).isEqualTo(20);
         for (long id = 27; id < 30; id++) views.add(viewLog(7L, id, "view", LocalDateTime.now()));
         RecommendCandidatePageVO exhausted = service.getCandidates(7L, null);
         assertThat(exhausted.getRemainingBrowseCount()).isZero();
