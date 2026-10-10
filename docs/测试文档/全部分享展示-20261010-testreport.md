@@ -37,3 +37,10 @@
 ## 发布
 
 当前同步基线：`6499f70462ad5ba132688f42b02e7b7c9b0e1c7b`。仅小程序及相关测试/构建配置变更，不涉及后端或管理端部署。
+
+发布完成：
+- 代码提交：`11a73be7629d2de56ab66bad3b4dd4bbce4ee9e4`，已 Push 到 `origin/master`。
+- 体验版：`1.0.20261010.1135`；微信开发者工具 CLI 返回 `UPLOAD_EXIT=0` 和 `√ upload`。
+- 上传前 `git ls-remote` 与当前提交一致；使用当次同步后构建的源码产物，固定开发登录关闭。
+- 微信上传回执：主包 1,377,230 字节，总包 2,833,725 字节（微信工具处理后的大小与本地 dist 统计口径不同）。
+- 本机回执：`C:/Users/39384/.codex/tmp/share-release-upload.json`、`share-release-upload.log`。
