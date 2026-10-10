@@ -1,5 +1,6 @@
 import { shareMessage } from '@/utils/shareMessage'
 import { profileShare } from '@/domain/sharePresentation'
+import ProfilePageBoundary from '@/components/ProfilePageBoundary'
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import type { ReactNode } from 'react'
@@ -206,6 +207,10 @@ function resolveVoiceSheetVariant(value?: string): VoiceSheetVariant | null {
 }
 
 export default function ProfileEditPage() {
+  return <ProfilePageBoundary><ProfileEditContent /></ProfilePageBoundary>
+}
+
+function ProfileEditContent() {
   const router = useRouter()
   const currentUserId = useAuthStore(state => state.userId)
   const { profileScore, loadBasicProfile, refreshProfileScore } = useProfileScore(router.params.profileScore)
@@ -246,7 +251,8 @@ export default function ProfileEditPage() {
   const [voiceSaving, setVoiceSaving] = useState(false)
   const [restoredScrollTop, setRestoredScrollTop] = useState(0)
   const scrollTopRef = useRef(0)
-  const recorder = useRef(getSharedVoiceRecorderManager())
+  // 浏览资料和主页预览不依赖录音权限或录音 API；只在用户开始录音时初始化。
+  const recorder = useRef<ReturnType<typeof Taro.getRecorderManager>>()
   const discardVoice = useRef(false)
   const recorderActive = useRef(false)
   const recorderStarting = useRef(false)
@@ -375,7 +381,7 @@ export default function ProfileEditPage() {
       setRecordingElapsed(elapsed)
       if (elapsed >= maxDuration && !recordingStopRequested.current) {
         recordingStopRequested.current = true
-        recorder.current.stop()
+        recorder.current?.stop()
       }
     }, 250)
   }
@@ -408,7 +414,6 @@ export default function ProfileEditPage() {
   }
 
   useEffect(() => {
-    const manager = recorder.current
     const session: VoiceRecorderSession = {
       onStart: () => {
         recorderStarting.current = false
@@ -458,7 +463,7 @@ export default function ProfileEditPage() {
         if (recorderActive.current) startVoiceTimer(recordingSecondsRef.current)
       },
       onInterruptionEnd: () => {
-        if (recorderActive.current) manager.resume()
+        if (recorderActive.current) recorder.current?.resume()
       },
     }
     activeVoiceRecorderSession = session
@@ -472,7 +477,7 @@ export default function ProfileEditPage() {
         discardVoice.current = true
         recorderActive.current = false
         recorderStarting.current = false
-        manager.stop()
+        recorder.current?.stop()
       }
     }
   }, [])
@@ -559,7 +564,7 @@ export default function ProfileEditPage() {
   const confirmDiscardRecording = () => {
     discardVoice.current = true
     clearVoiceTimer()
-    if (recorderActive.current || recorderStarting.current) recorder.current.stop()
+    if (recorderActive.current || recorderStarting.current) recorder.current?.stop()
     recorderActive.current = false
     recorderStarting.current = false
     resetVoiceDraft()
@@ -600,6 +605,7 @@ export default function ProfileEditPage() {
       recorderStarting.current = true
       setVoiceSheet('recording')
       try {
+        recorder.current ||= getSharedVoiceRecorderManager()
         recorder.current.start({ duration: config.uploadLimits.voiceMaxDuration * 1000, format: format as keyof Taro.RecorderManager.Format })
       } catch (error) {
         recorderStarting.current = false
@@ -609,7 +615,7 @@ export default function ProfileEditPage() {
       return
     }
     if (voiceSheet === 'recording' && variant === 'complete') {
-      recorder.current.stop()
+      recorder.current?.stop()
       return
     }
     if (voiceSheet === 'recording' && variant === 'exit') {

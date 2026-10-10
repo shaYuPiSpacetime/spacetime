@@ -442,7 +442,7 @@ test('语音卡片与录音浮层按蓝湖完成态展示时限、短条、X 和
   assert.match(edit, /id="voice-complete-actions"/, '录制完成态必须提供单组删除、播放、完成控件')
   assert.match(
     edit,
-    /if \(elapsed >= maxDuration && !recordingStopRequested\.current\)[\s\S]{0,180}recorder\.current\.stop\(\)/,
+    /if \(elapsed >= maxDuration && !recordingStopRequested\.current\)[\s\S]{0,180}recorder\.current\??\.stop\(\)/,
     '达到最大时长时必须主动停止录音，不能只把界面计时封顶'
   )
 })

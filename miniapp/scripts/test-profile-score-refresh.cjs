@@ -20,7 +20,7 @@ function deferred() {
   return { promise, resolve, reject }
 }
 
-async function mount(t, { page = false, apiOverrides = {}, bootstrapError = false } = {}) {
+async function mount(t, { page = false, apiOverrides = {}, bootstrapError = false, preview = false, recorderUnavailable = false } = {}) {
   const requests = [], saves = [], toasts = [], navigation = []
   const lifecycle = { show: new Set(), hide: new Set() }
   const recorderEvents = {}
@@ -28,9 +28,12 @@ async function mount(t, { page = false, apiOverrides = {}, bootstrapError = fals
     ? callback => { recorderEvents[key] = callback }
     : () => {} })
   const taro = {
-    useRouter: () => ({ params: { profileScore: '87' } }),
+    useRouter: () => ({ params: { profileScore: '87', ...(preview ? { variant: 'preview' } : {}) } }),
     useShareAppMessage: () => {},
-    getRecorderManager: () => recorder,
+    getRecorderManager: () => { if (recorderUnavailable) throw new Error('Recorder API unavailable'); return recorder },
+    getEnv: () => 'WEAPP', ENV_TYPE: { WEAPP: 'WEAPP' },
+    getWindowInfo: () => ({ windowWidth: 375, windowHeight: 812, statusBarHeight: 44 }),
+    getMenuButtonBoundingClientRect: () => ({ top: 48, height: 32, left: 290 }),
     nextTick: callback => callback(),
     showToast: async options => { toasts.push(options) },
     navigateTo: async options => { navigation.push(options) },
@@ -89,12 +92,16 @@ async function mount(t, { page = false, apiOverrides = {}, bootstrapError = fals
     } }).outputText
     const localRequire = name => {
       if (name === '@tarojs/taro') return { ...taro, default: taro, __esModule: true }
-      if (name === '@tarojs/components') return { View: host('div'), Text: host('span'), Image: host('img'), Input: host('input'), ScrollView: host('div') }
+      if (name === '@tarojs/components') return { Button: host('button'), View: host('div'), Text: host('span'), Image: host('img'), Input: host('input'), ScrollView: host('div') }
       if (name === '@/services/prd01') return { prd01Api: api }
       if (name === '@/services/community') return { getMyCommunityPosts: async () => ({ records: [] }) }
       if (name === '@/stores/prd01Store') return { usePrd01Store: store }
       if (name === '@/stores/authStore') return { useAuthStore: selector => selector({ userId: 1 }) }
       if (/\.(webp|jpg|png)$/.test(name)) return 'test-asset.jpg'
+      if (preview && ['@/components/ProfilePageBoundary', './components/ProfilePreviewPage', './components/ProfileHeroImage', './ProfileHeroImage', './ProfileCommunityPostsSection', '@/components/ProfilePreviewTopNav', '@/components/HeartMessageHeader', '@/components/NativeNavigation', '@/components/ProfileTagChip'].includes(name)) {
+        const base = name.startsWith('@/') ? path.join(root, 'src', name.slice(2)) : path.resolve(path.dirname(file), name)
+        return load(`${base}.tsx`)
+      }
       if (name.startsWith('@/components/') || name.startsWith('./components/')) return {
         default: props => { componentProps[name] = props; return React.createElement('div', { onClick: props.onClick }, props.children) }, __esModule: true,
       }
@@ -277,3 +284,34 @@ for (const type of ['avatar', 'background', 'addAlbum', 'replaceAlbum', 'deleteV
     assert.equal(h.score(), type === 'deleteVoice' ? 88 : 94)
   })
 }
+
+
+test('PREVIEW-01: 本人预览无需录音能力即可完整渲染、显示昵称占位和分享按钮', async t => {
+  const h = await mount(t, { page: true, preview: true, recorderUnavailable: true })
+  assert.match(h.container.textContent, /主页预览/)
+  assert.match(h.container.textContent, /昵称待完善/)
+  assert.ok(h.container.querySelector('button'))
+  await h.resolve(0, 87)
+  assert.match(h.container.textContent, /主页预览/)
+})
+
+test('PREVIEW-02: 本人预览加载完整资料后仍保留真实主页与分享入口', async t => {
+  const h = await mount(t, { page: true, preview: true, apiOverrides: {
+    getHomeDetail: async () => ({ profile: { nickname: '本人预览回归' }, verificationStatus: {} }),
+    getIntroduction: async () => ({ effectiveContent: '已审核的自我介绍' }),
+  } })
+  await h.resolve(0, 91)
+  assert.match(h.container.textContent, /本人预览回归/)
+  assert.match(h.container.textContent, /已审核的自我介绍/)
+  assert.ok(h.container.querySelector('#profile-preview-avatar'))
+  assert.ok(h.container.querySelector('button'))
+})
+
+test('PREVIEW-03: 资料接口失败也不能清空主页导航和内容占位', async t => {
+  const h = await mount(t, { page: true, preview: true, apiOverrides: {
+    getHomeDetail: async () => { throw new Error('fixture service unavailable') },
+  } })
+  await h.resolve(0, 91)
+  assert.match(h.container.textContent, /主页预览/)
+  assert.match(h.container.textContent, /昵称待完善/)
+})
