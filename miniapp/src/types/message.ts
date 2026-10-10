@@ -78,6 +78,10 @@ export interface ChatMessage {
   replyToClientMsgId?: string
   timMessageId?: string
   timMsgKey?: string
+  /** TIM 服务端会话内顺序号，用于同秒消息稳定排序。 */
+  providerSequence?: number
+  /** TIM 消息随机数；仅作为相同 sequence 下的稳定兜底。 */
+  providerRandom?: number
 }
 
 /** 平台本地库返回的持久化私信消息。 */

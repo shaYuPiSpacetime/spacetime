@@ -23,7 +23,11 @@ import {
 } from '@/domain/privateChatSession'
 import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
 import { loadMessageImGateway } from '@/im/loadMessageImGateway'
-import type { MessageImEvent, MessageImGateway } from '@/im/MessageImGateway'
+import type {
+  MessageHistoryPage as TimMessageHistoryPage,
+  MessageImEvent,
+  MessageImGateway,
+} from '@/im/MessageImGateway'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
@@ -58,7 +62,12 @@ type PrivateChatHistoryPage = {
 }
 
 type TimHistoryLoadResult = {
-  page?: { list: ChatMessage[] }
+  page?: TimMessageHistoryPage
+  error?: unknown
+}
+
+type PlatformHistoryLoadResult = {
+  page?: PrivateChatHistoryPage
   error?: unknown
 }
 
@@ -227,6 +236,8 @@ function EstablishedPrivateChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(initialSession?.messages || [])
   const [historyCursor, setHistoryCursor] = useState<string | undefined>(initialSession?.historyCursor)
   const [historyCompleted, setHistoryCompleted] = useState(initialSession?.historyCompleted || false)
+  const [timHistoryCursor, setTimHistoryCursor] = useState<string | undefined>(initialSession?.timHistoryCursor)
+  const [timHistoryCompleted, setTimHistoryCompleted] = useState(initialSession?.timHistoryCompleted || false)
   const [scrollTarget, setScrollTarget] = useState<string | undefined>(
     initialSession?.messages.length ? 'chat-bottom-a' : undefined,
   )
@@ -303,12 +314,14 @@ function EstablishedPrivateChatPage() {
       messages,
       historyCursor,
       historyCompleted,
+      timHistoryCursor,
+      timHistoryCompleted,
       initialLoaded: !initialLoading,
       scrollTop: scrollSnapshotRef.current.scrollTop,
       scrollHeight: scrollSnapshotRef.current.scrollHeight,
       nearBottom: nearBottomRef.current,
     })
-  }, [conversationNo, detail, historyCompleted, historyCursor, initialLoading, messages, sessionUserId])
+  }, [conversationNo, detail, historyCompleted, historyCursor, initialLoading, messages, sessionUserId, timHistoryCompleted, timHistoryCursor])
 
   useEffect(() => {
     if (!historyAnchorId) return
@@ -447,6 +460,7 @@ function EstablishedPrivateChatPage() {
   const commitInitialSnapshot = useCallback((
     nextDetail: MessageConversationDetail | undefined,
     localPage: PrivateChatHistoryPage | undefined,
+    timPage: TimMessageHistoryPage | undefined,
     nextMessages: ChatMessage[],
   ) => {
     const cached = readPrivateChatSession(sessionUserId, conversationNo)
@@ -456,11 +470,19 @@ function EstablishedPrivateChatPage() {
     const nextHistoryCompleted = localPage
       ? !localPage.hasMore
       : cached?.historyCompleted || false
+    const nextTimHistoryCursor = timPage
+      ? timPage.nextCursor || undefined
+      : cached?.timHistoryCursor
+    const nextTimHistoryCompleted = timPage
+      ? timPage.isCompleted
+      : cached?.timHistoryCompleted || false
     messagesRef.current = nextMessages
     setDetail(nextDetail)
     setMessages(nextMessages)
     setHistoryCursor(nextHistoryCursor)
     setHistoryCompleted(nextHistoryCompleted)
+    setTimHistoryCursor(nextTimHistoryCursor)
+    setTimHistoryCompleted(nextTimHistoryCompleted)
     if (nextMessages.length > 0
       && resolvePrivateChatScrollIntent('initial') === 'latest') requestScrollToLatest()
     setInitialLoading(false)
@@ -469,12 +491,25 @@ function EstablishedPrivateChatPage() {
       messages: nextMessages,
       historyCursor: nextHistoryCursor,
       historyCompleted: nextHistoryCompleted,
+      timHistoryCursor: nextTimHistoryCursor,
+      timHistoryCompleted: nextTimHistoryCompleted,
       initialLoaded: true,
       scrollTop: scrollSnapshotRef.current.scrollTop,
       scrollHeight: scrollSnapshotRef.current.scrollHeight,
       nearBottom: true,
     })
   }, [conversationNo, requestScrollToLatest, sessionUserId])
+
+  const applyTimHistoryPageState = useCallback((page: TimMessageHistoryPage) => {
+    const nextCursor = page.nextCursor || undefined
+    const nextCompleted = page.isCompleted
+    setTimHistoryCursor(nextCursor)
+    setTimHistoryCompleted(nextCompleted)
+    writePrivateChatSession(sessionUserId, conversationNo, {
+      timHistoryCursor: nextCursor,
+      timHistoryCompleted: nextCompleted,
+    })
+  }, [conversationNo, sessionUserId])
 
   const load = useCallback(
     () => loadSingleFlight.run(conversationNo, async () => {
@@ -538,7 +573,7 @@ function EstablishedPrivateChatPage() {
         nextMessages = mergePrivateChatMessages(nextMessages, initialTim.page.list)
       }
 
-      commitInitialSnapshot(nextDetail, localHistory.page, nextMessages)
+      commitInitialSnapshot(nextDetail, localHistory.page, initialTim?.page, nextMessages)
       setTimeout(() => void acknowledgeRendered(nextMessages), 0)
 
       const blockingError = detailResult.error || (!localHistory.page ? localHistory.error : undefined)
@@ -547,6 +582,7 @@ function EstablishedPrivateChatPage() {
       if (timHistoryPromise && !initialTim) {
         void timHistoryPromise.then(result => {
           if (!isCurrentLoad() || !result.page) return
+          applyTimHistoryPageState(result.page)
           const supplemented = mergePrivateChatMessages(messagesRef.current, result.page.list)
           if (supplemented === messagesRef.current) return
           messagesRef.current = supplemented
@@ -559,7 +595,7 @@ function EstablishedPrivateChatPage() {
         })
       }
     }),
-    [acknowledgeRendered, commitInitialSnapshot, conversationNo, ensureConnected, isMockScene, loadSingleFlight, requestScrollToLatest, service, sessionUserId],
+    [acknowledgeRendered, applyTimHistoryPageState, commitInitialSnapshot, conversationNo, ensureConnected, isMockScene, loadSingleFlight, requestScrollToLatest, service, sessionUserId],
   )
 
   useEffect(() => {
@@ -572,6 +608,8 @@ function EstablishedPrivateChatPage() {
     setMessages(cached?.messages || [])
     setHistoryCursor(cached?.historyCursor)
     setHistoryCompleted(cached?.historyCompleted || false)
+    setTimHistoryCursor(cached?.timHistoryCursor)
+    setTimHistoryCompleted(cached?.timHistoryCompleted || false)
     setInitialLoading(!cached?.initialLoaded)
     setHistoryAnchorId('')
     if (cached?.messages.length) {
@@ -630,22 +668,47 @@ function EstablishedPrivateChatPage() {
   })
 
   const loadEarlier = async () => {
-    if (historyCompleted || !historyCursor
-      || initialLoading || historyLoading) return
+    const gatewayId = timConversationIdRef.current
+    const canLoadPlatform = !historyCompleted && Boolean(historyCursor)
+    const canLoadTim = !timHistoryCompleted && Boolean(timHistoryCursor) && Boolean(gatewayId)
+    if ((!canLoadPlatform && !canLoadTim) || initialLoading || historyLoading) return
     const anchor = messagesRef.current[0]
     setHistoryLoading(true)
     try {
-      const page = await withMessageTimeout(
-        service.listConversationMessages(conversationNo, historyCursor, 30),
-        HISTORY_TIMEOUT_MS,
-        '聊天记录加载超时，请重试',
-      )
-      const next = mergePrivateChatMessages(page.list, messagesRef.current)
-      messagesRef.current = next
-      setMessages(next)
-      setHistoryCursor(page.nextCursor || undefined)
-      setHistoryCompleted(!page.hasMore)
-      if (anchor) setHistoryAnchorId(messageAnchorId(anchor))
+      const platformPromise: Promise<PlatformHistoryLoadResult> = canLoadPlatform
+        ? withMessageTimeout(
+          service.listConversationMessages(conversationNo, historyCursor, 30),
+          HISTORY_TIMEOUT_MS,
+          '聊天记录加载超时，请重试',
+        ).then(page => ({ page }), error => ({ error }))
+        : Promise.resolve({})
+      const timPromise: Promise<TimHistoryLoadResult> = canLoadTim
+        ? ensureConnected().then(gateway => withMessageTimeout(
+          gateway.listHistory(gatewayId, timHistoryCursor),
+          HISTORY_TIMEOUT_MS,
+          '聊天记录加载超时，请重试',
+        )).then(page => ({ page }), error => ({ error }))
+        : Promise.resolve({})
+
+      const [platformResult, timResult] = await Promise.all([platformPromise, timPromise])
+      let next = messagesRef.current
+      if (platformResult.page) {
+        next = mergePrivateChatMessages(platformResult.page.list, next)
+        setHistoryCursor(platformResult.page.nextCursor || undefined)
+        setHistoryCompleted(!platformResult.page.hasMore)
+      }
+      if (timResult.page) {
+        next = mergePrivateChatMessages(timResult.page.list, next)
+        applyTimHistoryPageState(timResult.page)
+      }
+      if (next !== messagesRef.current) {
+        messagesRef.current = next
+        setMessages(next)
+        if (anchor) setHistoryAnchorId(messageAnchorId(anchor))
+      }
+      if (!platformResult.page && !timResult.page) {
+        throw platformResult.error || timResult.error || new Error('没有更多聊天记录')
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '历史消息加载失败')
     } finally {

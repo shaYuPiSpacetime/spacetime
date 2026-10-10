@@ -5,6 +5,8 @@ export interface PrivateChatSessionSnapshot {
   messages: ChatMessage[]
   historyCursor?: string
   historyCompleted: boolean
+  timHistoryCursor?: string
+  timHistoryCompleted: boolean
   initialLoaded: boolean
   scrollTop: number
   scrollHeight: number
@@ -35,10 +37,33 @@ function mergeMessage(previous: ChatMessage, incoming: ChatMessage): ChatMessage
     clientMsgId: incoming.clientMsgId || previous.clientMsgId,
     timMessageId: incoming.timMessageId || previous.timMessageId,
     timMsgKey: incoming.timMsgKey || previous.timMsgKey,
+    ...(incoming.providerSequence !== undefined || previous.providerSequence !== undefined
+      ? { providerSequence: incoming.providerSequence ?? previous.providerSequence }
+      : {}),
+    ...(incoming.providerRandom !== undefined || previous.providerRandom !== undefined
+      ? { providerRandom: incoming.providerRandom ?? previous.providerRandom }
+      : {}),
     sentAt: previous.clientMsgId && previous.clientMsgId === incoming.clientMsgId
       ? previous.sentAt
       : incoming.sentAt || previous.sentAt,
   }
+}
+
+function compareOptionalNumber(left?: number, right?: number): number {
+  if (!Number.isFinite(left) || !Number.isFinite(right)) return 0
+  return Number(left) - Number(right)
+}
+
+/** TIM 时间仅精确到秒；相同时间必须继续使用服务端顺序号稳定排序。 */
+function compareMessages(left: ChatMessage, right: ChatMessage): number {
+  const timeOrder = left.sentAt.localeCompare(right.sentAt)
+  if (timeOrder !== 0) return timeOrder
+  const sequenceOrder = compareOptionalNumber(left.providerSequence, right.providerSequence)
+  if (sequenceOrder !== 0) return sequenceOrder
+  const randomOrder = compareOptionalNumber(left.providerRandom, right.providerRandom)
+  if (randomOrder !== 0) return randomOrder
+  // 平台持久化历史没有 TIM sequence，保留 DAO 已确认的返回顺序。
+  return 0
 }
 
 function hasSameMessageValue(left: ChatMessage, right: ChatMessage): boolean {
@@ -75,7 +100,7 @@ export function mergePrivateChatMessages(
   })
   if (!changed) return current
 
-  merged.sort((left, right) => left.sentAt.localeCompare(right.sentAt))
+  merged.sort(compareMessages)
   if (
     merged.length === current.length
     && merged.every((item, index) => hasSameMessageValue(item, current[index]))
@@ -103,6 +128,8 @@ export function writePrivateChatSession(
     messages: current?.messages || [],
     historyCursor: current?.historyCursor,
     historyCompleted: current?.historyCompleted || false,
+    timHistoryCursor: current?.timHistoryCursor,
+    timHistoryCompleted: current?.timHistoryCompleted || false,
     initialLoaded: current?.initialLoaded || false,
     scrollTop: current?.scrollTop || 0,
     scrollHeight: current?.scrollHeight || 0,

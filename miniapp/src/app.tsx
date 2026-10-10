@@ -119,6 +119,7 @@ function App({ children }: PropsWithChildren<object>) {
   })
 
   useDidHide(() => {
+    messagePlatformRuntime.onBackground()
     Taro.eventCenter.trigger(MESSAGE_RUNTIME_BACKGROUND_EVENT)
   })
 

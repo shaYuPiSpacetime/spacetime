@@ -83,6 +83,8 @@ function normalizeMessage(message: TencentMessage): ChatMessage {
   const content =
     type === 'text' ? textOf(message.payload?.text) : textOf(custom.content || message.payload?.description)
   const messageNo = textOf(custom.messageNo) || message.ID
+  const providerSequence = Number(message.sequence)
+  const providerRandom = Number((message as TencentMessage & { random?: number }).random)
   return {
     messageNo,
     clientMsgId: message.ID,
@@ -97,6 +99,8 @@ function normalizeMessage(message: TencentMessage): ChatMessage {
       message.status === 'fail' ? 'failed' : message.status === 'unSend' ? 'sending' : 'sent',
     timMessageId: message.ID,
     timMsgKey: textOf((message as TencentMessage & { key?: string }).key),
+    providerSequence: Number.isFinite(providerSequence) ? providerSequence : undefined,
+    providerRandom: Number.isFinite(providerRandom) ? providerRandom : undefined,
   }
 }
 
