@@ -1,0 +1,48 @@
+name: ops-audit-location-20261010
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'scripts/ops/audit-location-20261010.py'
+      - '.github/workflows/ops-audit-location-20261010.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: spacetime-prod-data-ops
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy read-only audit
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'scripts/ops/audit-location-20261010.py'
+          target: '/mnt/data/spacetime-prod'
+      - name: Inspect map configuration without secrets
+        id: audit
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script: |
+            set -e
+            cd /mnt/data/spacetime-prod
+            set -a
+            . secrets/prod.env
+            set +a
+            python3 scripts/ops/audit-location-20261010.py
+      - name: Publish redacted audit
+        env:
+          AUDIT_STDOUT: ${{ steps.audit.outputs.stdout }}
+        run: |
+          result="$(printf '%s\n' "$AUDIT_STDOUT" | grep '^{' | tail -n 1)"
+          [ -n "$result" ] || exit 1
+          echo "::notice title=Location configuration audit::$result"
