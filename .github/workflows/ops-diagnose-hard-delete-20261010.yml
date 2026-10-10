@@ -1,0 +1,86 @@
+name: ops-diagnose-hard-delete-20261010
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/ops-diagnose-hard-delete-20261010.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spacetime-prod-readonly-diagnosis
+  cancel-in-progress: false
+
+jobs:
+  diagnose-hard-delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnose sanitized production exception
+        id: diagnose
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script_stop: true
+          script: |
+            set -eu
+            request_id='d6736c40be544b1bab7791c9f46ea102'
+            context="$(docker logs --since 12h spacetime-backend-prod 2>&1 \
+              | grep -F -A 100 -B 5 "$request_id" \
+              | tail -n 240 || true)"
+
+            if [ -z "$context" ]; then
+              printf 'DIAGNOSIS|request_not_found|unknown|unknown|unknown\n'
+              exit 0
+            fi
+
+            category='unclassified'
+            if printf '%s\n' "$context" | grep -qiE "Can't reopen table|SQLSTATE\[HY000\].*1137|Error 1137"; then
+              category='mysql_1137_reopen_temp_table'
+            elif printf '%s\n' "$context" | grep -qiE "doesn't exist|SQLSTATE\[42S02\].*1146|Error 1146"; then
+              category='mysql_1146_missing_table'
+            elif printf '%s\n' "$context" | grep -qiE "Unknown column|SQLSTATE\[42S22\].*1054|Error 1054"; then
+              category='mysql_1054_unknown_column'
+            elif printf '%s\n' "$context" | grep -qiE "Illegal mix of collations|Error 1267"; then
+              category='mysql_1267_collation_mismatch'
+            elif printf '%s\n' "$context" | grep -qiE "foreign key constraint fails|Cannot delete or update a parent row|Error 1451"; then
+              category='mysql_1451_foreign_key'
+            elif printf '%s\n' "$context" | grep -qiE 'APP_USER_DELETE_RESIDUE|remaining_count|残留'; then
+              category='hard_delete_residue_guard'
+            elif printf '%s\n' "$context" | grep -qiE 'DataIntegrityViolationException|Duplicate entry|constraint'; then
+              category='data_integrity_violation'
+            elif printf '%s\n' "$context" | grep -qiE 'Redis|Lettuce|Jedis|login.*session|登录态'; then
+              category='session_cleanup_failure'
+            elif printf '%s\n' "$context" | grep -qiE 'BadSqlGrammarException|SQLSyntaxErrorException|SQLException'; then
+              category='database_exception'
+            elif printf '%s\n' "$context" | grep -qiE 'NullPointerException'; then
+              category='null_pointer_exception'
+            fi
+
+            exception_class="$(printf '%s\n' "$context" \
+              | grep -oE '([a-z][A-Za-z0-9_]*\.)+[A-Za-z0-9_]+Exception|[A-Za-z][A-Za-z0-9_]+Exception' \
+              | tail -n 1 || true)"
+            missing_table="$(printf '%s\n' "$context" \
+              | sed -n "s/.*Table '[^']*\.\([^']*\)' doesn't exist.*/\1/p" \
+              | tail -n 1 || true)"
+            unknown_column="$(printf '%s\n' "$context" \
+              | sed -n "s/.*Unknown column '\([^']*\)'.*/\1/p" \
+              | tail -n 1 || true)"
+
+            [ -n "$exception_class" ] || exception_class='unknown'
+            [ -n "$missing_table" ] || missing_table='unknown'
+            [ -n "$unknown_column" ] || unknown_column='unknown'
+            printf 'DIAGNOSIS|%s|%s|%s|%s\n' \
+              "$category" "$exception_class" "$missing_table" "$unknown_column"
+
+      - name: Publish sanitized diagnosis
+        env:
+          DIAGNOSE_STDOUT: ${{ steps.diagnose.outputs.stdout }}
+        run: |
+          diagnosis="$(printf '%s\n' "$DIAGNOSE_STDOUT" | grep '^DIAGNOSIS|' | tail -n 1)"
+          [ -n "$diagnosis" ] || exit 1
+          echo "::notice title=Hard delete diagnosis::$diagnosis"
