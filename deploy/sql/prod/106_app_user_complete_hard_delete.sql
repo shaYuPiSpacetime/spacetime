@@ -462,7 +462,7 @@ delete_main: BEGIN
           WHERE reporter_id = p_user_id OR target_user_id = p_user_id
              OR reported_user_id = p_user_id
              OR (UPPER(target_type) = 'USER'
-                 AND target_id = CAST(p_user_id AS CHAR)));
+                 AND CAST(target_id AS UNSIGNED) = p_user_id));
     IF v_remaining_count <> 0 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = '用户关联数据仍有残留，已停止删除';

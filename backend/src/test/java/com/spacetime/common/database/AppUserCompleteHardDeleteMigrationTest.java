@@ -115,7 +115,8 @@ class AppUserCompleteHardDeleteMigrationTest {
                 .contains("source_biz_no COLLATE utf8mb4_unicode_ci IN")
                 .contains("conversation_no COLLATE utf8mb4_unicode_ci IN")
                 .contains("UPPER(target_type) = 'USER'")
-                .contains("CAST(p_user_id AS CHAR)");
+                .contains("CAST(target_id AS UNSIGNED) = p_user_id")
+                .doesNotContain("target_id = CAST(p_user_id AS CHAR)");
     }
 
     @Test
