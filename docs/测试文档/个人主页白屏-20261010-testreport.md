@@ -34,3 +34,9 @@
 ## 发布
 
 当次已实际 fetch 并同步 `origin/master`，基线 `865a85fb330792a7cc221900bb19bd95f51b3eee`。从当次源码构建，发布前再次核对远端。
+
+- 代码提交：`e2d22e3e`，已 Push 到 `origin/master`；上传前远端与当前 HEAD 一致。
+- 体验版：`1.0.20261010.1158`，微信开发者工具 CLI 上传退出码为 0，上传成功。
+- 上传回执：主包 1,377,353 bytes，总包 2,837,582 bytes。
+- 回执文件：`C:/Users/39384/.codex/tmp/profile-preview-upload.json`；日志：`C:/Users/39384/.codex/tmp/profile-preview-upload.log`。
+- 真机验收仍待用户确认本人主页预览；上传成功不等同于手机现场白屏已验证消失。
