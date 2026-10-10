@@ -1,0 +1,63 @@
+name: ops-configure-map-20261010
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - '.github/workflows/ops-configure-map-20261010.yml'
+      - 'scripts/ops/location-key-20261010.sealed'
+permissions:
+  contents: read
+concurrency:
+  group: spacetime-prod-deploy
+  cancel-in-progress: false
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy one-time encrypted configuration tooling
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'scripts/ops/apply-map-key-20261010.py,scripts/ops/audit-location-20261010.py,scripts/ops/location-key-20261010.*'
+          target: '/mnt/data/spacetime-prod'
+      - name: Configure private environment and verify
+        id: configure
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script: |
+            set -eu
+            cd /mnt/data/spacetime-prod
+            umask 077
+            transfer_key=secrets/location-transfer-20261010.pem
+            sealed=scripts/ops/location-key-20261010.sealed
+            if [ ! -f "$sealed" ]; then
+              if [ ! -f "$transfer_key" ]; then
+                openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$transfer_key" 2>/dev/null
+              fi
+              printf 'PUBLIC_KEY|'
+              openssl pkey -in "$transfer_key" -pubout 2>/dev/null | base64 -w0
+              printf '\n'
+              exit 0
+            fi
+            python3 scripts/ops/apply-map-key-20261010.py secrets/prod.env "$transfer_key" "$sealed"
+            bash deploy/scripts/deploy-prod-local.sh backend
+            set -a
+            . secrets/prod.env
+            set +a
+            python3 scripts/ops/audit-location-20261010.py
+            rm -f "$transfer_key" "$sealed"
+      - name: Publish public key or redacted result
+        env:
+          CONFIGURE_STDOUT: ${{ steps.configure.outputs.stdout }}
+        run: |
+          public_key="$(printf '%s\n' "$CONFIGURE_STDOUT" | grep '^PUBLIC_KEY|' | tail -n 1 || true)"
+          result="$(printf '%s\n' "$CONFIGURE_STDOUT" | grep '^{' | tail -n 1 || true)"
+          if [ -n "$public_key" ]; then echo "::notice title=One-time public key::$public_key"; fi
+          if [ -n "$result" ]; then echo "::notice title=Configured map audit::$result"; fi
