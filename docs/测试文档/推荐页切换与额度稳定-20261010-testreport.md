@@ -41,4 +41,10 @@ Java 命令：`mvn -Dtest=RecommendServiceImplTest,RecommendControllerTest,Recom
 
 微信 CLI 上传体验版 `1.0.20261010.1029` 成功，退出码 0，上传 JSON 回执已核对。总包 2,627,568 字节；构建产物门禁通过：87 个页面注册正确，无开发 Token，主包 1.49 MiB、总包 2.60 MiB。
 
-后端首次自动部署：[spacetime-backend-prod / 38016979936](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38016979936)。GitHub API 已确认 b7639e04 对应的构建与部署均 success。健康接口曾短暂返回 502，随后恢复 `code=200, data=ok`。会员升级总额度字段补充变更将另行记录最终部署和体验版回执。
+后端首次自动部署：[spacetime-backend-prod / 38016979936](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38016979936)。GitHub API 已确认 b7639e04 对应的构建与部署均 success。健康接口曾短暂返回 502，随后恢复 `code=200, data=ok`。会员升级总额度字段补充变更的最终回执见下。
+
+补充变更 `08780c45ad0b2ba3cbdffb0ae53d8fdcffd411ed` 已推送。总额度字段加入后重新执行 Java 定向测试 57/57 及 Node 增量回归 20/20，全部通过。发布当次再次实际 fetch、同步最新 master，从该提交源码构建；上传前 ls-remote 核对同一提交。
+
+最终体验版 `1.0.20261010.1037` 上传成功（日志 `√ upload`、退出码 0、JSON 回执总包 2,627,810 字节）。87 页注册、无开发 Token 和包体门禁再次通过。最终后端流水线：[spacetime-backend-prod / 38017602860](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38017602860)，GitHub API 核实状态 completed / success，构建与部署两个 job 均 success，提交精确匹配 08780c45。完成后公网健康接口再次返回 `code=200, data=ok`。
+
+交付结果：代码已推送 master，体验版已上传，后端自动部署成功。指定账号 L1 额度取证仍因缺少有效账号会话/生产只读连接而跳过；线上 17 人的账户原因不在本报告已验证结论中。
