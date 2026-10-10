@@ -39,3 +39,13 @@
 - 全库 `npx tsc --noEmit` 仍包含既有 Taro/依赖声明及其他页面类型错误；本次修改文件没有新增 TypeScript 报错，因此未宣称全库类型检查通过。
 - 构建仅有 `pages/message/private-chat.js` 超过 Webpack 推荐体积的警告（约 310 KiB），未超过项目分包门禁。
 - 本次未修改聊天视觉结构、输入框、键盘处理、进入/返回恢复策略，也未在主包加载 LiteChat SDK。
+
+## 发布记录
+
+- 发布前重新拉取并快进同步 `origin/master`，基线为 `1ec26a0e`；本次代码提交并推送为 `6a72e5752a1aa0424c7ea3bd48ad9b1837ea8562`。
+- 从上述提交关闭开发固定登录与 E2E 模式重新执行生产构建，Webpack 编译成功；产物门禁再次通过。
+- 独立发布目录为 `.runtime/weapp-release-6a72e575-1791630793233/project`。构建目录的 426 个文件及 `project.config.json` 均逐文件核对 SHA-256 一致，未复制 `project.private.config.json`。
+- 上传前 `git ls-remote origin refs/heads/master` 与构建提交完全一致。
+- 微信开发者工具 CLI 已登录，体验版 `1.0.20261010.191313` 预览和上传均成功。
+- preview/upload 的 15 项包统计逐项一致：主包 `1,389,489` 字节，消息分包 `437,327` 字节，总包 `2,858,224` 字节。
+- 发布目录上级保留 `manifest.json`、`preview-info.json` 和 `upload-info.json` 作为本轮发布证据。
