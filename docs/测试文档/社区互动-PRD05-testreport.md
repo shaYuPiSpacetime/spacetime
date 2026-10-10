@@ -355,3 +355,7 @@ PRD-05 本轮闭环实现的后端、管理后台、小程序、开发库迁移�
 结论：本次修改对应 `POST-DELETE-001` 至 `POST-DELETE-004` 的服务端回归通过；扩展测试合计 133 条，132 通过、1 条既有审核策略与测试预期不一致，不能标记整个扩展套件通过。`POST-DELETE-005` 真实分享入口复验待执行。
 
 交付状态：开始修改前本轮已实际通过 HTTPS fetch 并确认 `master` 与 `origin/master` 无待合入变更。提交前再次 fetch 时连接无响应，终止后设置低速超时重试，返回 `Operation too slow. Less than 1 bytes/sec transferred the last 15 seconds`。按仓库同步失败停止发布规则，本次仅本地提交，未 Push、未触发后端部署、未上传小程序体验版。前一任务还存在 GitHub 推送身份验证阻碍，恢复网络后仍需核对凭据；不得认为修复已在线上生效。
+
+2026-10-10 交付重试：本轮 HTTPS fetch 成功，`git merge --ff-only origin/master` 确认无待合入变更，远端为 `3274f817`，本地业务修复为 `c8f9de6f`。SSH fetch 仍返回 `Permission denied (publickey)`，HTTPS Push 返回 `could not read Username ... terminal prompts disabled`，当前没有可用 GitHub 推送凭据，因此未推送或触发自动部署。
+
+已从本轮源码重新执行生产 Taro 构建和 `postbuild:weapp`，均通过；微信登录有效。待发布独立目录为 `.runtime/weapp-release-20261010225930-c8f9de6f/project`，426 个 dist 文件及公开配置共 427 项 SHA-256 一致，未复制私有配置。CLI preview 成功，总包 2,858,112 字节、主包 1,389,562 字节、千寻分包 135,876 字节；原始记录为该目录父级的 `hash-audit.json` 与 `preview-info.json`。由于远端尚未包含本地业务提交，未执行 upload，不能把预览打包认定为体验版发布。恢复 GitHub 认证后须再次同步远端、从最新源码构建并完成 preview/upload 包字节对照及后端部署核对。本轮沿用已记录的定向测试结果，未重复全量测试。
