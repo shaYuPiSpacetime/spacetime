@@ -9,6 +9,8 @@ import java.util.List;
 
 public interface AppUserCancelRequestDao {
     AppUserCancelRequest selectById(Long id);
+    /** 锁定申请并读取最新状态，串行化撤销与到期执行。 */
+    AppUserCancelRequest selectByIdForUpdate(Long id);
     AppUserCancelRequest selectLatestByUserId(Long userId);
     AppUserCancelRequest selectCoolingOffByUserId(Long userId);
     List<AppUserCancelRequest> selectDueCoolingOff(LocalDateTime now, int limit);

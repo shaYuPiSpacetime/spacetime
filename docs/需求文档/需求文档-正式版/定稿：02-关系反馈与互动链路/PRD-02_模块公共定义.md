@@ -139,7 +139,7 @@
 | `like_cancelled` | 已取消喜欢（仅后台） | 发起方取消喜欢导致记录失效；前台不得直接展示“取消喜欢/不喜欢了”，后台可见真实原因 | 1 | 否 | 启用 |
 | `blocked` | 已拉黑 | 任一方拉黑另一方 | 2 | 否 | 启用 |
 | `account_frozen` | 账号已冻结 | 任一方账号冻结或停用 | 3 | 否 | 启用 |
-| `account_deleted` | 账号已注销 | 任一方注销中或已注销 | 4 | 否 | 启用 |
+| `account_deleted` | 账号已注销 | 任一方正式注销成功；提交申请及冷静期不失效关系 | 4 | 否 | 启用 |
 | `risk_banned` | 风控封禁 | 任一方被封禁 | 5 | 否 | 启用 |
 | `certification_revoked` | 认证失效 | 任一方核心准入回退 | 6 | 否 | 启用 |
 
@@ -455,7 +455,7 @@
 | 场景 ID | 异常/边界场景 | 处理规则 | 引用 |
 |---------|---------------|----------|------|
 | `M02-EX-like-cancel` | 喜欢记录被撤回 | 喜欢我的默认列表移除该记录；若匹配来源为双向喜欢，相互喜欢默认列表同步移除；后台保留 `like_cancelled`，前台不展示失效态 | `M02-RULE-like-cancel` |
-| `M02-EX-account-invalid` | 对方账号被冻结、停用、注销中或已注销 | 前台默认列表不展示不可互动对象；后台保留可查 | `M02-RULE-relation-invalid` |
+| `M02-EX-account-invalid` | 对方账号被冻结、停用或已正式注销 | 前台默认列表不展示不可互动对象；后台保留可查 | `M02-RULE-relation-invalid` |
 | `M02-EX-hidden-visit` | 隐藏访问历史预留场景 | 一期不实现、不验收 | `M02-RULE-hidden-visit-reserve` |
 | `M02-EX-single-unlock-then-vip` | 用户单条解锁后又开通会员 | 单条解锁记录继续清晰；会员期内全量清晰 | `M02-RULE-unlock-visibility`、PRD-04 |
 | `M02-EX-vip-expired` | 会员到期 | 全量查看权益回退普通态；已购买单条继续清晰 | PRD-04 |

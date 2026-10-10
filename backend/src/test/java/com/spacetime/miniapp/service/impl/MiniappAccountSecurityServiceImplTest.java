@@ -28,10 +28,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import java.time.LocalDateTime;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -41,6 +45,10 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 
 /**
  * 账号注销状态机服务测试。
@@ -59,6 +67,7 @@ class MiniappAccountSecurityServiceImplTest {
     @Mock private AccountStatusMessageNotificationService accountStatusNotificationService;
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
+    @Mock private PlatformTransactionManager transactionManager;
 
     private MiniappAccountSecurityServiceImpl service;
 
@@ -76,11 +85,11 @@ class MiniappAccountSecurityServiceImplTest {
                 relationLifecycleService,
                 accountStatusNotificationService,
                 new ObjectMapper(),
-                redisTemplate);
+                redisTemplate, transactionManager);
     }
 
     @Test
-    void applyMustPersistSnapshotAndMoveAccountToCancelling() {
+    void applyMustOnlyPersistApplicationWithoutChangingAccountOrRelations() {
         AppUser user = user(AccountStatusEnum.NORMAL.getCode());
         CoinBalanceVO coin = new CoinBalanceVO();
         coin.setCoinBalance(18);
@@ -121,12 +130,10 @@ class MiniappAccountSecurityServiceImplTest {
         assertThat(saved.getStatus()).isEqualTo(CancelRequestStatusEnum.COOLING_OFF.getCode());
         assertThat(saved.getCoinBalance()).isEqualTo(18);
         assertThat(saved.getRiskSnapshot()).isEqualTo("[]");
-        assertThat(user.getAccountStatus()).isEqualTo(AccountStatusEnum.CANCELLING.getCode());
+        assertThat(user.getAccountStatus()).isEqualTo(AccountStatusEnum.NORMAL.getCode());
         assertThat(requestId).isEqualTo(19L);
-        verify(relationLifecycleService).invalidateByUser(eq(7L),
-                eq(RelationInvalidReasonEnum.ACCOUNT_DELETED), any());
-        verify(accountStatusNotificationService).publishAfterCommit(eq(7L),
-                eq(AccountStatusEnum.CANCELLING.getCode()), any());
+        verify(appUserDao, never()).updateById(any());
+        verifyNoInteractions(relationLifecycleService, accountStatusNotificationService);
     }
 
     @Test
@@ -137,6 +144,7 @@ class MiniappAccountSecurityServiceImplTest {
         request.setStatus(CancelRequestStatusEnum.COOLING_OFF.getCode());
         AppUser user = user(AccountStatusEnum.CANCELLING.getCode());
         when(cancelRequestDao.selectCoolingOffByUserId(7L)).thenReturn(request);
+        when(cancelRequestDao.selectByIdForUpdate(11L)).thenReturn(request);
         when(appUserDao.selectById(7L)).thenReturn(user);
 
         service.revokeCancel(7L);
@@ -145,6 +153,133 @@ class MiniappAccountSecurityServiceImplTest {
         assertThat(user.getAccountStatus()).isEqualTo(AccountStatusEnum.NORMAL.getCode());
         verify(cancelRequestDao).updateById(request);
         verify(appUserDao).updateById(user);
+        verifyNoInteractions(relationLifecycleService, accountStatusNotificationService);
+    }
+
+    @Test
+    void repeatedApplyMustOnlyReturnExistingRequest() {
+        AppUserCancelRequest request = dueRequest();
+        when(cancelRequestDao.selectCoolingOffByUserId(7L)).thenReturn(request);
+        assertThat(service.applyCancel(7L, null)).isEqualTo(11L);
+        verifyNoInteractions(appUserDao, relationLifecycleService, accountStatusNotificationService);
+        verify(cancelRequestDao, never()).insert(any());
+    }
+
+    @Test
+    void revokeMustPreserveNormalAndFrozenAccounts() {
+        for (String accountStatus : List.of("NORMAL", "FROZEN")) {
+            AppUserCancelRequest request = dueRequest();
+            AppUser user = user(accountStatus);
+            when(cancelRequestDao.selectCoolingOffByUserId(7L)).thenReturn(request);
+            when(cancelRequestDao.selectByIdForUpdate(11L)).thenReturn(request);
+            when(appUserDao.selectById(7L)).thenReturn(user);
+            service.revokeCancel(7L);
+            assertThat(request.getStatus()).isEqualTo("RESTORED");
+            assertThat(user.getAccountStatus()).isEqualTo(accountStatus);
+        }
+        verify(appUserDao, never()).updateById(any());
+        verifyNoInteractions(relationLifecycleService, accountStatusNotificationService);
+    }
+
+    @Test
+    void dueCancellationMustCommitFinalAccountRequestAndRelationTogether() {
+        AppUserCancelRequest request = prepareDue(false);
+        assertThat(service.executeDueCancellations()).isEqualTo(1);
+        assertThat(request.getStatus()).isEqualTo("CANCELLED");
+        assertThat(request.getFinalCancelTime()).isNotNull();
+        ArgumentCaptor<AppUser> userCaptor = ArgumentCaptor.forClass(AppUser.class);
+        verify(appUserDao).updateById(userCaptor.capture());
+        assertThat(userCaptor.getValue().getAccountStatus()).isEqualTo("CANCELLED");
+        verify(relationLifecycleService).invalidateByUser(eq(7L), eq(RelationInvalidReasonEnum.ACCOUNT_DELETED), any());
+        verify(accountStatusNotificationService).publishAfterCommit(eq(7L), eq("CANCELLED"), any());
+        verify(transactionManager).commit(any());
+        verify(transactionManager, never()).rollback(any());
+    }
+
+    @Test
+    void blockedDueRequestMustRetryWithoutInvalidating() {
+        AppUserCancelRequest request = prepareDue(true);
+        assertThat(service.executeDueCancellations()).isZero();
+        assertThat(request.getStatus()).isEqualTo("COOLING_OFF");
+        assertThat(request.getNextRetryTime()).isAfter(LocalDateTime.now());
+        verify(appUserDao, never()).updateById(any());
+        verifyNoInteractions(relationLifecycleService, accountStatusNotificationService);
+    }
+
+    @Test
+    void staleDueScanMustNotExecuteRevokedOrNotYetDueRequest() {
+        AppUserCancelRequest request = dueRequest();
+        when(cancelRequestDao.selectDueCoolingOff(any(), anyInt())).thenReturn(List.of(request));
+        when(cancelRequestDao.selectByIdForUpdate(11L)).thenReturn(request);
+        when(transactionManager.getTransaction(any())).thenAnswer(i -> new SimpleTransactionStatus());
+        request.setStatus("RESTORED");
+        assertThat(service.executeDueCancellations()).isZero();
+        request.setStatus("COOLING_OFF");
+        request.setCoolingEndTime(LocalDateTime.now().plusDays(1));
+        assertThat(service.executeDueCancellations()).isZero();
+        verifyNoInteractions(appUserDao, relationLifecycleService, accountStatusNotificationService, riskEvaluator);
+    }
+
+    @Test
+    void revokeMustNotReopenRequestCompletedAfterInitialRead() {
+        AppUserCancelRequest cooling = dueRequest();
+        AppUserCancelRequest completed = dueRequest();
+        completed.setStatus("CANCELLED");
+        when(cancelRequestDao.selectCoolingOffByUserId(7L)).thenReturn(cooling);
+        when(cancelRequestDao.selectByIdForUpdate(11L)).thenReturn(completed);
+        when(appConfigDao.selectByKey("account_cancel.no_active_request"))
+                .thenReturn(config("account_cancel.no_active_request"));
+        assertThatThrownBy(() -> service.revokeCancel(7L)).hasMessage("无可撤销申请");
+        verify(cancelRequestDao, never()).updateById(any());
+        verifyNoInteractions(appUserDao, relationLifecycleService, accountStatusNotificationService);
+    }
+
+    @Test
+    void finalWriteFailureMustRollbackBeforeRecordingRetry() {
+        AppUserCancelRequest request = prepareDue(false);
+        doThrow(new IllegalStateException("fixture failure"))
+                .when(relationLifecycleService).invalidateByUser(any(), any(), any());
+        assertThat(service.executeDueCancellations()).isZero();
+        assertThat(request.getStatus()).isEqualTo("COOLING_OFF");
+        assertThat(request.getNextRetryTime()).isAfter(LocalDateTime.now());
+        var order = inOrder(transactionManager, cancelRequestDao);
+        order.verify(transactionManager).rollback(any());
+        order.verify(cancelRequestDao).selectByIdForUpdate(11L);
+        order.verify(cancelRequestDao).updateById(request);
+        order.verify(transactionManager).commit(any());
+        verifyNoInteractions(accountStatusNotificationService);
+    }
+
+    private AppUserCancelRequest dueRequest() {
+        AppUserCancelRequest request = new AppUserCancelRequest();
+        request.setId(11L);
+        request.setUserId(7L);
+        request.setStatus("COOLING_OFF");
+        request.setCoolingEndTime(LocalDateTime.now().minusDays(1));
+        return request;
+    }
+
+    private AppUserCancelRequest prepareDue(boolean blocked) {
+        AppUserCancelRequest request = dueRequest();
+        when(cancelRequestDao.selectDueCoolingOff(any(), anyInt())).thenReturn(List.of(request));
+        when(cancelRequestDao.selectByIdForUpdate(11L)).thenReturn(request);
+        when(transactionManager.getTransaction(any())).thenAnswer(i -> new SimpleTransactionStatus());
+        when(appConfigDao.selectByKey(anyString())).thenAnswer(i -> config(i.getArgument(0)));
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of());
+        when(appUserDao.selectById(7L)).thenReturn(user("NORMAL"));
+        when(vipService.getStatus(7L)).thenReturn(new VipStatusVO());
+        when(coinService.getBalance(7L)).thenReturn(new CoinBalanceVO());
+        when(refundRecordDao.count(any())).thenReturn(0L);
+        MiniappAccountCancelCheckVO check = new MiniappAccountCancelCheckVO();
+        check.setCanSubmit(!blocked);
+        if (blocked) {
+            var item = new MiniappAccountCancelCheckVO.RiskItem();
+            item.setDescription("有未完成退款");
+            check.setHardBlocks(List.of(item));
+        }
+        when(riskEvaluator.evaluate(anyString(), anyBoolean(), nullable(String.class), any(), any(),
+                anyInt(), anyString(), any(), any())).thenReturn(check);
+        return request;
     }
 
     private AppUser user(String status) {

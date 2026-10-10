@@ -33,6 +33,9 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
@@ -80,6 +83,7 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
     private final AccountStatusMessageNotificationService accountStatusNotificationService;
     private final ObjectMapper objectMapper;
     private final StringRedisTemplate redisTemplate;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     public MiniappAccountCancelStatusVO cancelStatus(Long userId) {
@@ -151,13 +155,7 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
             throw e;
         }
 
-        user.setAccountStatus(AccountStatusEnum.CANCELLING.getCode());
-        user.setUpdateTime(now);
-        appUserDao.updateById(user);
-        relationLifecycleService.invalidateByUser(
-                userId, RelationInvalidReasonEnum.ACCOUNT_DELETED, now);
-        accountStatusNotificationService.publishAfterCommit(
-                userId, AccountStatusEnum.CANCELLING.getCode(), now);
+        // 冷静期只记录申请，正式注销提交成功时才改变账号与关系状态。
         redisTemplate.delete(RECHECK_KEY_PREFIX + userId);
         writeAudit(
                 auditLogDao,
@@ -178,6 +176,10 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
         if (entity == null) {
             throw new BusinessException(requiredConfig("account_cancel.no_active_request"));
         }
+        entity = cancelRequestDao.selectByIdForUpdate(entity.getId());
+        if (entity == null || !CancelRequestStatusEnum.COOLING_OFF.getCode().equals(entity.getStatus())) {
+            throw new BusinessException(requiredConfig("account_cancel.no_active_request"));
+        }
         entity.setStatus(CancelRequestStatusEnum.RESTORED.getCode());
         entity.setRevokedTime(LocalDateTime.now());
         entity.setExecutionLog(appendExecution(
@@ -186,8 +188,11 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
         cancelRequestDao.updateById(entity);
 
         AppUser user = requireUser(userId);
-        user.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
-        appUserDao.updateById(user);
+        // 兼容旧版冷静期账号；撤销申请不能解除期间新增的冻结等处罚。
+        if (AccountStatusEnum.CANCELLING.getCode().equals(user.getAccountStatus())) {
+            user.setAccountStatus(AccountStatusEnum.NORMAL.getCode());
+            appUserDao.updateById(user);
+        }
         writeAudit(
                 auditLogDao,
                 userId,
@@ -200,64 +205,81 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
     }
 
     @Override
-    @Transactional
     public int executeDueCancellations() {
         List<AppUserCancelRequest> dueRequests =
                 cancelRequestDao.selectDueCoolingOff(LocalDateTime.now(), 100);
         int affected = 0;
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         for (AppUserCancelRequest request : dueRequests) {
             try {
-                MiniappAccountCancelCheckVO check = evaluateCancellation(request.getUserId());
-                if (!check.getHardBlocks().isEmpty()) {
-                    request.setBlockReason(check.getHardBlocks().getFirst().getDescription());
-                    request.setHardBlockSnapshot(toJson(check.getHardBlocks()));
-                    request.setNextRetryTime(LocalDateTime.now().plusHours(1));
-                    request.setExecutionLog(appendExecution(
-                            request.getExecutionLog(),
-                            executionEntry("RETRY_BLOCKED", request.getBlockReason())));
-                    cancelRequestDao.updateById(request);
-                    continue;
+                if (Boolean.TRUE.equals(transaction.execute(status -> executeCancellation(request.getId())))) {
+                    affected++;
                 }
-                LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
-                AppUser user = requireUser(request.getUserId());
-                user.setAccountStatus(AccountStatusEnum.CANCELLED.getCode());
-                user.setUpdateTime(now);
-                appUserDao.updateById(user);
-                relationLifecycleService.invalidateByUser(
-                        request.getUserId(), RelationInvalidReasonEnum.ACCOUNT_DELETED, now);
-                accountStatusNotificationService.publishAfterCommit(
-                        request.getUserId(), AccountStatusEnum.CANCELLED.getCode(), now);
-
-                request.setStatus(CancelRequestStatusEnum.CANCELLED.getCode());
-                request.setFinalCancelTime(now);
-                request.setBlockReason(null);
-                request.setNextRetryTime(null);
-                request.setExecutionLog(appendExecution(
-                        request.getExecutionLog(),
-                        executionEntry("COMPLETE", CancelRequestStatusEnum.CANCELLED.getCode())));
-                cancelRequestDao.updateById(request);
-                writeAudit(
-                        auditLogDao,
-                        request.getUserId(),
-                        null,
-                        "ACCOUNT_CANCEL",
-                        request.getId(),
-                        "COMPLETE",
-                        CancelRequestStatusEnum.COOLING_OFF.getCode(),
-                        request.getStatus());
-                affected++;
             } catch (RuntimeException e) {
-                log.error("注销到期执行失败: requestId={}, userId={}",
-                        request.getId(), request.getUserId(), e);
-                request.setNextRetryTime(LocalDateTime.now().plusHours(1));
-                request.setExecutionLog(appendExecution(
-                        request.getExecutionLog(),
-                        executionEntry("RETRY_ERROR", requiredConfig(
-                                "account_cancel.risk.dependency_unavailable.description"))));
-                cancelRequestDao.updateById(request);
+                log.error("注销到期执行失败: requestId={}, userId={}", request.getId(), request.getUserId(), e);
+                // 正式注销事务已回滚；重试只更新仍处于冷静期的最新申请。
+                transaction.executeWithoutResult(status -> {
+                    AppUserCancelRequest latest = cancelRequestDao.selectByIdForUpdate(request.getId());
+                    if (latest == null || !CancelRequestStatusEnum.COOLING_OFF.getCode().equals(latest.getStatus())) return;
+                    latest.setNextRetryTime(LocalDateTime.now().plusHours(1));
+                    latest.setExecutionLog(appendExecution(latest.getExecutionLog(),
+                            executionEntry("RETRY_ERROR", requiredConfig("account_cancel.risk.dependency_unavailable.description"))));
+                    cancelRequestDao.updateById(latest);
+                });
             }
         }
         return affected;
+    }
+
+    /** 每条申请独立事务，锁内复核撤销、期限及阻断，全部成功后才提交失效效果。 */
+    private boolean executeCancellation(Long requestId) {
+        AppUserCancelRequest request = cancelRequestDao.selectByIdForUpdate(requestId);
+        LocalDateTime checkedAt = LocalDateTime.now();
+        if (request == null || !CancelRequestStatusEnum.COOLING_OFF.getCode().equals(request.getStatus())
+                || request.getCoolingEndTime() == null || request.getCoolingEndTime().isAfter(checkedAt)
+                || (request.getNextRetryTime() != null && request.getNextRetryTime().isAfter(checkedAt))) {
+            return false;
+        }
+        MiniappAccountCancelCheckVO check = evaluateCancellation(request.getUserId());
+        if (!check.getHardBlocks().isEmpty()) {
+            request.setBlockReason(check.getHardBlocks().getFirst().getDescription());
+            request.setHardBlockSnapshot(toJson(check.getHardBlocks()));
+            request.setNextRetryTime(LocalDateTime.now().plusHours(1));
+            request.setExecutionLog(appendExecution(
+                    request.getExecutionLog(),
+                    executionEntry("RETRY_BLOCKED", request.getBlockReason())));
+            cancelRequestDao.updateById(request);
+            return false;
+        }
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        AppUser user = requireUser(request.getUserId());
+        user.setAccountStatus(AccountStatusEnum.CANCELLED.getCode());
+        user.setUpdateTime(now);
+        appUserDao.updateById(user);
+        relationLifecycleService.invalidateByUser(
+                request.getUserId(), RelationInvalidReasonEnum.ACCOUNT_DELETED, now);
+        accountStatusNotificationService.publishAfterCommit(
+                request.getUserId(), AccountStatusEnum.CANCELLED.getCode(), now);
+
+        request.setStatus(CancelRequestStatusEnum.CANCELLED.getCode());
+        request.setFinalCancelTime(now);
+        request.setBlockReason(null);
+        request.setNextRetryTime(null);
+        request.setExecutionLog(appendExecution(
+                request.getExecutionLog(),
+                executionEntry("COMPLETE", CancelRequestStatusEnum.CANCELLED.getCode())));
+        cancelRequestDao.updateById(request);
+        writeAudit(
+                auditLogDao,
+                request.getUserId(),
+                null,
+                "ACCOUNT_CANCEL",
+                request.getId(),
+                "COMPLETE",
+                CancelRequestStatusEnum.COOLING_OFF.getCode(),
+                request.getStatus());
+        return true;
     }
 
     @Override

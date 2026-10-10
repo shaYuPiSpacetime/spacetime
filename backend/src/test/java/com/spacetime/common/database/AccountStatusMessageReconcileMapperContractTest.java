@@ -19,7 +19,8 @@ class AccountStatusMessageReconcileMapperContractTest {
         String sql = String.join(" ", method.getAnnotation(Select.class).value());
 
         assertThat(sql)
-                .contains("account_status IN ('FROZEN','CANCELLING','CANCELLED')")
+                .contains("account_status IN ('FROZEN','CANCELLED')")
+                .doesNotContain("CANCELLING")
                 .contains("app_message_event_inbox")
                 .contains("account-status:")
                 .contains("i.id IS NULL")

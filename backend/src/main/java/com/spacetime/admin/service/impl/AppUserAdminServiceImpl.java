@@ -449,8 +449,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         AppUser user = appUserDao.selectById(id);
         if (user == null) throw new BusinessException("用户不存在");
         String previousStatus = user.getAccountStatus();
-        if ((AccountStatusEnum.CANCELLING.getCode().equals(status)
-                || AccountStatusEnum.CANCELLED.getCode().equals(status))
+        if (AccountStatusEnum.CANCELLED.getCode().equals(status)
                 && StrUtil.isBlank(user.getAnonymousNo())) {
             user.setAnonymousNo("ANON-" + IdUtil.fastSimpleUUID().substring(0, 16).toUpperCase(Locale.ROOT));
         }
@@ -459,8 +458,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         if (AccountStatusEnum.FROZEN.getCode().equals(status)
                 && !AccountStatusEnum.FROZEN.getCode().equals(previousStatus)) {
             relationLifecycleService.invalidateByUser(id, RelationInvalidReasonEnum.ACCOUNT_FROZEN, LocalDateTime.now());
-        } else if ((AccountStatusEnum.CANCELLING.getCode().equals(status)
-                || AccountStatusEnum.CANCELLED.getCode().equals(status))
+        } else if (AccountStatusEnum.CANCELLED.getCode().equals(status)
                 && !status.equals(previousStatus)) {
             relationLifecycleService.invalidateByUser(id, RelationInvalidReasonEnum.ACCOUNT_DELETED, LocalDateTime.now());
         }

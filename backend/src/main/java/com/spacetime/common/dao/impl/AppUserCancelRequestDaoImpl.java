@@ -23,6 +23,11 @@ public class AppUserCancelRequestDaoImpl implements AppUserCancelRequestDao {
     }
 
     @Override
+    public AppUserCancelRequest selectByIdForUpdate(Long id) {
+        return mapper.selectByIdForUpdate(id);
+    }
+
+    @Override
     public AppUserCancelRequest selectLatestByUserId(Long userId) {
         return mapper.selectOne(new LambdaQueryWrapper<AppUserCancelRequest>()
                 .eq(AppUserCancelRequest::getUserId, userId)

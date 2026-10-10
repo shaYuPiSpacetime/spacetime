@@ -16,6 +16,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class MessageAccountFactReconcileServiceImplTest {
@@ -24,6 +25,17 @@ class MessageAccountFactReconcileServiceImplTest {
     @Mock private AppUserDao appUserDao;
     @Mock private RelationLifecycleService relationLifecycleService;
     @Mock private AccountStatusMessageNotificationService notificationService;
+
+    @Test
+    void coolingOffMustNotInvalidateRelationsOrPublishRestrictedStatus() {
+        AppUser user = new AppUser();
+        user.setId(9L);
+        user.setAccountStatus("CANCELLING");
+        when(appUserDao.selectRestrictedWithoutMessage(NOW.minusHours(24), 200)).thenReturn(List.of(user));
+        assertThat(new MessageAccountFactReconcileServiceImpl(appUserDao, relationLifecycleService, notificationService)
+                .reconcileRecentAccountStatuses(NOW, 200)).isZero();
+        verifyNoInteractions(relationLifecycleService, notificationService);
+    }
 
     @Test
     void shouldReconcileRestrictedAccountRelationAndNotification() {

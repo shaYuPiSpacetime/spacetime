@@ -19,7 +19,7 @@ public interface AppUserMapper extends BaseMapper<AppUser> {
             + "LEFT JOIN app_message_event_inbox i ON i.event_key=CONCAT("
             + "'prd01:system_message_create:account-status:',u.id,':',u.account_status,':',"
             + "DATE_FORMAT(u.update_time,'%Y%m%d%H%i%s'),':',u.id) AND i.deleted=0 "
-            + "WHERE u.deleted=0 AND u.account_status IN ('FROZEN','CANCELLING','CANCELLED') "
+            + "WHERE u.deleted=0 AND u.account_status IN ('FROZEN','CANCELLED') "
             + "AND u.update_time>=#{updatedAfter} AND i.id IS NULL "
             + "ORDER BY u.update_time,u.id LIMIT #{limit}")
     List<AppUser> selectRestrictedWithoutMessage(

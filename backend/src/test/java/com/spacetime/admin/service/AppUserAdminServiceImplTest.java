@@ -36,6 +36,8 @@ import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.common.service.MiniappTokenSessionService;
+import com.spacetime.common.service.RelationLifecycleService;
+import com.spacetime.common.enums.RelationInvalidReasonEnum;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,6 +76,8 @@ import static org.mockito.Mockito.when;
 @DisplayName("AppUserAdminService L3 测试")
 class AppUserAdminServiceImplTest {
 
+    @Mock private RelationLifecycleService relationLifecycleService;
+
     @Mock
     private AppUserDao appUserDao;
     @Mock
@@ -107,6 +111,18 @@ class AppUserAdminServiceImplTest {
 
     @InjectMocks
     private AppUserAdminServiceImpl service;
+
+    @Test
+    void cancellingMustPreserveRelationsUntilFinalCancellation() {
+        AppUser user = new AppUser();
+        user.setId(7L);
+        user.setAccountStatus("NORMAL");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        service.updateUserStatus(7L, "CANCELLING");
+        verifyNoInteractions(relationLifecycleService);
+        service.updateUserStatus(7L, "CANCELLED");
+        verify(relationLifecycleService).invalidateByUser(eq(7L), eq(RelationInvalidReasonEnum.ACCOUNT_DELETED), any());
+    }
 
     @Test
     @DisplayName("彻底删除用户应清理数据库、撤销会话并写入脱敏审计")

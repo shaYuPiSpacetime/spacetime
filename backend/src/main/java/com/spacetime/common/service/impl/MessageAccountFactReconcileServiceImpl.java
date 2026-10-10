@@ -36,6 +36,10 @@ public class MessageAccountFactReconcileServiceImpl implements MessageAccountFac
         }
         int reconciled = 0;
         for (AppUser user : users) {
+            if (!AccountStatusEnum.FROZEN.getCode().equals(user.getAccountStatus())
+                    && !AccountStatusEnum.CANCELLED.getCode().equals(user.getAccountStatus())) {
+                continue;
+            }
             try {
                 LocalDateTime changedAt = user.getUpdateTime() == null
                         ? effectiveNow : user.getUpdateTime();
