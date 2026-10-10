@@ -25,4 +25,11 @@ Java 21，定向 Maven 测试 32/32 通过，零失败/错误：
 
 ## 交付
 
-代码与测试已完成，master 推送、后端部署和体验版发布结果待核对。
+源码提交 `e89541cf7ae1d27ac6ba6875b4b52b67d24ba500` 已推送 master。
+
+- 发布前本次实际 fetch 并快进同步 origin/master，从上述提交重新构建；上传前 ls-remote 再次确认提交一致，工作区干净。
+- 体验版 `1.0.20261010.1511` 上传成功，CLI 退出码 0。产物检查：87 个页面 Page=1，共享脚本 Page=0、App=1，无开发 Token；主包 1.40 MiB，总包 2.81 MiB。
+- [后端部署 38033511512](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38033511512) completed/success，build、deploy 均成功，部署 SHA 与上述提交一致。
+- 生产健康检查返回 `code=200,msg=success,data=ok`。本次修改已在服务端生效。
+
+未再次修改账号的关系数据或对真实账号发起注销。之前用户授权恢复的关系记录保留。
