@@ -4,6 +4,7 @@ import os
 import subprocess
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 
 
 def probe(key):
@@ -32,7 +33,8 @@ try:
     runtime = dict(item.split("=", 1) for item in values if "=" in item)
     source_key = os.environ.get("TENCENT_MAP_KEY", "").strip()
     runtime_key = runtime.get("TENCENT_MAP_KEY", "").strip()
-    print(json.dumps({"source": probe(source_key), "runtime": probe(runtime_key),
+    print(json.dumps({"checked_at_utc": datetime.now(timezone.utc).isoformat(),
+                      "source": probe(source_key), "runtime": probe(runtime_key),
                       "source_matches_runtime": bool(source_key) and source_key == runtime_key}))
 except Exception:
     print(json.dumps({"audit_failed": True}))
