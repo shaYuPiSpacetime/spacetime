@@ -55,4 +55,8 @@
 
 相同生产 dist，复制到从未编译过的新项目路径，心动分包变为 55,666 字节。保持原项目配置不变，仅清理 compile/file 缓存后预览，全部分包与新目录完全一致（总计 2,853,904 字节）。源码未作变化。由此定位到 IDE 打包缓存，前两次发布核验遗漏了此项。
 
-证据：`.runtime/given-likes-package-audit/preview-info.json`、`clean-preview-info.json`、`cache-compile.log`、`cache-file.log`。新增发布流程要求全新发布目录、复制哈希核对和 preview/upload 分包逐项核对。本轮不再修改已通过微信渲染验证的列表业务代码；重新同步、生产构建后发布，结果待补记。
+证据：`.runtime/given-likes-package-audit/preview-info.json`、`clean-preview-info.json`、`cache-compile.log`、`cache-file.log`。新增发布流程要求全新发布目录、复制哈希核对和 preview/upload 分包逐项核对。本轮不再修改已通过微信渲染验证的列表业务代码。
+
+重新发布完成：体验版 **1.0.20261010.1634**，微信 CLI 上传成功（exit 0）。当次重新 fetch 并同步 master，从 `577fed361e945320f70a0bb89d1e6593da2d57ee` 执行生产构建；关闭固定登录和 E2E，构建及 postbuild 门禁通过。上传前再次核对远端 master、本地 HEAD 和构建 SHA 一致。
+
+独立发布目录 `.runtime/weapp-release-577fed36-1791621225491/project` 的 427 个文件 SHA256 全部核对通过；preview 和 upload 的全部分包字节数逐项一致：主包 1,387,404 字节、心动分包 55,666 字节、总计 2,853,904 字节。发布目录上级保存 `manifest.json`、`preview-info.json`、`upload-info.json`；上传日志在 `.runtime/given-likes-package-audit/upload.log`。此次仅发布流程及文档变化，不重复执行已通过的业务全量测试。用户真机返回后完整分页及滚动位置仍待复验。
