@@ -1,4 +1,5 @@
 import MatchPopupHost from '@/components/MatchPopupHost'
+import { clearGivenLikesReturn } from '@/domain/givenLikesReturn'
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
@@ -75,7 +76,10 @@ export default function ProfilePage() {
     {
       value: data.likedCount,
       label: '我喜欢的',
-      onClick: () => void Taro.navigateTo({ url: '/pages/heart/my-likes' }),
+      onClick: () => {
+        clearGivenLikesReturn()
+        void Taro.navigateTo({ url: '/pages/heart/my-likes' })
+      },
     },
     {
       value: data.beLikedCount,
