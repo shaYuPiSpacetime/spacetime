@@ -1,0 +1,83 @@
+name: ops-reset-recommend-20261010
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'deploy/sql/prod/111_ops_reset_recommend_20261010.sql'
+      - 'scripts/test-recommend-reset-20261010.py'
+      - '.github/workflows/ops-reset-recommend-20261010.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spacetime-prod-data-ops
+  cancel-in-progress: false
+
+jobs:
+  reset-recommend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ops-fixture-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -pops-fixture-only"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - name: Checkout operation files
+        uses: actions/checkout@v4
+
+      - name: Verify scope and repeat protection in isolated MySQL
+        env:
+          MYSQL_PWD: ops-fixture-only
+          OPS_FIXTURE_TEST: '1'
+        run: python3 scripts/test-recommend-reset-20261010.py
+
+      - name: Copy one-time SQL to production host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'deploy/sql/prod/111_ops_reset_recommend_20261010.sql'
+          target: '/mnt/data/spacetime-prod'
+
+      - name: Execute guarded recommendation reset
+        id: reset
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script: |
+            set +e
+            cd /mnt/data/spacetime-prod
+            reset_output="$(bash deploy/scripts/migrate-prod-db.sh \
+              deploy/sql/prod/111_ops_reset_recommend_20261010.sql 2>&1)"
+            reset_status=$?
+            reset_tail="$(printf '%s\n' "$reset_output" | tail -n 20 | base64 -w0)"
+            printf 'OPS_RESULT|%s|%s\n' "$reset_status" "$reset_tail"
+            exit 0
+
+      - name: Publish guarded reset result
+        if: always()
+        env:
+          RESET_OUTCOME: ${{ steps.reset.outcome }}
+          RESET_STDOUT: ${{ steps.reset.outputs.stdout }}
+        run: |
+          result_line="$(printf '%s\n' "$RESET_STDOUT" | grep '^OPS_RESULT|' | tail -n 1)"
+          reset_status="$(printf '%s' "$result_line" | cut -d'|' -f2)"
+          encoded_summary="$(printf '%s' "$result_line" | cut -d'|' -f3)"
+          summary="$(printf '%s' "$encoded_summary" | base64 -d 2>/dev/null | tr '\n' ' ' | cut -c1-900)"
+          if [ "$RESET_OUTCOME" != 'success' ] || [ "$reset_status" != '0' ]; then
+            echo "::error title=Guarded recommendation reset failed::${summary:-no diagnostic captured}"
+            exit 1
+          fi
+          echo "::notice title=Guarded recommendation reset completed::${summary:-completed without stdout}"
