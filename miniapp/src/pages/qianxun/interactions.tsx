@@ -17,6 +17,7 @@ import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { useCommunityPersonalSummary } from '@/hooks/useCommunityPersonalSummary'
+import { replaceResubmittedPost, subscribeCommunityPostResubmitted } from '@/domain/communityPostResubmitted'
 import {
   COMMUNITY_COPY_KEYS,
   clearCommunityViewHistory,
@@ -201,6 +202,13 @@ export default function QianxunInteractionsPage() {
   }, [interactorPostId, interactorType])
 
   const myPostsRequest = useRef(0)
+  useEffect(() => subscribeCommunityPostResubmitted(replacement => {
+    myPostsRequest.current++
+    setMyPosts(items => replaceResubmittedPost(items, replacement))
+    setFailurePost(undefined)
+    setMyPostsLoading(false)
+  }), [])
+
   const loadMyPosts = async () => {
     const request = ++myPostsRequest.current
     setMyPostsLoading(myPosts.length === 0)

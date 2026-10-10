@@ -55,6 +55,7 @@ export interface IdealResultItemVO {
   itemNo: string
   unlocked: boolean
   blurAvatarUrl?: string | null
+  /** 实际周岁展示值（沿用历史接口字段名）。 */
   ageBand?: string | null
   cityName?: string | null
   educationLabel?: string | null

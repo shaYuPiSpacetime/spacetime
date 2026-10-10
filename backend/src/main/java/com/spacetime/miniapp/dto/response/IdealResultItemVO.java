@@ -11,6 +11,7 @@ public class IdealResultItemVO {
     private String itemNo;
     private Boolean unlocked;
     private String blurAvatarUrl;
+    /** 当前周岁展示值；兼容既有字段名，已不再按年龄段模糊化。 */
     private String ageBand;
     private String cityName;
     private String educationLabel;

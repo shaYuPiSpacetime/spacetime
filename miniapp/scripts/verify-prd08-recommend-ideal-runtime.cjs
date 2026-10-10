@@ -179,7 +179,7 @@ function resultPage() {
         itemNo: 'IDI-LOCKED-1',
         unlocked: false,
         blurAvatarUrl: blurred,
-        ageBand: '25-29岁',
+        ageBand: '28岁',
         cityName: '南京',
         educationLabel: '硕士',
         schoolSummary: '学校信息解锁后可见',

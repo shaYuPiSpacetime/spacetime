@@ -317,9 +317,10 @@ class CommunityServiceImplTest {
         assertThat(result.getAuditRemark()).isEqualTo("内容未通过安全审核，请修改后重新提交");
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"pass,published", "review,pending_manual", "reject,rejected"})
     @DisplayName("重新提交驳回动态-完整复审后新建并删除旧帖")
-    void resubmitRejectedPost_shouldCreateNewPostAndSoftDeleteOriginal() {
+    void resubmitRejectedPost_shouldCreateNewPostAndSoftDeleteOriginal(String conclusion, String expectedStatus) {
         CommunityPost rejected = new CommunityPost();
         rejected.setId(100L);
         rejected.setPostNo("POST-OLD");
@@ -330,7 +331,11 @@ class CommunityServiceImplTest {
         when(communityPostDao.claimRejectedForResubmit(100L, 0)).thenReturn(1);
         when(communityPostDao.updateCas(any(), eq(1))).thenReturn(1);
         when(appUserDao.selectById(1L)).thenReturn(user);
-        when(contentSecurityPort.checkPost(any(), any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
+        when(contentSecurityPort.checkPost(any(), any(), any(), any())).thenReturn(switch (conclusion) {
+            case "review" -> CommunitySecurityResult.review("review");
+            case "reject" -> CommunitySecurityResult.reject("risky", "unsafe");
+            default -> CommunitySecurityResult.pass("ok");
+        });
 
         CommunityPostCreateReq req = new CommunityPostCreateReq();
         req.setPostType("sincere_post");
@@ -339,7 +344,10 @@ class CommunityServiceImplTest {
 
         CommunityPublishResultVO result = communityService.resubmitRejectedPost(1L, "100", req);
 
-        assertThat(result.getStatus()).isEqualTo("published");
+        assertThat(result.getStatus()).isEqualTo(expectedStatus);
+        if ("rejected".equals(expectedStatus)) {
+            assertThat(result.getMessage()).isEqualTo("内容未通过安全审核，请修改后重新提交");
+        }
         verify(contentSecurityPort).checkPost(any(), eq("修改后的动态正文"), eq(List.of()), eq("community"));
         verify(communityPostDao).insert(argThat(row -> "community_post".equals(row.getPostType())
                 && "修改后的动态正文".equals(row.getContent())));

@@ -1,4 +1,5 @@
 import { withCommunityPersonalRefresh } from '@/domain/communityPersonalEvents'
+import { notifyCommunityPostResubmitted } from '@/domain/communityPostResubmitted'
 import { del, get, post, put } from './request'
 import type { PageVO } from '@/types/api'
 import {
@@ -325,14 +326,18 @@ export function publishCommunityPost(content: string, imageUrls: string[], topic
   }))
 }
 
-export function resubmitCommunityPost(postId: number | string, content: string, imageUrls: string[], topicId?: number, contentType: CommunityContentType = 'community_post') {
-  return withCommunityPersonalRefresh(put<CommunityPublishResultVO>(`/miniapp/community/posts/${postId}`, {
+export async function resubmitCommunityPost(postId: number | string, content: string, imageUrls: string[], topicId?: number, contentType: CommunityContentType = 'community_post') {
+  const result = await withCommunityPersonalRefresh(put<CommunityPublishResultVO>(`/miniapp/community/posts/${postId}`, {
     contentType,
     postType: contentType,
     content,
     imageUrls,
     topicId,
   }))
+  notifyCommunityPostResubmitted({ previousPostRef: String(postId), postNo: result.postNo,
+    postId: result.postId, status: result.status, statusName: result.statusName, content, imageUrls,
+    failureMessage: result.status === 'rejected' ? result.message : undefined })
+  return result
 }
 
 export const getCommunityDraft = (contentType: CommunityContentType) => get<CommunityDraftVO | null>(`/miniapp/community/drafts/${contentType}`)

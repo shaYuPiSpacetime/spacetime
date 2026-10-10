@@ -496,10 +496,14 @@ class IdealServiceImplTest {
         verify(snapshotDao, never()).insert(any());
     }
 
-    @Test
-    void lockedResultNeverReturnsCandidateIdentityOrPublicProfile() {
+    @ParameterizedTest
+    @CsvSource({"0,25,28岁", "1,25,27岁", "-1,25,28岁", ",28,28岁", ",,年龄保密"})
+    void lockedResultShowsCurrentAgeWithoutReturningIdentity(Integer birthdayOffset, Integer savedAge, String expectedAge) {
         AppUser current = openUser(7L, "MALE", 30, "320100");
         AppUser target = openUser(8L, "FEMALE", 28, "320100");
+        target.setBirthday(birthdayOffset == null ? null
+                : LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).minusYears(28).plusDays(birthdayOffset));
+        target.setAge(savedAge);
         target.setEducationLevel("MASTER");
         IdealFilterSnapshot snapshot = snapshot(100L, 7L, LocalDateTime.now().plusDays(1));
         IdealSnapshotCandidate item = candidate(100L, "IDI-001", 8L,
@@ -523,7 +527,7 @@ class IdealServiceImplTest {
             assertThat(locked.getCandidateNo()).isNull();
             assertThat(locked.getProfile()).isNull();
             assertThat(locked.getBlurAvatarUrl()).contains("avatar-liked-blurred");
-            assertThat(locked.getAgeBand()).isEqualTo("25-29岁");
+            assertThat(locked.getAgeBand()).isEqualTo(expectedAge);
             assertThat(locked.getCityName()).isEqualTo("南京");
             assertThat(locked.getEducationLabel()).isEqualTo("硕士");
             assertThat(locked.getSchoolSummary()).isEqualTo("学校信息解锁后可见");

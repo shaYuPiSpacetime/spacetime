@@ -241,12 +241,25 @@ export default function QianxunComposePage() {
         ? await resubmitCommunityPost(editPostIdRef.current, content.trim(), imageUrls, topicId, postType)
         : await publishCommunityPost(content.trim(), imageUrls, topicId, postType)
       if (!editPostIdRef.current) await deleteCommunityDraft(postType).catch(() => undefined)
+      if (publishResult.status === 'rejected') {
+        await Taro.showModal({
+          title: editPostIdRef.current ? '重新审核未通过' : '内容未通过审核',
+          content: publishResult.message || '内容未通过安全审核，请修改后重新提交',
+          showCancel: false, confirmText: '我知道了',
+        })
+      }
       const pages = Taro.getCurrentPages()
       if (pages.length > 1 && pages[pages.length - 2].route === 'pages/qianxun/interactions') {
         // 已有互动页时直接返回，避免连续发帖反复叠加互动页。
         await Taro.navigateBack()
       } else {
         await Taro.redirectTo({ url: `/pages/qianxun/interactions?section=mine&postNo=${encodeURIComponent(publishResult.postNo)}&status=${encodeURIComponent(publishResult.status)}` })
+      }
+      if (editPostIdRef.current && publishResult.status !== 'rejected') {
+        await Taro.showToast({
+          title: publishResult.status === 'published' ? '修改后的动态已发布' : '已重新提交审核',
+          icon: 'none', duration: 3000,
+        })
       }
     } catch (error) {
       showFailureFeedback(COMMUNITY_COPY_KEYS.publishFailed, error)

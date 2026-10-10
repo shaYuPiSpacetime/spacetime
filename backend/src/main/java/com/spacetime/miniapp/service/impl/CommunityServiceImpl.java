@@ -517,7 +517,9 @@ public class CommunityServiceImpl implements CommunityService {
                 userId, contentType, entity.getPostNo(), entity.getStatus());
         return new CommunityPublishResultVO(entity.getId(), entity.getPostNo(), entity.getStatus(),
                 resolveStatusLabel("community_content_status", entity.getStatus()),
-                copy("publish_" + entity.getStatus(), resolveStatusLabel("community_content_status", entity.getStatus())));
+                CommunityPostStatusEnum.REJECTED.getCode().equals(entity.getStatus())
+                        ? SAFE_MACHINE_REJECTION_REASON
+                        : copy("publish_" + entity.getStatus(), resolveStatusLabel("community_content_status", entity.getStatus())));
     }
 
     /**

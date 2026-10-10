@@ -21,7 +21,7 @@ public final class ProfileAgeFilter {
 
     /** 返回当前周岁，避免资料保存后的年龄缓存跨年失效。 */
     public static Integer currentAge(AppUser user) {
-        return user.getBirthday() == null ? user.getAge()
-                : Period.between(user.getBirthday(), LocalDate.now(BEIJING)).getYears();
+        if (user.getBirthday() == null) return user.getAge();
+        return Period.between(user.getBirthday(), LocalDate.now(BEIJING)).getYears();
     }
 }

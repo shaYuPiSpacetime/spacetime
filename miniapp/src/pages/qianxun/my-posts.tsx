@@ -1,6 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat } from '@/components/QianxunCommunityIcons'
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
@@ -21,6 +21,7 @@ import {
   type CommunityPostVO,
 } from '@/services/community'
 import { useCommunityPersonalSummary } from '@/hooks/useCommunityPersonalSummary'
+import { replaceResubmittedPost, subscribeCommunityPostResubmitted } from '@/domain/communityPostResubmitted'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
@@ -89,6 +90,14 @@ export default function QianxunMyPostsPage() {
   })
 
   const postsRequest = useRef(0)
+  useEffect(() => subscribeCommunityPostResubmitted(replacement => {
+    postsRequest.current++
+    setReceipts(items => replaceResubmittedPost(items, replacement))
+    setFailureReceipt(undefined)
+    setSelected(undefined)
+    setLoading(false)
+  }), [])
+
   const loadPage = async () => {
     const request = ++postsRequest.current
     void getCommunityMeta().then(setConfig).catch(() => {})

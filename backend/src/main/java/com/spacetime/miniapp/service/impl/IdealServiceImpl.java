@@ -526,7 +526,7 @@ public class IdealServiceImpl implements IdealService {
         item.setItemNo(row.getItemNo());
         item.setUnlocked(false);
         item.setBlurAvatarUrl(SAFE_BLUR_AVATAR);
-        item.setAgeBand(ageBand(ProfileAgeFilter.currentAge(candidate)));
+        item.setAgeBand(ageLabel(ProfileAgeFilter.currentAge(candidate)));
         item.setCityName(profileDictionaryService.label(ProfileDictType.CHINA_REGION,
                 candidate.getLocationCity()));
         item.setEducationLabel(profileDictionaryService.label(ProfileDictType.EDUCATION_LEVEL,
@@ -639,15 +639,11 @@ public class IdealServiceImpl implements IdealService {
                 profileDictionaryService.label(ProfileDictType.CHINA_REGION, code)));
     }
 
-    private String ageBand(Integer age) {
+    private String ageLabel(Integer age) {
         if (age == null) {
             return "年龄保密";
         }
-        if (age < 20) {
-            return "18-19岁";
-        }
-        int lower = age / 5 * 5;
-        return lower + "-" + (lower + 4) + "岁";
+        return age + "岁";
     }
 
     private int decodeOffset(String cursor) {
