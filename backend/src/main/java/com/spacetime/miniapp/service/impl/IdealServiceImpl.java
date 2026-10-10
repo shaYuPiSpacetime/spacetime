@@ -87,7 +87,7 @@ public class IdealServiceImpl implements IdealService {
             Map.entry("M08-IDEAL-sports", Set.of("有运动习惯", "有健身习惯", "户外发烧友", "跑步", "健身", "徒步", "骑行", "户外运动", "乒乓球", "羽毛球")),
             Map.entry("M08-IDEAL-animals", Set.of("喜欢小动物", "喜欢动物", "宠物爱好者", "铲屎官")),
             Map.entry("M08-IDEAL-food", Set.of("喜欢美食", "热爱一切美食", "吃货", "美食爱好者")),
-            Map.entry("M08-IDEAL-travel", Set.of("喜欢旅行", "热爱旅行", "旅行爱好者")));
+            Map.entry("M08-IDEAL-travel", Set.of("喜欢旅行", "热爱旅行", "旅行爱好者", "旅行收藏")));
     private static final Map<String, Set<String>> LEGACY_CONDITION_TAGS = Map.ofEntries(
             Map.entry("M08-IDEAL-overseas", Set.of("overseas_returnee", "OVERSEAS_RETURNEE")),
             Map.entry("M08-IDEAL-home-owner", Set.of("home_owner", "HOME_OWNER")),

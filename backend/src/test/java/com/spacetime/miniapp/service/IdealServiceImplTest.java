@@ -126,7 +126,8 @@ class IdealServiceImplTest {
             "M08-IDEAL-overseas,有留学经历", "M08-IDEAL-home-owner,已购房",
             "M08-IDEAL-car-owner,已购车", "M08-IDEAL-only-child,独生子女",
             "M08-IDEAL-public-family,体制内家庭", "M08-IDEAL-sports,有健身习惯",
-            "M08-IDEAL-animals,喜欢小动物", "M08-IDEAL-food,热爱一切美食", "M08-IDEAL-travel,喜欢旅行"
+            "M08-IDEAL-animals,喜欢小动物", "M08-IDEAL-food,热爱一切美食", "M08-IDEAL-travel,喜欢旅行",
+            "M08-IDEAL-travel,旅行收藏"
     })
     void adminDefinedTagCodesShouldMatchOnlyTheirSelectedSemanticCondition(String condition, String label) {
         AppUser current = openUser(7L, "MALE", 30, "320100");
@@ -141,6 +142,39 @@ class IdealServiceImplTest {
         ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
         verify(snapshotCandidateDao).insertBatch(rows.capture());
         assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId).containsExactly(8L);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"true,false,1", "false,false,0", "true,true,0"})
+    void importedTravelCollectionShouldRespectEnabledDictionaryAndOtherConditions(
+            boolean enabled, boolean requireHeight, int expected) {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser traveler = openUser(8L, "FEMALE", 28, "320100");
+        traveler.setTags("import-travel,other-tag");
+        traveler.setHeight(160);
+        AppUser collector = openUser(9L, "FEMALE", 28, "320100");
+        collector.setTags("[\"other-tag\"]");
+        collector.setHeight(170);
+        List<SysDictData> dictionary = new java.util.ArrayList<>(List.of(
+                tag(10L, 0L, "HOBBY", "兴趣"), tag(11L, 10L, "other-tag", "普通收藏")));
+        if (enabled) {
+            dictionary.add(tag(12L, 10L, "import-travel", "旅行收藏"));
+        }
+        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(dictionary);
+        prepareSearch(current, List.of(traveler, collector));
+
+        List<String> conditions = requireHeight
+                ? List.of("M08-IDEAL-travel", "M08-IDEAL-height-165")
+                : List.of("M08-IDEAL-travel");
+        assertThat(service.search(7L, searchReq(conditions)).getResultCount()).isEqualTo(expected);
+        if (expected == 1) {
+            ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
+            verify(snapshotCandidateDao).insertBatch(rows.capture());
+            assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId)
+                    .containsExactly(8L);
+        } else {
+            verify(snapshotCandidateDao, never()).insertBatch(any());
+        }
     }
 
     @Test
