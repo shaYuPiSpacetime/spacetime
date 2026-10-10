@@ -335,3 +335,23 @@ PRD-05 本轮闭环实现的后端、管理后台、小程序、开发库迁移�
 - 微信 CLI preview/upload 的 15 项包大小（含总计）逐项一致：总包 2,858,112 字节、主包 1,389,562 字节、千寻分包 135,876 字节。
 - 原始证据：上述发布目录父级的 `hash-audit.json`、`preview-info.json`、`upload-info.json`；`app-origin.wxss` 已包含长英文换行规则。
 - 上传成功及包核对仅证明发布产物，微信真机业务验收仍待执行。
+
+## 13. 删除动态分享入口与点赞拦截（2026-10-10）
+
+修复：详情读取对 `deleted` 统一返回 `content_unavailable`，作者不再豁免；点赞/取消赞/重新点赞均要求 `published`，校验发生在读取和修改点赞记录之前。作者查看待审及驳回原因的流程保留，评论沿用原有公开状态校验。未改客户端或图片审核策略。
+
+| 执行项 | 结果 | 证据与限制 |
+|--------|------|------------|
+| 修复前缺口复现 | 11 条中 9 条按预期失败 | 作者两种详情入口均未抛异常；7 组非公开状态点赞均未被拒绝；其他用户读取删除内容已有拦截 |
+| L3 社区服务 | 79 条通过，0 失败/错误/跳过 | `CommunityServiceImplTest`，含本轮新增 18 条参数化用例；覆盖分享编号、作者/他人、删除后拒绝且无写入、公开态点赞切换、评论拦截及待审详情兼容 |
+| L3 后台回归 | 40 条通过，0 失败/错误/跳过 | `CommunityAdminServiceImplTest` |
+| 扩展图片审核回调回归 | 14 条中 13 条通过、1 条失败 | `allImagesPass_shouldKeepSincerePostPendingManual` 期待 `pending_manual`，实际 `published`；未改动的 `CommunityAuditPolicy` PASS 分支明确直接公开，该测试路径不调用本次修改的服务；单独复跑同样失败 |
+| Java 编译 | 通过 | Java 21 target，使用仓库指定 OpenJDK 22 编译器；保留既有测试编译警告 |
+| 差异质量 | 通过 | `git diff --check` |
+| L1/L4 真实分享与真机复验 | 未执行 | 本轮缺少用于此场景的双方有效登录态与已删除目标；不得以单测替代线上验收 |
+
+执行命令：`cd backend && JAVA_HOME=/Users/peter/Library/Java/JavaVirtualMachines/openjdk-22/Contents/Home mvn -Dtest=CommunityServiceImplTest,CommunityMediaAuditCallbackServiceImplTest,CommunityAdminServiceImplTest test`。
+
+结论：本次修改对应 `POST-DELETE-001` 至 `POST-DELETE-004` 的服务端回归通过；扩展测试合计 133 条，132 通过、1 条既有审核策略与测试预期不一致，不能标记整个扩展套件通过。`POST-DELETE-005` 真实分享入口复验待执行。
+
+交付状态：开始修改前本轮已实际通过 HTTPS fetch 并确认 `master` 与 `origin/master` 无待合入变更。提交前再次 fetch 时连接无响应，终止后设置低速超时重试，返回 `Operation too slow. Less than 1 bytes/sec transferred the last 15 seconds`。按仓库同步失败停止发布规则，本次仅本地提交，未 Push、未触发后端部署、未上传小程序体验版。前一任务还存在 GitHub 推送身份验证阻碍，恢复网络后仍需核对凭据；不得认为修复已在线上生效。

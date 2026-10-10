@@ -428,8 +428,9 @@ public class CommunityServiceImpl implements CommunityService {
     public CommunityPostDetailVO getPostDetail(Long userId, String postId) {
         CommunityPost post = requirePostRef(postId);
         requireNotBlockedFromPosts(userId, post.getAuthorId());
-        if (!CommunityPostStatusEnum.PUBLISHED.getCode().equals(post.getStatus())
-                && !Objects.equals(userId, post.getAuthorId())) {
+        if (CommunityPostStatusEnum.DELETED.getCode().equals(post.getStatus())
+                || (!CommunityPostStatusEnum.PUBLISHED.getCode().equals(post.getStatus())
+                && !Objects.equals(userId, post.getAuthorId()))) {
             throw error("content_unavailable");
         }
         CommunityPostDetailVO vo = new CommunityPostDetailVO();
@@ -724,6 +725,9 @@ public class CommunityServiceImpl implements CommunityService {
         ensureInteractionAllowed(userId);
         // 2. 查询内容
         CommunityPost post = requirePostRef(postId);
+        if (!CommunityPostStatusEnum.PUBLISHED.getCode().equals(post.getStatus())) {
+            throw error("content_unavailable");
+        }
         // 3. 查询已有点赞记录
         CommunityLike like = communityLikeDao.selectOne(new LambdaQueryWrapper<CommunityLike>()
                 .eq(CommunityLike::getPostId, post.getId())

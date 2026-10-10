@@ -318,6 +318,42 @@ class CommunityServiceImplTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "1,100", "2,100", "1,POST-DELETED", "2,POST-DELETED"
+    })
+    @DisplayName("已删除动态-作者和其他用户不能从详情或分享编号读取")
+    void getPostDetail_deleted_shouldRejectAllViewers(Long viewerId, String postRef) {
+        post.setAuthorId(1L);
+        post.setStatus("deleted");
+        post.setPostNo("POST-DELETED");
+        if ("100".equals(postRef)) {
+            when(communityPostDao.selectById(100L)).thenReturn(post);
+        } else {
+            when(communityPostDao.selectList(any())).thenReturn(List.of(post));
+        }
+
+        assertThatThrownBy(() -> communityService.getPostDetail(viewerId, postRef))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("content_unavailable");
+        verifyNoInteractions(appUserDao, auditContentService, communityLikeDao);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"published", "pending_machine", "pending_manual"})
+    @DisplayName("作者仍可查看公开和待审核动态详情")
+    void getPostDetail_visibleToAuthor_shouldSucceed(String status) {
+        post.setAuthorId(1L);
+        post.setStatus(status);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(appUserDao.selectById(1L)).thenReturn(user);
+
+        CommunityPostDetailVO result = communityService.getPostDetail(1L, "100");
+
+        assertThat(result.getContent()).isEqualTo("hello");
+        assertThat(result.getStatus()).isEqualTo(status);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"pass,published", "review,pending_manual", "reject,rejected"})
     @DisplayName("重新提交驳回动态-完整复审后新建并删除旧帖")
     void resubmitRejectedPost_shouldCreateNewPostAndSoftDeleteOriginal(String conclusion, String expectedStatus) {
@@ -679,6 +715,68 @@ class CommunityServiceImplTest {
         assertThat(result.getLiked()).isTrue();
         assertThat(result.getLikeCount()).isEqualTo(1);
         verify(communityLikeDao).insert(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "deleted,1", "deleted,2", "draft,1", "pending_machine,1",
+            "pending_manual,1", "rejected,1", "blocked,1"
+    })
+    @DisplayName("非公开动态-点赞切换拒绝且不修改点赞记录或计数")
+    void toggleLike_unpublished_shouldRejectWithoutMutation(String status, Long viewerId) {
+        user.setId(viewerId);
+        post.setAuthorId(1L);
+        post.setStatus(status);
+        post.setLikeCount(5);
+        when(appUserDao.selectById(viewerId)).thenReturn(user);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+
+        assertThatThrownBy(() -> communityService.toggleLike(viewerId, "100"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("content_unavailable");
+        verifyNoInteractions(communityLikeDao);
+        verify(communityPostDao, never()).updateById(any());
+        assertThat(post.getLikeCount()).isEqualTo(5);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"ENABLED", "DISABLED"})
+    @DisplayName("公开动态-取消点赞和重新点赞仍正常")
+    void toggleLike_existingLike_shouldToggle(String status) {
+        CommunityLike like = new CommunityLike();
+        like.setStatus(status);
+        post.setLikeCount(5);
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(communityLikeDao.selectOne(any())).thenReturn(like);
+
+        CommunityLikeToggleVO result = communityService.toggleLike(1L, "100");
+
+        boolean expectedLiked = "DISABLED".equals(status);
+        assertThat(result.getLiked()).isEqualTo(expectedLiked);
+        assertThat(result.getLikeCount()).isEqualTo(expectedLiked ? 6 : 4);
+        verify(communityLikeDao).updateById(like);
+        verify(communityPostDao).updateById(post);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {1L, 2L})
+    @DisplayName("已删除动态-作者和其他用户均不能发表评论")
+    void createComment_deleted_shouldRejectAllViewers(Long viewerId) {
+        user.setId(viewerId);
+        post.setAuthorId(1L);
+        post.setStatus("deleted");
+        when(appUserDao.selectById(viewerId)).thenReturn(user);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        CommunityCommentCreateReq req = new CommunityCommentCreateReq();
+        req.setPostId(100L);
+        req.setContent("comment on deleted post");
+
+        assertThatThrownBy(() -> communityService.createComment(viewerId, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("content_not_commentable");
+        verifyNoInteractions(communityCommentDao, contentSecurityPort);
+        verify(communityPostDao, never()).updateById(any());
     }
 
     @Test
