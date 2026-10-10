@@ -34,4 +34,11 @@
 
 ## 交付
 
-代码、部署及体验版发布结果将在完成后补记。当前结论：本次自动回归通过，真实账号页面复现待用户体验版验证。
+代码已推送 master：`60b4fb194521e6f3b55c474d1b5279521a0f58d9`。发布前实际 fetch 并快进同步最新 origin/master，再从该提交构建；上传前再次核对远端提交一致及小程序源码工作区无改动。
+
+- 体验版 `1.0.20261010.1121` 上传成功，CLI 退出码 0、`upload` 成功回执。
+- 构建与产物门禁通过：87 页均 Page=1、共享脚本 Page=0、App=1，无开发 Token；主包 1.49 MiB，总包 2.60 MiB。
+- [后端部署 38020218046](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38020218046)完成且 success，build/deploy 均 success，部署 head SHA 与上述提交一致。
+- 部署后健康检查返回 `code=200,msg=success,data=ok`。
+
+结论：本次自动回归及发布通过，真实账号页面复现待用户重新打开体验版验证。未再次重置或增加账号额度。
