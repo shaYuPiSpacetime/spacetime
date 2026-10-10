@@ -1,13 +1,13 @@
 import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
 import HeartMessageHeader from '@/components/HeartMessageHeader'
 import avatarImage from '@/assets/lanhu/heart-message/heart-avatar.webp'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { useRetainedScroll } from '@/hooks/useRetainedScroll'
-import { clearGivenLikesReturn, saveGivenLikesReturn, takeGivenLikesReturn } from '@/domain/givenLikesReturn'
+import { saveGivenLikesReturn, readGivenLikesReturn } from '@/domain/givenLikesReturn'
 import { useAuthStore } from '@/stores/authStore'
 import { getPublicProfile } from '@/services/profile'
 import {
@@ -21,7 +21,7 @@ type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 /** “我的-我喜欢的”真实有效关系列表。 */
 export default function MyLikesPage() {
   const userId = useAuthStore(state => state.userId)
-  const [restored] = useState(() => takeGivenLikesReturn(userId))
+  const [restored] = useState(() => readGivenLikesReturn(userId))
   const access = useAccessStatus('canCommunity')
   const [page, setPage] = useState<GivenLikesPageVO | null>(restored?.page || null)
   const [records, setRecords] = useState<GivenLikeItemVO[]>(restored?.records || [])
@@ -29,16 +29,21 @@ export default function MyLikesPage() {
   const [error, setError] = useState('')
   const [loadingMore, setLoadingMore] = useState(false)
   const recordsRef = useRef<GivenLikeItemVO[]>(restored?.records || [])
+  const pageRef = useRef<GivenLikesPageVO | null>(restored?.page || null)
+  const loadingRef = useRef(false)
+  const navigatingRef = useRef(false)
   const loadingMoreRef = useRef(false)
   const requestGenerationRef = useRef(0)
   const previousAllowedRef = useRef(access.allowed)
+  const previousUserRef = useRef(userId)
   const scroll = useRetainedScroll('given-likes', restored?.scrollTop || 0)
   const openedUserRef = useRef<number | undefined>(restored?.openedUserId)
+
+  const persistList = () => saveGivenLikesReturn({ userId, records: recordsRef.current, page: pageRef.current, scrollTop: scroll.getScrollTop(), openedUserId: openedUserRef.current })
 
   const refreshReturnedPerson = async () => {
     const openedUserId = openedUserRef.current
     openedUserRef.current = undefined
-    clearGivenLikesReturn()
     if (!openedUserId) return
     const generation = requestGenerationRef.current
     const profile = await getPublicProfile(openedUserId).catch(() => null)
@@ -49,25 +54,35 @@ export default function MyLikesPage() {
     recordsRef.current = next
     setRecords(next)
     setState(next.length ? 'ready' : 'empty')
-    if (next.length !== before.length) setPage(current => current ? { ...current, total: Math.max(0, current.total - (before.length - next.length)) } : current)
+    if (next.length !== before.length && pageRef.current) {
+      pageRef.current = { ...pageRef.current, total: Math.max(0, pageRef.current.total - (before.length - next.length)) }
+      setPage(pageRef.current)
+    }
+    persistList()
   }
 
   const openProfile = async (person: GivenLikeItemVO) => {
+    if (navigatingRef.current) return
+    navigatingRef.current = true
     openedUserRef.current = person.userId
-    saveGivenLikesReturn({ userId, records: recordsRef.current, page, scrollTop: scroll.getScrollTop(), openedUserId: person.userId })
+    persistList()
     try {
       // 入栈失败时保留列表；redirectTo 会销毁分页和侧滑返回目标。
       await Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${person.userId}&sourceScene=profile&from=my-likes` })
     } catch {
-      clearGivenLikesReturn()
       openedUserRef.current = undefined
+      persistList()
       await Taro.showToast({ title: '暂时无法打开主页，请返回上一级后重试', icon: 'none' })
+    } finally {
+      navigatingRef.current = false
     }
   }
 
   const load = async (pageNo = 1) => {
+    if (loadingRef.current) return
     const refreshing = pageNo === 1
     if (!refreshing && loadingMoreRef.current) return
+    loadingRef.current = true
     const requestGeneration = refreshing
       ? ++requestGenerationRef.current
       : requestGenerationRef.current
@@ -88,9 +103,11 @@ export default function MyLikesPage() {
         data.records || [],
       )
       setPage(data)
+      pageRef.current = data
       recordsRef.current = nextRecords
       setRecords(nextRecords)
       setState(nextRecords.length ? 'ready' : 'empty')
+      persistList()
     } catch (reason) {
       if (requestGeneration !== requestGenerationRef.current) return
       const message = reason instanceof Error ? reason.message : '我喜欢的人加载失败'
@@ -99,26 +116,55 @@ export default function MyLikesPage() {
       await Taro.showToast({ title: message, icon: 'none' })
     } finally {
       if (requestGeneration === requestGenerationRef.current) {
+        loadingRef.current = false
         loadingMoreRef.current = false
         setLoadingMore(false)
       }
     }
   }
 
-  useDidShow(() => {
-    if (access.allowed !== true) return
-    if (recordsRef.current.length) void refreshReturnedPerson()
+  const showList = () => {
+    if (access.allowed !== true || !userId) return
+    if (!pageRef.current) {
+      const saved = readGivenLikesReturn(userId)
+      if (saved) {
+        recordsRef.current = saved.records
+        pageRef.current = saved.page
+        openedUserRef.current = saved.openedUserId
+        setRecords(saved.records)
+        setPage(saved.page)
+        setState(saved.records.length ? 'ready' : 'empty')
+        scroll.restore(saved.scrollTop)
+      }
+    }
+    if (pageRef.current) void refreshReturnedPerson()
     else void load(1)
-  })
+  }
+  useDidShow(showList)
+  useDidHide(persistList)
 
   useEffect(() => {
     const becameAllowed = previousAllowedRef.current !== true && access.allowed === true
+    const changedUser = previousUserRef.current !== userId
     previousAllowedRef.current = access.allowed
-    if (becameAllowed) {
-      if (recordsRef.current.length) void refreshReturnedPerson()
-      else void load(1)
+    previousUserRef.current = userId
+    if (changedUser) {
+      requestGenerationRef.current += 1
+      loadingRef.current = false
+      loadingMoreRef.current = false
+      recordsRef.current = []
+      pageRef.current = null
+      openedUserRef.current = undefined
+      setRecords([])
+      setPage(null)
+      setState('loading')
+      setLoadingMore(false)
+      scroll.reset()
     }
-  }, [access.allowed])
+    if (becameAllowed || changedUser) {
+      showList()
+    }
+  }, [access.allowed, userId])
 
   useEffect(() => () => {
     requestGenerationRef.current += 1
@@ -130,7 +176,7 @@ export default function MyLikesPage() {
     <View id="my-likes-page" style={{ height: '100vh', background: '#FFFFFF', fontFamily: 'PingFang SC, sans-serif' }}>
       <MatchPopupHost />
       <HeartMessageHeader title={`我喜欢的(${page?.total || 0}人)`} align="center" showBack />
-      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ height: 'calc(100vh - 176rpx)' }}>
+      <ScrollView id="my-likes-scroll" scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ height: 'calc(100vh - 176rpx)' }}>
         <View style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto' }}>
           {state === 'loading' ? <ListState id="my-likes-loading-state" text="正在加载我喜欢的人" /> : null}
           {state === 'empty' ? <ListState id="my-likes-empty-state" text="还没有喜欢的人" action="去发现心动" onAction={() => void Taro.switchTab({ url: '/pages/recommend/index' })} /> : null}

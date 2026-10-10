@@ -35,6 +35,8 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   let hiddenAuthorId
   let detailFails = false
   let navigationFails = false
+  let instanceKey = 0
+  let authUserId = 1
   const taro = {
     useRouter: () => ({ params: {} }),
     useLoad: callback => React.useEffect(() => { callback({ topicId: '8' }) }, []),
@@ -109,7 +111,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     resolveCommunityCopy: () => '',
     resolveCommunityFeedback: () => '',
   }
-  const store = selector => selector({ optionLabel: (_, code) => code, userId: 1 })
+  const store = selector => selector({ optionLabel: (_, code) => code, userId: authUserId })
   const stubs = {
     '@/components/MatchPopupHost': { __esModule: true, default: () => null },
     '@tarojs/components': { View, Text, Image, ScrollView, Button: host('button') },
@@ -229,7 +231,9 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   return {
     container, navigation, requests, detailRequests, shareHandlers,
     render: () => act(async () => root.render(React.createElement(Component, { snapshotNo: 'SNAPSHOT-1' }))),
-    remount: () => act(async () => root.render(React.createElement(Component, { key: 'rebuilt', snapshotNo: 'SNAPSHOT-1' }))),
+    remount: () => act(async () => root.render(React.createElement(Component, { key: `rebuilt-${++instanceKey}`, snapshotNo: 'SNAPSHOT-1' }))),
+    changeUser: value => { authUserId = value },
+    rerender: () => act(async () => root.render(React.createElement(Component, { key: `rebuilt-${instanceKey}`, snapshotNo: 'SNAPSHOT-1' }))),
     loadMore: () => act(async () => { feedScrollProps.onScrollToLower() }),
     scroll: top => act(async () => { feedScrollProps.onScroll?.({ detail: { scrollTop: top } }) }),
     scrollTop: () => feedScrollProps.scrollTop,
@@ -388,6 +392,10 @@ test('我喜欢的详情往返重建页面实例仍恢复第二页和原位置',
   await app.show()
   assert.ok(app.container.textContent.includes('嘉宾4'))
   assert.equal(app.scrollTop(), 760)
+  await app.remount()
+  await app.show()
+  assert.ok(app.container.textContent.includes('嘉宾4'), '返回已读过快照后再次重建也不能丢第二页')
+  assert.equal(app.scrollTop(), 760)
   await act(async () => app.container.querySelector('#my-likes-load-more').click())
   assert.equal(app.requests.at(-1).page, 3)
 })
@@ -406,18 +414,46 @@ test('我喜欢的打开主页失败不销毁列表或改成 redirectTo', async 
   assert.deepEqual(app.requests.map(item => item.page), [1, 2])
 })
 
-test('我喜欢的详情快照只消费一次，并隔离其他账号', () => {
+test('我喜欢的重建时账号稍后就绪，恢复完整分页而非重新请求第一页', async t => {
+  const app = mount(t, 'HOT', 'pages/heart/my-likes.tsx')
+  await app.render()
+  await app.show()
+  await act(async () => app.container.querySelector('#my-likes-load-more').click())
+  await app.scroll(760)
+  await app.hide()
+  app.changeUser(null)
+  await app.remount()
+  await app.show()
+  app.changeUser(1)
+  await app.rerender()
+  assert.ok(app.container.textContent.includes('嘉宾4'))
+  assert.equal(app.scrollTop(), 760)
+  assert.deepEqual(app.requests.map(item => item.page), [1, 2])
+})
+
+test('我喜欢的快照持续保留，脚本重建可从本地恢复，登录未就绪不能清除', () => {
   const source = fs.readFileSync(path.join(sourceRoot, 'domain/givenLikesReturn.ts'), 'utf8')
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
-  const mod = { exports: {} }
-  Function('exports', compiled)(mod.exports)
-  const snapshot = { userId: 1052, records: [], page: null, scrollTop: 760, openedUserId: 23 }
-  mod.exports.saveGivenLikesReturn(snapshot)
-  assert.equal(mod.exports.takeGivenLikesReturn(1053), undefined)
-  assert.equal(mod.exports.takeGivenLikesReturn(1052), undefined)
-  mod.exports.saveGivenLikesReturn(snapshot)
-  assert.equal(mod.exports.takeGivenLikesReturn(1052), snapshot)
-  assert.equal(mod.exports.takeGivenLikesReturn(1052), undefined)
+  const storage = new Map()
+  const taro = { getStorageSync: key => storage.get(key), setStorageSync: (key, value) => storage.set(key, JSON.parse(JSON.stringify(value))), removeStorageSync: key => storage.delete(key) }
+  const loadSnapshot = () => {
+    const exports = {}
+    Function('exports', 'require', compiled)(exports, () => ({ default: taro }))
+    return exports
+  }
+  const cache = loadSnapshot()
+  const snapshot = { userId: 1052, records: [{ likeNo: 'LIK-21', userId: 21 }], page: { current: 2, hasMore: true }, scrollTop: 760, openedUserId: 23 }
+  cache.saveGivenLikesReturn(snapshot)
+  assert.equal(cache.readGivenLikesReturn(null), undefined)
+  assert.equal(cache.readGivenLikesReturn(1052).page.current, 2)
+  assert.equal(cache.readGivenLikesReturn(1052).scrollTop, 760)
+  const rebuilt = loadSnapshot()
+  assert.equal(rebuilt.readGivenLikesReturn(1052).records[0].likeNo, 'LIK-21')
+  assert.equal(rebuilt.readGivenLikesReturn(1053), undefined)
+  assert.equal(loadSnapshot().readGivenLikesReturn(1052), undefined, '切账号清掉旧缓存')
+  cache.saveGivenLikesReturn(snapshot)
+  cache.clearGivenLikesReturn()
+  assert.equal(loadSnapshot().readGivenLikesReturn(1052), undefined, '主动新进入必须重新加载')
 })
 
 test('悄悄话第二页详情处理后返回只迁移目标，不丢分页和位置', async t => {

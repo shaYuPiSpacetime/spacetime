@@ -14,6 +14,10 @@ export function useRetainedScroll(key: string, initialOffset = 0) {
       if (visible.current) offsets.current.set(key, Math.max(0, event.detail.scrollTop))
     },
     getScrollTop: () => offsets.current.get(key) || 0,
+    restore: (offset: number) => {
+      offsets.current.set(key, Math.max(0, offset))
+      render(value => value + 1)
+    },
     reset: (targetKey = key) => {
       offsets.current.set(targetKey, 0)
       render(value => value + 1)

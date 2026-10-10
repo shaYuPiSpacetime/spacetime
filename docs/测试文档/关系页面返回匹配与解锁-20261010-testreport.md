@@ -32,3 +32,19 @@
 - 上传前 `git ls-remote` 核实远端 master、本地 HEAD 和构建源码均为上述完整 SHA。
 - 微信开发者工具 CLI 上传成功（exit 0）：体验版本 `1.0.20261010.1536`；上传侧统计主包 1,385,509 字节，总包 2,845,738 字节。
 - 本地证据：`.runtime/relation-ui-20261010/` 下 prebuild、related-tests、match-copy-test、build、postbuild、upload 日志和 upload-info.json。生产业务效果仍需该账号真机复验，不将上传成功视作真机验收通过。
+
+## 追加修复：用户反馈返回仍只剩第一页
+
+用户确认是“只剩第一页，需要重新加载”。上一轮 JSDOM 仅验证 Hook 状态和 scrollTop 属性，不能覆盖微信页面重建。此次增加微信开发者工具真实渲染测试，纯本机 HTTP 夹具提供 60 条记录，不代理生产请求。测试包在独立 `.runtime` 项目运行，测试结束关闭该项目。
+
+### 红绿证据
+
+- 原版本普通 `navigateBack` 两次均保留 40 条；随后显式 `reLaunch` 同一路由模拟页面重建，变为 20 条、原生 scrollTop 从 2300 变为 0，并重新请求第一页。断言失败。该重建场景证明旧方案存在遗漏，不等于已证明用户真机发生了完全相同的生命周期。
+- 修复后，同一流程两次返回及重建均保持 40 条、scrollTop=2300、内容高度 3367，第二页第 40 位仍在。随后加载更多只请求第三页；全流程列表请求为 page=1、2、3，没有重复第一页。
+- 新方案在加载完成、离开页面和目标关系同步后持续保存完整分页快照，内存加本地存储；读取不消费，账号未初始化不清理。缓存按账号隔离、30 分钟过期，从“我的”主动新进入清理；同步请求锁避免初始请求重叠。
+- 快照晚于登录恢复、重复组件重建、脚本模块重建、取消喜欢、导航失败等 Node 回归：相关滚动套件 20/20；账号冻结套件 8/8。完整 `prebuild:weapp` 通过（新增账号稍后就绪用例在随后 20 项中单独通过）。
+- 真机 iOS 侧滑仍未执行；微信模拟器原生页面、滚动组件、截图和请求证据已完成，不能把模拟器验证表述为真机验收。
+
+脚本：`miniapp/scripts/verify-given-likes-return-runtime.cjs`。本地证据：`.runtime/given-likes-return-20261010/runtime-red.log`、`runtime-red-evidence.json`、`rebuilt-red.png`、`runtime-fixed.log`、`runtime-evidence.json`、`rebuilt-after-return.png`。
+
+追加发布完成：源码 `721db33f11e57706858d57740241d174496ebf65` 已 Push；当次重新 fetch 并同步，使用关闭固定登录/E2E 的生产环境重新构建，87 页注册、无开发 Token、包体门禁全部通过。上传前远端 master、本地 HEAD、构建 SHA 一致。微信 CLI 上传体验版 **1.0.20261010.1613** 成功（exit 0）；主包 1,386,162 字节、总包 2,846,391 字节。仅小程序业务源码变更，无后端部署需求。上传证据在同一运行目录的 `upload.log`、`upload-info.json`。
