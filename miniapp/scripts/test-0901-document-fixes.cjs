@@ -246,3 +246,25 @@ test('热门动态悄悄话弹层常驻，开关时不重建信息流', () => {
   assert.match(compose, /const close = async \(\) =>[\s\S]*await Taro\.hideKeyboard\(\)[\s\S]*onClose\(\)/, '全局流程组件关闭时必须先收起键盘')
   assert.doesNotMatch(family, /feedScrollTopRef|restoredFeedScrollTop/, '常驻弹层方案不得再通过受控 scrollTop 强制重放滚动位置')
 })
+
+test('悄悄话每次重新发起时清空旧输入，充值返回时保留当前输入', () => {
+  const compose = read('src/components/WhisperComposeSheet.tsx')
+  const targetEffectStart = compose.indexOf('useEffect(() => {')
+  const closeStart = compose.indexOf('  const close = async () => {')
+  const rechargeStart = compose.indexOf('  const recharge = () => {')
+  const submitStart = compose.indexOf('  const submit = async () => {')
+  const renderStart = compose.indexOf('  // 遮罩节点常驻')
+
+  assert.ok(targetEffectStart >= 0 && closeStart > targetEffectStart, '必须能定位发起悄悄话时的初始化逻辑')
+  assert.ok(rechargeStart > closeStart && submitStart > rechargeStart, '必须能定位充值与发送逻辑')
+
+  const targetEffect = compose.slice(targetEffectStart, closeStart)
+  const recharge = compose.slice(rechargeStart, submitStart)
+  const submit = compose.slice(submitStart, renderStart)
+
+  assert.match(targetEffect, /if \(!target\) return[\s\S]*setContent\(''\)/, '打开新的悄悄话会话时必须清空上次草稿')
+  assert.match(targetEffect, /idempotencyCache\.clear\(\)/, '打开新的悄悄话会话时必须清空上次幂等键')
+  assert.doesNotMatch(recharge, /setContent\(/, '跳转充值页时不得清空当前尚未发送的输入')
+  assert.match(submit, /await createWhisper\([\s\S]*setContent\(''\)[\s\S]*onClose\(\)/, '发送成功后必须清空已发送内容再关闭弹层')
+  assert.match(compose, /<CommunityWhisperSheet[\s\S]*visible=\{visible && target != null\}/, '修复草稿状态时不得破坏常驻弹层方案')
+})

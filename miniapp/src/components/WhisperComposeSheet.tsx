@@ -52,6 +52,8 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
   useEffect(() => {
     if (!target) return
     let active = true
+    setContent('')
+    idempotencyCache.clear()
     setLoading(true)
     setPrecheck(undefined)
     void precheckWhisper({
@@ -113,6 +115,7 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
         quoteToken: precheck.quoteToken,
       }, idempotencyCache.get(scope, normalizedContent))
       idempotencyCache.clear()
+      setContent('')
       void Taro.hideKeyboard().catch(() => undefined)
       onClose()
       await Taro.showToast({
