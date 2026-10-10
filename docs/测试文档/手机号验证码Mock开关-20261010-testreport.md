@@ -21,10 +21,14 @@ Java 21：`mvn -Dtest=AuthMiniappServiceImplTest,SmsCodeProviderTest,AliyunSmsCo
 
 ## 交付
 
-待补充提交、自动部署、体验版及部署后固定码烟测结果。当前联调默认开关保持 true，本次不在生产切换真实短信。
+代码已提交并 Push 到 master：`f01a136f90c80b02bf39c5109dce33647b171cdc`。对应 [后端部署 38015326341](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38015326341) 与 [管理端部署 38015326342](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38015326342) 均 success，head SHA 均为本次提交。当前联调开关保持 true，本次未在生产切换真实短信。
+
+发布流程当次重新 fetch、同步 origin/master，从当前源码构建并通过 87 页注册、无开发 Token 与包体门禁；上传前再次核对远端 SHA。微信 CLI 上传体验版 `1.0.20261010.1002`，`√ upload` 与 JSON 回执一致，总包 2,615,278 字节。
+
+部署后执行 L1 脚本：账号 173****9764 返回 FIXED Provider，0000 登录现有账号成功，随后同一码重试返回 AUTH_SMS_INVALID。未发送真实短信，未打印登录 Token。32 项单元测试、部署配置校验与当前模式线上烟测均通过。
 
 上线操作：运行环境设置 `SMS_MOCK_ENABLED=false`，沿用 `SMS_PROVIDER=aliyun` 与现有凭证，按正常流程重建后端容器。详见 `docs/流程规范/手机号验证码Mock开关.md`。
 
 ## 范围
 
-未修改登录页面，无数据库迁移。当前 mock 模式的线上登录需部署后验证；真实短信对外发送在本次未执行，由模拟阿里云客户端和真实模式单元测试覆盖。没有打印或保存登录 Token、验证码请求正文或凭证。
+未修改登录页面，无数据库迁移。当前 mock 模式已在线上验证；真实短信对外发送在本次未执行，由模拟阿里云客户端和真实模式单元测试覆盖。没有打印或保存登录 Token、验证码请求正文或凭证。
