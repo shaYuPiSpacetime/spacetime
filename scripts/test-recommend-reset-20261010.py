@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SQL = (ROOT / "deploy/sql/prod/111_ops_reset_recommend_20261010.sql").read_text(encoding="utf-8")
 DB = "ops_recommend_reset_fixture"
 HASH = "a27e5899573ad6b7e16f4778a8d453ea3f7faae700d48368875f48f2f244d56a"
-CLIENT = ["mysql", "-h127.0.0.1", "-P3306", "-uroot", "--batch", "--skip-column-names"]
+CLIENT = ["mysql", "-h127.0.0.1", "-P3306", "-uroot", "--default-character-set=utf8mb4", "--batch", "--skip-column-names"]
 
 
 def query(sql, database=True, success=True):
@@ -27,7 +27,7 @@ def query(sql, database=True, success=True):
 
 def fixture(status="active", expiry="NULL", quota=20):
     """Rebuild minimal tables used by the unchanged production operation."""
-    query(f"DROP DATABASE IF EXISTS {DB}; CREATE DATABASE {DB} CHARACTER SET utf8mb4;", database=False)
+    query(f"DROP DATABASE IF EXISTS {DB}; CREATE DATABASE {DB} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", database=False)
     log_schema = (ROOT / "deploy/sql/prod/065_prd08_recommend_ideal_closure.sql").read_text(encoding="utf-8")
     log_schema = log_schema[log_schema.index("CREATE TABLE IF NOT EXISTS `ct_recommend_view_log`"):]
     log_schema = log_schema[:log_schema.index(";\n") + 1]
@@ -40,8 +40,7 @@ INSERT INTO app_user VALUES (1, NULL, '{HASH}', 0), (2, NULL, 'other-account', 0
 INSERT INTO app_user_asset VALUES (1,1,'{status}',{expiry},0);
 INSERT INTO app_config VALUES (1,'commercial.view.quota.normal','10',0),(2,'commercial.view.quota.vip','{quota}',0);
 SET @now = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR);
-SET @cycle = TIMESTAMP(DATE(@now), '12:00:00');
-SET @cycle = IF(@now < @cycle, DATE_SUB(@cycle, INTERVAL 1 DAY), @cycle);
+SET @cycle = TIMESTAMP(DATE(DATE_SUB(@now, INTERVAL 12 HOUR)), '12:00:00');
 INSERT INTO ct_recommend_view_log (id,event_no,request_id,user_id,candidate_user_id,scene,action,viewed_at,deleted) VALUES
 (1,'event1','request1',1,100,'recommend','view',@cycle,0),
 (2,'event2','request2',1,100,'recommend','view',@cycle,0),
