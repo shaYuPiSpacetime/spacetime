@@ -48,3 +48,11 @@
 脚本：`miniapp/scripts/verify-given-likes-return-runtime.cjs`。本地证据：`.runtime/given-likes-return-20261010/runtime-red.log`、`runtime-red-evidence.json`、`rebuilt-red.png`、`runtime-fixed.log`、`runtime-evidence.json`、`rebuilt-after-return.png`。
 
 追加发布完成：源码 `721db33f11e57706858d57740241d174496ebf65` 已 Push；当次重新 fetch 并同步，使用关闭固定登录/E2E 的生产环境重新构建，87 页注册、无开发 Token、包体门禁全部通过。上传前远端 master、本地 HEAD、构建 SHA 一致。微信 CLI 上传体验版 **1.0.20261010.1613** 成功（exit 0）；主包 1,386,162 字节、总包 2,846,391 字节。仅小程序业务源码变更，无后端部署需求。上传证据在同一运行目录的 `upload.log`、`upload-info.json`。
+
+## 纠正：1613 上传成功但仍携带开发者工具旧分包缓存
+
+用户明确在 1.0.20261010.1613 仍需重新加载后续分页。继续对照发现，1536 和 1613 上传的心动分包均为 52,950 字节，尽管其中页面代码已修改；不能把此前 Git SHA 和上传成功证据当作实际上传包包含修复的充分证据。
+
+相同生产 dist，复制到从未编译过的新项目路径，心动分包变为 55,666 字节。保持原项目配置不变，仅清理 compile/file 缓存后预览，全部分包与新目录完全一致（总计 2,853,904 字节）。源码未作变化。由此定位到 IDE 打包缓存，前两次发布核验遗漏了此项。
+
+证据：`.runtime/given-likes-package-audit/preview-info.json`、`clean-preview-info.json`、`cache-compile.log`、`cache-file.log`。新增发布流程要求全新发布目录、复制哈希核对和 preview/upload 分包逐项核对。本轮不再修改已通过微信渲染验证的列表业务代码；重新同步、生产构建后发布，结果待补记。
