@@ -140,6 +140,20 @@ class AppUserCompleteHardDeleteMigrationTest {
         }
     }
 
+    @Test
+    @DisplayName("支付回调与订单号比较应显式统一排序规则")
+    void shouldUseExplicitCollationWhenMatchingPaymentOrderNumber() throws IOException {
+        String sql = readProjectFile(MIGRATION);
+
+        assertThat(sql)
+                .contains("DELETE payment_log")
+                .contains("FROM app_payment_notify_log payment_log")
+                .contains("JOIN app_trade_order trade_order")
+                .contains("payment_log.order_no COLLATE utf8mb4_unicode_ci")
+                .contains("trade_order.order_no COLLATE utf8mb4_unicode_ci")
+                .doesNotContain("WHERE order_no IN (\n         SELECT order_no FROM app_trade_order");
+    }
+
     private long countOccurrences(String source, String target) {
         long count = 0;
         int start = 0;

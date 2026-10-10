@@ -116,10 +116,14 @@ delete_main: BEGIN
     DELETE FROM ct_recommend_preference WHERE user_id = p_user_id;
 
     -- 商业化：先清支付回调和退款，再清订单、资产与双向解锁。
-    DELETE FROM app_payment_notify_log
-     WHERE order_no IN (
-         SELECT order_no FROM app_trade_order WHERE user_id = p_user_id
-     );
+    -- 历史环境中支付回调表与订单表可能继承过不同的数据库默认排序规则。
+    -- 跨表匹配订单号时显式统一，避免 MySQL 1267 导致整个删除事务回滚。
+    DELETE payment_log
+      FROM app_payment_notify_log payment_log
+      JOIN app_trade_order trade_order
+        ON payment_log.order_no COLLATE utf8mb4_unicode_ci
+         = trade_order.order_no COLLATE utf8mb4_unicode_ci
+     WHERE trade_order.user_id = p_user_id;
     DELETE FROM app_refund_record
      WHERE user_id = p_user_id
         OR order_id IN (
