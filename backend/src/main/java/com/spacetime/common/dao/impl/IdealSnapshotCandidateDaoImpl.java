@@ -57,6 +57,9 @@ public class IdealSnapshotCandidateDaoImpl implements IdealSnapshotCandidateDao 
         if (entities == null) {
             return;
         }
-        entities.forEach(mapper::insert);
+        // 控制单条 SQL 大小，总人数不受批次大小限制。
+        for (int start = 0; start < entities.size(); start += 500) {
+            mapper.insertRows(entities.subList(start, Math.min(start + 500, entities.size())));
+        }
     }
 }

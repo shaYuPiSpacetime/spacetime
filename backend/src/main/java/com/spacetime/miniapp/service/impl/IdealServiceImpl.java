@@ -50,7 +50,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -64,6 +63,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class IdealServiceImpl implements IdealService {
     private static final int PAGE_SIZE = 20;
+    /** 限制单次关联查询 IN 参数数量，不限制搜索总人数。 */
+    private static final int LOOKUP_BATCH_SIZE = 500;
     private static final int SNAPSHOT_RETENTION_DAYS = 90;
     private static final String ACTIVE = "active";
     private static final String SAFE_BLUR_AVATAR =
@@ -202,6 +203,8 @@ public class IdealServiceImpl implements IdealService {
         Set<Long> blockedIds = blockedCandidateIds(userId, queried);
         List<IdealSnapshotCandidate> candidates = new ArrayList<>();
         Map<String, Boolean> schoolTierByCode = schoolTierByCode(values, queried);
+        LocalDateTime snapshotOrderTime = LocalDateTime.now();
+        String matchedCodes = JSONUtil.toJsonStr(values.conditions());
         for (AppUser candidate : queried) {
             if (!"OPEN".equals(access.get(candidate.getId()))
                     || blockedIds.contains(candidate.getId())
@@ -212,27 +215,16 @@ public class IdealServiceImpl implements IdealService {
             item.setSnapshotId(snapshot.getId());
             item.setItemNo("IDI-" + IdUtil.getSnowflakeNextIdStr());
             item.setCandidateUserId(candidate.getId());
-            item.setSortTime(sortTime(candidate));
-            item.setSortTieBreaker(String.valueOf(candidate.getId()));
-            item.setMatchedConditionCodes(JSONUtil.toJsonStr(values.conditions()));
+            // 固定本次数据库返回顺序，分页不受后续登录变化影响。
+            item.setSortTime(snapshotOrderTime);
+            item.setSortTieBreaker(String.format(Locale.ROOT, "%010d", candidates.size()));
+            item.setMatchedConditionCodes(matchedCodes);
+            item.setCreatedBy(userId);
+            item.setUpdatedBy(userId);
             candidates.add(item);
         }
-        if (!candidates.isEmpty()) {
-            List<Long> candidateIds = candidates.stream()
-                    .map(IdealSnapshotCandidate::getCandidateUserId).distinct().toList();
-            List<UserUnlockRecord> activeRecords = unlockRecordDao.selectList(
-                    new LambdaQueryWrapper<UserUnlockRecord>()
-                            .eq(UserUnlockRecord::getUserId, userId)
-                            .eq(UserUnlockRecord::getTargetBizType, "ideal")
-                            .in(UserUnlockRecord::getTargetUserId, candidateIds)
-                            .eq(UserUnlockRecord::getStatus, UnlockRecordStatusEnum.ACTIVE.getCode())
-                            .eq(UserUnlockRecord::getActiveMarker, 1));
-            Set<Long> unlockedIds = (activeRecords == null ? List.<UserUnlockRecord>of() : activeRecords)
-                    .stream().filter(this::active)
-                    .map(UserUnlockRecord::getTargetUserId)
-                    .collect(java.util.stream.Collectors.toSet());
-            candidates.removeIf(candidate -> unlockedIds.contains(candidate.getCandidateUserId()));
-        }
+        Set<Long> unlockedIds = activeUnlocks(userId, candidates).keySet();
+        candidates.removeIf(candidate -> unlockedIds.contains(candidate.getCandidateUserId()));
         if (!candidates.isEmpty()) {
             snapshotCandidateDao.insertBatch(candidates);
         }
@@ -246,11 +238,8 @@ public class IdealServiceImpl implements IdealService {
         requireOpenUser(userId);
         IdealFilterSnapshot snapshot = requireActiveSnapshot(userId, snapshotNo);
         List<IdealSnapshotCandidate> all = snapshotCandidateDao.selectBySnapshotId(snapshot.getId());
-        List<IdealSnapshotCandidate> ordered = all == null ? new ArrayList<>() : new ArrayList<>(all);
-        ordered.sort(Comparator.comparing(IdealSnapshotCandidate::getSortTime,
-                        Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(IdealSnapshotCandidate::getSortTieBreaker,
-                        Comparator.nullsLast(Comparator.naturalOrder())));
+        // DAO 按快照固定顺序读取；无需在应用中再次排序全部候选。
+        List<IdealSnapshotCandidate> ordered = all == null ? List.of() : all;
         Map<Long, UserUnlockRecord> unlocks = activeUnlocks(userId, ordered);
         int offset = decodeOffset(cursor);
         if (offset > ordered.size()) {
@@ -259,16 +248,26 @@ public class IdealServiceImpl implements IdealService {
         List<IdealResultItemVO> items = new ArrayList<>();
         int nextIndex = offset;
         while (nextIndex < ordered.size() && items.size() < PAGE_SIZE) {
-            IdealSnapshotCandidate row = ordered.get(nextIndex++);
-            if (unlocks.containsKey(row.getCandidateUserId())) {
-                continue;
+            // 只批量加载当前窗口的资料；不可见用户跳过后继续补足一页。
+            int endIndex = Math.min(nextIndex + PAGE_SIZE, ordered.size());
+            List<Long> targetIds = ordered.subList(nextIndex, endIndex).stream()
+                    .map(IdealSnapshotCandidate::getCandidateUserId)
+                    .filter(java.util.Objects::nonNull)
+                    .filter(id -> !unlocks.containsKey(id)).distinct().toList();
+            List<AppUser> users = targetIds.isEmpty() ? List.of() : safeUsers(appUserDao.selectByIds(targetIds));
+            Map<Long, AppUser> usersById = new HashMap<>();
+            users.forEach(user -> usersById.put(user.getId(), user));
+            Map<Long, String> access = accessProjectionService.projectAll(users);
+            Set<Long> blockedIds = blockedCandidateIds(userId, users);
+            while (nextIndex < endIndex && items.size() < PAGE_SIZE) {
+                IdealSnapshotCandidate row = ordered.get(nextIndex++);
+                AppUser candidate = usersById.get(row.getCandidateUserId());
+                if (candidate == null || !"OPEN".equals(access.get(candidate.getId()))
+                        || blockedIds.contains(candidate.getId())) {
+                    continue;
+                }
+                items.add(lockedItem(row, candidate));
             }
-            AppUser candidate = appUserDao.selectById(row.getCandidateUserId());
-            if (candidate == null || !"OPEN".equals(accessProjectionService.project(candidate))
-                    || isBlocked(userId, candidate.getId())) {
-                continue;
-            }
-            items.add(lockedItem(row, candidate));
         }
 
         IdealResultPageVO result = new IdealResultPageVO();
@@ -336,10 +335,11 @@ public class IdealServiceImpl implements IdealService {
                 .eq(AppUser::getAccountStatus, AccountStatusEnum.NORMAL.getCode());
         ProfileAgeFilter.apply(wrapper, values.minAge(), values.maxAge());
         MunicipalityLocationCodes.applyCityFilter(wrapper, values.cities());
-        return wrapper
-                .orderByDesc(AppUser::getLastLoginTime)
-                .orderByAsc(AppUser::getId)
-                .last("LIMIT 500");
+        // 全量查询基础条件内的用户，不排序、不截断；避免读取照片、简介等无关大字段。
+        return wrapper.select(AppUser::getId, AppUser::getAccountStatus, AppUser::getFirstLoginCompleted,
+                AppUser::getAge, AppUser::getBirthday, AppUser::getLocationCity, AppUser::getHeight,
+                AppUser::getSchoolCode, AppUser::getEducationLevel, AppUser::getHometownCity,
+                AppUser::getDatingGoal, AppUser::getTags);
     }
 
     private boolean matchesAll(AppUser current, AppUser candidate, SearchValues values,
@@ -556,16 +556,21 @@ public class IdealServiceImpl implements IdealService {
     private Map<Long, UserUnlockRecord> activeUnlocks(Long userId,
                                                        List<IdealSnapshotCandidate> candidates) {
         Map<Long, UserUnlockRecord> result = new LinkedHashMap<>();
-        for (IdealSnapshotCandidate candidate : candidates == null
-                ? List.<IdealSnapshotCandidate>of() : candidates) {
-            Long targetUserId = candidate.getCandidateUserId();
-            if (targetUserId == null || result.containsKey(targetUserId)) {
-                continue;
-            }
-            UserUnlockRecord record = unlockRecordDao.selectActiveByTargetUser(
-                    userId, "ideal", targetUserId);
-            if (active(record)) {
-                result.put(targetUserId, record);
+        List<Long> targetIds = (candidates == null ? List.<IdealSnapshotCandidate>of() : candidates).stream()
+                .map(IdealSnapshotCandidate::getCandidateUserId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        for (int start = 0; start < targetIds.size(); start += LOOKUP_BATCH_SIZE) {
+            List<Long> batch = targetIds.subList(start, Math.min(start + LOOKUP_BATCH_SIZE, targetIds.size()));
+            List<UserUnlockRecord> records = unlockRecordDao.selectList(new LambdaQueryWrapper<UserUnlockRecord>()
+                    .eq(UserUnlockRecord::getUserId, userId)
+                    .eq(UserUnlockRecord::getTargetBizType, "ideal")
+                    .in(UserUnlockRecord::getTargetUserId, batch)
+                    .eq(UserUnlockRecord::getStatus, UnlockRecordStatusEnum.ACTIVE.getCode())
+                    .eq(UserUnlockRecord::getActiveMarker, 1));
+            for (UserUnlockRecord record : records == null ? List.<UserUnlockRecord>of() : records) {
+                if (active(record) && batch.contains(record.getTargetUserId())) {
+                    result.put(record.getTargetUserId(), record);
+                }
             }
         }
         return result;
@@ -596,15 +601,6 @@ public class IdealServiceImpl implements IdealService {
             }
         }
         return result;
-    }
-
-    private boolean isBlocked(Long userId, Long candidateId) {
-        return relationBlockDao.selectActive(userId, candidateId,
-                RelationBlockTypeEnum.BLACKLIST.getCode()) != null
-                || relationBlockDao.selectActive(candidateId, userId,
-                RelationBlockTypeEnum.BLACKLIST.getCode()) != null
-                || relationBlockDao.selectActive(userId, candidateId,
-                RelationBlockTypeEnum.NO_RECOMMEND.getCode()) != null;
     }
 
     private String digest(SearchValues values) {
@@ -709,16 +705,6 @@ public class IdealServiceImpl implements IdealService {
 
     private List<AppUser> safeUsers(List<AppUser> users) {
         return users == null ? List.of() : users;
-    }
-
-    private LocalDateTime sortTime(AppUser user) {
-        if (user.getLastLoginTime() != null) {
-            return user.getLastLoginTime();
-        }
-        if (user.getUpdateTime() != null) {
-            return user.getUpdateTime();
-        }
-        return LocalDateTime.of(1970, 1, 1, 0, 0);
     }
 
     private static ConditionDefinition condition(String code, String category, String name) {

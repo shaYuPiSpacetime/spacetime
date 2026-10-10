@@ -1,5 +1,7 @@
 package com.spacetime.miniapp.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.dao.AppUserRelationBlockDao;
@@ -53,6 +55,13 @@ import static org.mockito.Mockito.when;
 /** PRD-08 理想型筛选、快照与隐私结果服务测试。 */
 @ExtendWith(MockitoExtension.class)
 class IdealServiceImplTest {
+    @org.junit.jupiter.api.BeforeAll
+    static void initializeLambdaColumnMetadata() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(
+                        new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""), AppUser.class);
+    }
+
     @Mock private AppUserDao appUserDao;
     @Mock private RecommendPreferenceDao preferenceDao;
     @Mock private IdealFilterSnapshotDao snapshotDao;
@@ -251,6 +260,114 @@ class IdealServiceImplTest {
         ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
         verify(snapshotCandidateDao).insertBatch(rows.capture());
         assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId).containsExactly(8L);
+    }
+
+    private void prepareResultBatches() {
+        when(appUserDao.selectByIds(any())).thenAnswer(invocation -> {
+            List<Long> ids = invocation.getArgument(0);
+            return ids.stream().map(id -> openUser(id, "FEMALE", 28, "320100")).toList();
+        });
+        when(accessProjectionService.projectAll(any())).thenAnswer(invocation -> {
+            List<AppUser> users = invocation.getArgument(0);
+            Map<Long, String> access = new java.util.HashMap<>();
+            users.forEach(user -> access.put(user.getId(), "OPEN"));
+            return access;
+        });
+    }
+
+    @Test
+    void searchScansAll1201UsersWithoutLoginSortingOrLimit() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        List<AppUser> users = LongStream.range(100, 1301)
+                .mapToObj(id -> {
+                    AppUser user = openUser(id, "FEMALE", 28, "320100");
+                    user.setLastLoginTime(LocalDateTime.now().plusDays(id));
+                    user.setHeight(id == 1300 ? 170 : 160);
+                    return user;
+                }).toList();
+        prepareSearch(current, users);
+        assertThat(service.search(7L, searchReq(List.of("M08-IDEAL-height-165"))).getResultCount())
+                .isEqualTo(1);
+        ArgumentCaptor<LambdaQueryWrapper<AppUser>> query = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(appUserDao).selectList(query.capture());
+        assertThat(query.getValue().getSqlSegment().toUpperCase()).doesNotContain("LIMIT", "ORDER BY", "LAST_LOGIN_TIME");
+        assertThat(query.getValue().getSqlSelect()).contains("tags", "birthday", "first_login_completed")
+                .doesNotContain("last_login_time", "avatar", "intro");
+        ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(rows.capture());
+        assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId).containsExactly(1300L);
+    }
+
+    @Test
+    void fullSearchFreezesDatabaseReturnOrderAcrossAllUsers() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        List<AppUser> users = LongStream.range(100, 1301)
+                .mapToObj(id -> {
+                    AppUser user = openUser(id, "FEMALE", 28, "320100");
+                    user.setLastLoginTime(LocalDateTime.now().plusDays(id));
+                    return user;
+                }).toList();
+        prepareSearch(current, users);
+        assertThat(service.search(7L, searchReq(List.of())).getResultCount()).isEqualTo(1201);
+        ArgumentCaptor<List<IdealSnapshotCandidate>> rows = ArgumentCaptor.forClass(List.class);
+        verify(snapshotCandidateDao).insertBatch(rows.capture());
+        assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId)
+                .containsExactlyElementsOf(users.stream().map(AppUser::getId).toList());
+        assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getSortTime).containsOnly(rows.getValue().get(0).getSortTime());
+        assertThat(rows.getValue()).extracting(IdealSnapshotCandidate::getSortTieBreaker).isSorted();
+        verify(unlockRecordDao, org.mockito.Mockito.times(3)).selectList(any());
+        verify(unlockRecordDao, never()).selectActiveByTargetUser(any(), any(), any());
+    }
+
+    @Test
+    void thousandUserResultsBatchLookupsAndFillPastUnavailableUsers() {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(snapshotDao.selectBySnapshotNo("IDS-001"))
+                .thenReturn(snapshot(100L, 7L, LocalDateTime.now().plusDays(1)));
+        List<IdealSnapshotCandidate> rows = LongStream.range(100, 1301).mapToObj(id -> {
+            IdealSnapshotCandidate row = candidate(100L, "IDI-" + id, id, "[]");
+            row.setSortTime(LocalDateTime.of(2026, 10, 10, 0, 0));
+            row.setSortTieBreaker(String.format("%010d", id));
+            return row;
+        }).toList();
+        when(snapshotCandidateDao.selectBySnapshotId(100L)).thenReturn(rows);
+        when(appUserDao.selectByIds(any())).thenAnswer(invocation -> {
+            List<Long> ids = invocation.getArgument(0);
+            return ids.stream().filter(id -> id != 100L)
+                    .map(id -> openUser(id, "FEMALE", 28, "320100")).toList();
+        });
+        when(accessProjectionService.projectAll(any())).thenAnswer(invocation -> {
+            List<AppUser> users = invocation.getArgument(0);
+            Map<Long, String> access = new java.util.HashMap<>();
+            users.forEach(user -> access.put(user.getId(), user.getId() == 101L ? "CLOSED" : "OPEN"));
+            return access;
+        });
+        AppUserRelationBlock block = new AppUserRelationBlock();
+        block.setUserId(102L);
+        block.setTargetUserId(7L);
+        block.setBlockType("BLACKLIST");
+        when(relationBlockDao.selectActiveBetweenUserAndTargets(any(), any(), any())).thenReturn(List.of(block));
+        com.spacetime.common.entity.UserUnlockRecord expired = new com.spacetime.common.entity.UserUnlockRecord();
+        expired.setTargetUserId(103L);
+        expired.setStatus("active");
+        expired.setActiveMarker(1);
+        expired.setExpireTime(LocalDateTime.now().minusDays(1));
+        when(unlockRecordDao.selectList(any())).thenReturn(List.of(expired));
+
+        IdealResultPageVO first = service.getResults(7L, "IDS-001", null);
+        assertThat(first.getItems()).hasSize(20);
+        assertThat(first.getItems()).extracting(item -> item.getItemNo())
+                .containsExactlyElementsOf(LongStream.range(103, 123).mapToObj(id -> "IDI-" + id).toList());
+        verify(unlockRecordDao, org.mockito.Mockito.times(3)).selectList(any());
+        verify(unlockRecordDao, never()).selectActiveByTargetUser(any(), any(), any());
+        verify(appUserDao, org.mockito.Mockito.times(2)).selectByIds(any());
+        verify(appUserDao, org.mockito.Mockito.times(1)).selectById(any());
+        verify(relationBlockDao, never()).selectActive(any(), any(), any());
+        IdealResultPageVO second = service.getResults(7L, "IDS-001", first.getNextCursor());
+        assertThat(second.getItems()).hasSize(20);
+        assertThat(second.getItems().get(0).getItemNo()).isEqualTo("IDI-123");
     }
 
     private void prepareSearch(AppUser current, List<AppUser> candidates) {
@@ -546,8 +663,8 @@ class IdealServiceImplTest {
         when(accessProjectionService.project(current)).thenReturn("OPEN");
         when(snapshotDao.selectBySnapshotNo("IDS-001")).thenReturn(snapshot);
         when(snapshotCandidateDao.selectBySnapshotId(100L)).thenReturn(List.of(item));
-        when(appUserDao.selectById(8L)).thenReturn(target);
-        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(appUserDao.selectByIds(List.of(8L))).thenReturn(List.of(target));
+        when(accessProjectionService.projectAll(List.of(target))).thenReturn(Map.of(8L, "OPEN"));
         when(profileDictionaryService.label("china_region", "320100")).thenReturn("南京");
         when(profileDictionaryService.label("app_education_level", "MASTER")).thenReturn("硕士");
         IdealPricingVO pricing = new IdealPricingVO();
@@ -591,7 +708,7 @@ class IdealServiceImplTest {
         when(accessProjectionService.project(current)).thenReturn("OPEN");
         when(snapshotDao.selectBySnapshotNo("IDS-001")).thenReturn(snapshot);
         when(snapshotCandidateDao.selectBySnapshotId(100L)).thenReturn(List.of(item));
-        when(unlockRecordDao.selectActiveByTargetUser(7L, "ideal", 8L)).thenReturn(unlock);
+        when(unlockRecordDao.selectList(any())).thenReturn(List.of(unlock));
         when(idealUnlockService.getPricing()).thenReturn(new IdealPricingVO());
 
         IdealResultPageVO result = service.getResults(7L, "IDS-001", null);
@@ -644,11 +761,9 @@ class IdealServiceImplTest {
         List<IdealSnapshotCandidate> candidates = LongStream.rangeClosed(8, 28)
                 .mapToObj(userId -> candidate(100L, "IDI-" + userId, userId, "[]"))
                 .toList();
-        when(appUserDao.selectById(any())).thenAnswer(invocation -> {
-            long userId = invocation.getArgument(0);
-            return userId == 7L ? current : openUser(userId, "FEMALE", 28, "320100");
-        });
-        when(accessProjectionService.project(any())).thenReturn("OPEN");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        prepareResultBatches();
         when(snapshotDao.selectBySnapshotNo("IDS-001")).thenReturn(snapshot);
         when(snapshotCandidateDao.selectBySnapshotId(100L)).thenReturn(candidates);
         when(profileDictionaryService.label("china_region", "320100")).thenReturn("南京");
@@ -678,14 +793,13 @@ class IdealServiceImplTest {
         unlock.setStatus("active");
         unlock.setActiveMarker(1);
         unlock.setExpireTime(LocalDateTime.now().plusDays(1));
-        when(appUserDao.selectById(any())).thenAnswer(invocation -> {
-            long userId = invocation.getArgument(0);
-            return userId == 7L ? current : openUser(userId, "FEMALE", 28, "320100");
-        });
-        when(accessProjectionService.project(any())).thenReturn("OPEN");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        prepareResultBatches();
         when(snapshotDao.selectBySnapshotNo("IDS-001")).thenReturn(snapshot);
         when(snapshotCandidateDao.selectBySnapshotId(100L)).thenReturn(candidates);
-        when(unlockRecordDao.selectActiveByTargetUser(7L, "ideal", 8L)).thenReturn(null, unlock);
+        unlock.setTargetUserId(8L);
+        when(unlockRecordDao.selectList(any())).thenReturn(List.of(), List.of(unlock));
         when(idealUnlockService.getPricing()).thenReturn(new IdealPricingVO());
 
         IdealResultPageVO first = service.getResults(7L, "IDS-001", null);
