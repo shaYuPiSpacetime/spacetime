@@ -244,7 +244,7 @@ export default function QianxunComposePage() {
       if (publishResult.status === 'rejected') {
         await Taro.showModal({
           title: editPostIdRef.current ? '重新审核未通过' : '内容未通过审核',
-          content: publishResult.message || '内容未通过安全审核，请修改后重新提交',
+          content: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.publishRejectedDefault, publishResult.message),
           showCancel: false, confirmText: '我知道了',
         })
       }
