@@ -38,4 +38,24 @@ FROM (
 GROUP BY p.scene,u.account_status,u.deleted,u.first_login_completed;
 SELECT 'recommend_likes' AS section, COUNT(*) AS n, MAX(viewed_at) AS latest
 FROM ct_recommend_view_log WHERE user_id=@target_user AND deleted=0 AND action='like';
+SELECT 'cancel_requests' AS section, status, create_time, update_time, revoked_time, final_cancel_time
+FROM app_user_cancel_request WHERE user_id=@target_user ORDER BY id DESC LIMIT 5;
+SELECT 'security_events' AS section, biz_type, action, create_time
+FROM app_user_security_audit_log WHERE user_id=@target_user
+AND create_time>='2026-10-10 00:00:00' ORDER BY id DESC LIMIT 15;
+SELECT 'admin_events' AS section, action, create_time
+FROM content_operation_log WHERE biz_type='APP_USER' AND biz_id=@target_user
+AND create_time>='2026-10-10 00:00:00' ORDER BY id DESC LIMIT 15;
+SELECT 'like_invalid_times' AS section, invalid_time, COUNT(*) AS n
+FROM app_relation_like WHERE (from_user_id=@target_user OR to_user_id=@target_user)
+AND invalid_reason='account_deleted' GROUP BY invalid_time ORDER BY invalid_time DESC;
+SELECT 'invalid_counterparties' AS section, p.scene, u.account_status, u.deleted, COUNT(*) AS n
+FROM (
+ SELECT 'outgoing' AS scene,to_user_id AS other_id FROM app_relation_like
+ WHERE from_user_id=@target_user AND invalid_reason='account_deleted' AND invalid_time='2026-10-10 14:16:37'
+ UNION ALL SELECT 'incoming',from_user_id FROM app_relation_like
+ WHERE to_user_id=@target_user AND invalid_reason='account_deleted' AND invalid_time='2026-10-10 14:16:37'
+ UNION ALL SELECT 'visitors',visitor_user_id FROM app_relation_visit
+ WHERE target_user_id=@target_user AND invalid_reason='account_deleted' AND invalid_time='2026-10-10 14:16:37'
+) p LEFT JOIN app_user u ON u.id=p.other_id GROUP BY p.scene,u.account_status,u.deleted;
 COMMIT;
