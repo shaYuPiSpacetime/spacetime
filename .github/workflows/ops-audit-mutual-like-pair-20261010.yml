@@ -1,0 +1,51 @@
+name: ops-audit-mutual-like-pair-20261010
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'scripts/ops/audit-mutual-like-pair-20261010.sql'
+      - '.github/workflows/ops-audit-mutual-like-pair-20261010.yml'
+permissions:
+  contents: read
+concurrency:
+  group: spacetime-prod-data-ops
+  cancel-in-progress: false
+jobs:
+  audit-mutual-like-pair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy read-only audit
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'scripts/ops/audit-mutual-like-pair-20261010.sql'
+          target: '/mnt/data/spacetime-prod'
+      - name: Read sanitized relationship state
+        id: audit
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script: |
+            set -e
+            cd /mnt/data/spacetime-prod
+            set -a
+            . secrets/prod.env
+            set +a
+            audit_output="$(MYSQL_PWD="$DB_PASSWORD" mysql -h"$DB_HOST" -P"${DB_PORT:-3306}" \
+              -u"$DB_USER" --default-character-set=utf8mb4 --batch "$DB_NAME" \
+              < scripts/ops/audit-mutual-like-pair-20261010.sql)"
+            printf 'AUDIT_RESULT|%s\n' "$(printf '%s' "$audit_output" | base64 -w0)"
+      - name: Publish sanitized audit result
+        env:
+          AUDIT_STDOUT: ${{ steps.audit.outputs.stdout }}
+        run: |
+          result_line="$(printf '%s\n' "$AUDIT_STDOUT" | grep '^AUDIT_RESULT|' | tail -n 1)"
+          [ -n "$result_line" ] || exit 1
+          summary="$(printf '%s' "$result_line" | cut -d'|' -f2 | base64 -d | tr '\n' ' ' | cut -c1-7000)"
+          echo "::notice title=Mutual-like pair audit::$summary"
