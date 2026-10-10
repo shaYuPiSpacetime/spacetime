@@ -506,6 +506,14 @@ public class RecommendServiceImpl implements RecommendService {
                 .ge(RecommendViewLog::getViewedAt, start)
                 .in(RecommendViewLog::getAction, List.of("view", "skip", "detail", "like"))
                 .orderByDesc(RecommendViewLog::getViewedAt));
+        // 回看人数以实际消耗浏览额度的曝光为准；重置残留或未确认曝光的动作不新增候选。
+        Map<ReplayDayCandidate, RecommendViewLog> views = new LinkedHashMap<>();
+        for (RecommendViewLog log : raw == null ? List.<RecommendViewLog>of() : raw) {
+            if ("view".equals(log.getAction()) && log.getCandidateUserId() != null && log.getViewedAt() != null) {
+                views.putIfAbsent(new ReplayDayCandidate(
+                        log.getViewedAt().toLocalDate(), log.getCandidateUserId()), log);
+            }
+        }
         Map<ReplayDayCandidate, RecommendViewLog> latest = new LinkedHashMap<>();
         Set<ReplayDayCandidate> skipped = new LinkedHashSet<>();
         for (RecommendViewLog log : raw == null ? List.<RecommendViewLog>of() : raw) {
@@ -514,13 +522,17 @@ public class RecommendServiceImpl implements RecommendService {
                 // 同一天的重复动作只保留最近一次；同一用户跨天出现时，三天回看应分别保留。
                 ReplayDayCandidate key = new ReplayDayCandidate(
                         log.getViewedAt().toLocalDate(), log.getCandidateUserId());
+                RecommendViewLog view = views.get(key);
+                if (view == null || log.getViewedAt().isBefore(view.getViewedAt())) {
+                    continue;
+                }
                 latest.putIfAbsent(key, log);
                 if ("skip".equals(log.getAction())) {
                     skipped.add(key);
                 }
             }
         }
-        List<Long> candidateIds = latest.values().stream()
+        List<Long> candidateIds = views.values().stream()
                 .map(RecommendViewLog::getCandidateUserId)
                 .distinct()
                 .toList();
@@ -558,7 +570,7 @@ public class RecommendServiceImpl implements RecommendService {
         Set<Long> likedCandidateIds = activeLikedCandidateIds(userId, visibleCandidateIds);
 
         List<RecommendReplayItemVO> items = new ArrayList<>();
-        for (RecommendViewLog log : latest.values()) {
+        for (RecommendViewLog log : views.values()) {
             AppUser target = targetById.get(log.getCandidateUserId());
             if (target == null || !visibleCandidateIdSet.contains(target.getId())) {
                 continue;
@@ -572,10 +584,10 @@ public class RecommendServiceImpl implements RecommendService {
             item.setProfile(replayProfile(target, avatar, cityLabels,
                     occupationLabels, liked));
             item.setViewedAt(log.getViewedAt());
-            item.setLastAction(log.getAction());
+            ReplayDayCandidate key = new ReplayDayCandidate(log.getViewedAt().toLocalDate(), target.getId());
+            item.setLastAction(latest.getOrDefault(key, log).getAction());
             item.setDateGroup(dateGroup(log.getViewedAt()));
-            item.setSkipped(skipped.contains(new ReplayDayCandidate(
-                    log.getViewedAt().toLocalDate(), target.getId())));
+            item.setSkipped(skipped.contains(key));
             item.setLiked(liked);
             items.add(item);
         }

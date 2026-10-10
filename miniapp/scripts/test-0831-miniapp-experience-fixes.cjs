@@ -76,7 +76,7 @@ test('推荐页首次送出心动后展示下一位且不写入跳过动作', ()
   assert.match(source, /const showNextCandidate = async/, '候选切换必须从跳过动作中拆分出来')
   assert.match(
     toggleLike,
-    /wasLiked[\s\S]*await showNextCandidate\(candidateGeneration,\s*true\)/,
+    /wasLiked[\s\S]*await showNextCandidate\(candidateGeneration\)/,
     '首次送出心动成功后必须切换下一位'
   )
   assert.doesNotMatch(toggleLike, /recordRecommendSkip/, '心动后切换不得误记为跳过')

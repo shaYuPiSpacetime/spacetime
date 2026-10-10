@@ -102,19 +102,21 @@ test('iOS 商户支付资质限制展示明确且不承诺代码绕过', () => {
   assert.doesNotMatch(feedback.message, /重试即可|已修复|自动开通/)
 })
 
-test('推荐已无候选或达到上限时底部推荐红点归零', () => {
+test('推荐已无候选或达到上限时底部推荐红点归零', async () => {
   const source = read('src/pages/recommend/index.tsx')
-  assert.match(
-    source,
-    /recommendBadgeCount=\{state === 'ready' && candidate \? page\?\.remainingBrowseCount : 0\}/,
-  )
+  const domain = await import('data:text/javascript;base64,' + Buffer.from(read('src/domain/recommendBadge.js')).toString('base64'))
+  assert.match(source, /publishRecommendBadge\(userId,\s*\{\s*\.\.\.page, items: page.items.slice\(candidateIndex\)/)
+  assert.equal(domain.resolveRecommendBadgeCount({ items: [], remainingBrowseCount: 20 }), 0)
+  assert.equal(domain.resolveRecommendBadgeCount({ items: [{ candidateNo: '1' }], remainingBrowseCount: 0 }), 0)
 })
 
-test('心动关系创建成功后即使浏览记录失败也会离开当前卡片', () => {
+test('心动先确认曝光，成功后离开当前卡片，曝光失败不能绕过额度', () => {
   const source = read('src/pages/recommend/index.tsx')
-  assert.match(source, /const showNextCandidate = async \([\s\S]{0,180}currentCandidateHandled = false/)
-  assert.match(source, /!await awaitCurrentCandidateView\(\)[\s\S]{0,180}!currentCandidateHandled[\s\S]{0,180}loadCandidates\(\)/)
-  assert.match(source, /await showNextCandidate\(candidateGeneration, true\)/)
+  const toggleLike = source.slice(source.indexOf('  const toggleLike ='), source.indexOf('  const updateCandidate ='))
+  assert.ok(toggleLike.indexOf('await awaitCurrentCandidateView()') < toggleLike.indexOf('await sendRelationLike('))
+  assert.match(source, /!await awaitCurrentCandidateView\(\)\) \{\s*await loadCandidates\(\)\s*return/)
+  assert.match(toggleLike, /await showNextCandidate\(candidateGeneration\)/)
+  assert.doesNotMatch(source, /currentCandidateHandled/)
 })
 
 test('我喜欢的后端接口经过 Controller、Service、DAO、DAOImpl 和 Mapper', () => {

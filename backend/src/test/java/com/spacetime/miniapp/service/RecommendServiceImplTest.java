@@ -1016,6 +1016,7 @@ class RecommendServiceImplTest {
         RecommendViewLog latest = viewLog(7L, 8L, "skip", LocalDateTime.now());
         RecommendViewLog older = viewLog(7L, 8L, "view", LocalDateTime.now().minusHours(2));
         RecommendViewLog another = viewLog(7L, 9L, "detail", LocalDateTime.now().minusDays(1));
+        RecommendViewLog anotherView = viewLog(7L, 9L, "view", another.getViewedAt().minusMinutes(1));
         RecommendViewLog issued = viewLog(7L, 10L, "issued", LocalDateTime.now());
         AppUser firstUser = openUser(8L, 28, "320100");
         AppUser secondUser = openUser(9L, 29, "320100");
@@ -1026,7 +1027,7 @@ class RecommendServiceImplTest {
         activeLike.setActiveMarker(1);
 
         when(appUserDao.selectById(7L)).thenReturn(current);
-        when(viewLogDao.selectList(any())).thenReturn(List.of(latest, older, another, issued));
+        when(viewLogDao.selectList(any())).thenReturn(List.of(latest, older, another, anotherView, issued));
         when(appUserDao.selectByIds(List.of(8L, 9L))).thenReturn(List.of(firstUser, secondUser));
         when(accessProjectionService.projectAll(List.of(firstUser, secondUser)))
                 .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
@@ -1080,6 +1081,112 @@ class RecommendServiceImplTest {
         assertThat(result.getItems()).extracting("skipped")
                 .containsExactly(true, false);
         verify(appUserDao).selectByIds(List.of(8L));
+    }
+
+    @Test
+    @DisplayName("二十条有效曝光与十一位重置残留动作只能形成二十位回看")
+    void replayShouldCountOnlyCandidatesWithChargedViews() {
+        LocalDateTime today = LocalDate.now().atTime(10, 0);
+        List<RecommendViewLog> logs = new java.util.ArrayList<>();
+        LongStream.range(100, 120).forEach(id -> logs.add(viewLog(7L, id, "view", today)));
+        LongStream.range(200, 211).forEach(id -> logs.add(viewLog(7L, id,
+                id % 2 == 0 ? "skip" : "like", today.minusHours(1))));
+        List<AppUser> targets = LongStream.concat(LongStream.range(100, 120), LongStream.range(200, 211))
+                .mapToObj(id -> openUser(id, 28, "320100")).toList();
+        when(appUserDao.selectById(7L)).thenReturn(openUser(7L, 30, "320100"));
+        when(viewLogDao.selectList(any())).thenReturn(logs);
+        when(appUserDao.selectByIds(any())).thenAnswer(invocation -> {
+            List<Long> ids = invocation.getArgument(0);
+            return targets.stream().filter(target -> ids.contains(target.getId())).toList();
+        });
+        when(accessProjectionService.projectAll(any())).thenAnswer(invocation -> {
+            List<AppUser> users = invocation.getArgument(0);
+            return users.stream().collect(java.util.stream.Collectors.toMap(AppUser::getId, ignored -> "OPEN"));
+        });
+        when(auditContentService.publicAvatars(any())).thenReturn(Map.of());
+        when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of());
+        when(relationLikeDao.selectList(any())).thenReturn(List.of());
+
+        RecommendReplayPageVO result = service.getReplay(7L);
+
+        assertThat(result.getItems()).hasSize(20);
+        assertThat(result.getItems()).allSatisfy(item -> {
+            assertThat(Long.parseLong(item.getCandidateNo())).isBetween(100L, 119L);
+            assertThat(item.getLastAction()).isEqualTo("view");
+            assertThat(item.getSkipped()).isFalse();
+        });
+    }
+
+    @Test
+    @DisplayName("回看日期锚定曝光，旧跳过与次日动作不新增人数或污染新曝光")
+    void replayShouldAnchorDateAndActionStateToConfirmedView() {
+        LocalDate today = LocalDate.now();
+        RecommendViewLog view = viewLog(7L, 8L, "view", today.minusDays(1).atTime(18, 0));
+        RecommendViewLog oldSkip = viewLog(7L, 8L, "skip", today.minusDays(1).atTime(17, 0));
+        RecommendViewLog laterDetail = viewLog(7L, 8L, "detail", today.atTime(10, 0));
+        AppUser target = openUser(8L, 28, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(openUser(7L, 30, "320100"));
+        when(viewLogDao.selectList(any())).thenReturn(List.of(laterDetail, view, oldSkip));
+        when(appUserDao.selectByIds(List.of(8L))).thenReturn(List.of(target));
+        when(accessProjectionService.projectAll(List.of(target))).thenReturn(Map.of(8L, "OPEN"));
+        when(auditContentService.publicAvatars(any())).thenReturn(Map.of());
+        when(profileDictionaryService.labels(any(), any())).thenReturn(Map.of());
+        when(relationLikeDao.selectList(any())).thenReturn(List.of());
+
+        assertThat(service.getReplay(7L).getItems()).singleElement().satisfies(item -> {
+            assertThat(item.getViewedAt()).isEqualTo(view.getViewedAt());
+            assertThat(item.getDateGroup()).isEqualTo("昨天");
+            assertThat(item.getSkipped()).isFalse();
+            assertThat(item.getLastAction()).isEqualTo("view");
+        });
+    }
+
+    @Test
+    @DisplayName("仅有跳过或心动残留而没有曝光时回看为空")
+    void replayShouldBeEmptyWithoutConfirmedViews() {
+        when(appUserDao.selectById(7L)).thenReturn(openUser(7L, 30, "320100"));
+        when(viewLogDao.selectList(any())).thenReturn(List.of(
+                viewLog(7L, 8L, "skip", LocalDateTime.now()),
+                viewLog(7L, 9L, "like", LocalDateTime.now())));
+        assertThat(service.getReplay(7L).getItems()).isEmpty();
+        verify(appUserDao, never()).selectByIds(any());
+    }
+
+    @Test
+    @DisplayName("会员连续请求四十位新候选最多成功二十位，重复同一候选不再扣额")
+    void fortyViewRequestsMustStopAtTwentyUniqueCandidates() {
+        when(appUserDao.selectById(any())).thenAnswer(invocation -> openUser(invocation.getArgument(0), 28, "320100"));
+        when(accessProjectionService.project(any())).thenReturn("OPEN");
+        UserAsset asset = new UserAsset();
+        asset.setVipStatus("active");
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of(config("commercial.view.quota.vip", "20")));
+        List<RecommendViewLog> views = new java.util.ArrayList<>();
+        when(viewLogDao.selectList(any())).thenAnswer(invocation -> {
+            LambdaQueryWrapper<RecommendViewLog> query = invocation.getArgument(0);
+            if (query.getSqlSegment().contains("candidate_user_id")) {
+                return views.stream().filter(view -> query.getParamNameValuePairs().containsValue(view.getCandidateUserId())).toList();
+            }
+            return List.copyOf(views);
+        });
+        org.mockito.Mockito.doAnswer(invocation -> {
+            views.add(invocation.getArgument(0));
+            return null;
+        }).when(viewLogDao).insert(any());
+        for (long id = 100; id < 140; id++) {
+            RecommendViewActionReq req = new RecommendViewActionReq();
+            req.setRequestId("burst-" + id);
+            String candidateNo = String.valueOf(id);
+            if (id < 120) service.recordAction(7L, candidateNo, "view", req);
+            else assertThatThrownBy(() -> service.recordAction(7L, candidateNo, "view", req))
+                    .isInstanceOf(BusinessException.class).hasMessageContaining("今天的推荐已看完");
+        }
+        RecommendViewActionReq retry = new RecommendViewActionReq();
+        retry.setRequestId("already-viewed-retry");
+        service.recordAction(7L, "100", "view", retry);
+        assertThat(views).hasSize(20);
+        assertThat(views.stream().map(RecommendViewLog::getCandidateUserId).distinct()).hasSize(20);
+        verify(appUserDao, times(41)).lockRecommendBrowse(7L);
     }
 
     @Test

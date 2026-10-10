@@ -62,6 +62,7 @@ export default function RecommendPage() {
   const [state, setState] = useState<LoadState>('loading')
   const [errorMessage, setErrorMessage] = useState('')
   const [actionSubmitting, setActionSubmitting] = useState(false)
+  const actionSubmittingRef = useRef(false)
   const [refreshing, setRefreshing] = useState(false)
   const [pageVisible, setPageVisible] = useState(true)
   const [showIpDialog, setShowIpDialog] = useState(false)
@@ -376,7 +377,6 @@ export default function RecommendPage() {
 
   const showNextCandidate = async (
     expectedGeneration = candidateRequestGenerationRef.current,
-    currentCandidateHandled = false,
   ) => {
     if (candidateRequestGenerationRef.current !== expectedGeneration) return
     if (hasRecommendCycleExpired(page?.nextResetAt)) {
@@ -385,12 +385,10 @@ export default function RecommendPage() {
       return
     }
     if (!await awaitCurrentCandidateView()) {
-      if (!currentCandidateHandled) {
-        await loadCandidates()
-        return
-      }
-      if (candidate) viewedCandidates.current.add(candidate.candidateNo)
+      await loadCandidates()
+      return
     }
+    if (candidateRequestGenerationRef.current !== expectedGeneration) return
     if (candidateIndex + 1 < candidates.length) {
       setCandidateIndex(current => current + 1)
       return
@@ -432,10 +430,16 @@ export default function RecommendPage() {
   }
 
   const advanceCandidate = async () => {
-    if (!candidate || actionSubmitting) return
+    if (!candidate || actionSubmittingRef.current || refreshing) return
     const candidateGeneration = candidateRequestGenerationRef.current
+    actionSubmittingRef.current = true
     setActionSubmitting(true)
     try {
+      if (!await awaitCurrentCandidateView()) {
+        await loadCandidates()
+        return
+      }
+      if (candidateRequestGenerationRef.current !== candidateGeneration) return
       await recordRecommendSkip(candidate.candidateNo, {
         requestId: createRequestId('recommend-skip', candidate.candidateNo),
         filterVersion: page?.preferenceVersion,
@@ -449,18 +453,25 @@ export default function RecommendPage() {
         icon: 'none',
       })
     } finally {
+      actionSubmittingRef.current = false
       setActionSubmitting(false)
     }
   }
 
   const toggleLike = async () => {
-    if (!candidate || actionSubmitting) return
+    if (!candidate || actionSubmittingRef.current || refreshing) return
     const candidateGeneration = candidateRequestGenerationRef.current
     const wasLiked = candidate.liked
     const filterVersion = page?.preferenceVersion
     const position = candidateIndex + 1
+    actionSubmittingRef.current = true
     setActionSubmitting(true)
     try {
+      if (!await awaitCurrentCandidateView()) {
+        await loadCandidates()
+        return
+      }
+      if (candidateRequestGenerationRef.current !== candidateGeneration) return
       const relation = wasLiked
         ? await cancelRelationLike(candidate.userId)
         : await sendRelationLike(
@@ -496,7 +507,7 @@ export default function RecommendPage() {
       let nextCandidateFailed = false
       try {
         if (candidateRequestGenerationRef.current !== candidateGeneration) return
-        await showNextCandidate(candidateGeneration, true)
+        await showNextCandidate(candidateGeneration)
       } catch {
         nextCandidateFailed = true
       }
@@ -516,6 +527,7 @@ export default function RecommendPage() {
         icon: 'none',
       })
     } finally {
+      actionSubmittingRef.current = false
       setActionSubmitting(false)
     }
   }
