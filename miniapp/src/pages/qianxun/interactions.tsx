@@ -109,7 +109,7 @@ export default function QianxunInteractionsPage() {
   const auth = useAuthStore.getState()
   const profile: ProfileSummary = {
     nickname: summary?.nickname || auth.nickname || emptyProfile.nickname,
-    avatar: resolveOwnAvatar(summary?.avatar || auth.avatar),
+    avatar: resolveOwnAvatar(summary ? summary.avatar : auth.avatar),
     description: summary?.description || emptyProfile.description,
     postCount: readNonNegativeNumber(summary?.stats?.postCount),
     followingCount: readNonNegativeNumber(summary?.stats?.followingCount),

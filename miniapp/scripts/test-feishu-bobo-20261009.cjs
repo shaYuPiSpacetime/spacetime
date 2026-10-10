@@ -314,20 +314,22 @@ test('C-01: 他人话题动态打开可原生分享的面板，分享目标保�
   const shareStart = source.indexOf('  useShareAppMessage(')
   evaluateSnippet(source.slice(shareStart, source.indexOf('  const loadTopic', shareStart)), {
     useShareAppMessage: callback => { share = callback }, selectedOwnPost: selected, topic: { name: '某话题' }, topicId: 1,
+    shareMessage: value => value,
+    postShare: post => ({ path: `/pages/qianxun/post-detail?id=${post.id}` }),
+    topicShare: id => ({ path: `/pages/qianxun/topic?topicId=${id}` }),
   }, 'undefined')
-  assert.equal(share().path, '/pages/qianxun/post-detail?id=42')
+  assert.equal(share({ from: 'button' }).path, '/pages/qianxun/post-detail?id=42')
+  assert.equal(share({ from: 'menu' }).path, '/pages/qianxun/topic?topicId=1')
   assert.match(read('components/CommunityPostActionSheet.tsx'), /openType="share"/)
 })
 
-test('C-04: 服务端本人头像为空时不回填缓存的旧女性照片', async () => {
+test('C-04: 服务端本人头像为空时不回填缓存的旧女性照片', () => {
   const source = read('pages/qianxun/interactions.tsx')
-  const start = source.indexOf('  const loadIdentity =')
-  let profile = { avatar: '' }
-  const auth = { userId: 7, avatar: 'https://cdn.test/stale-female.png', nickname: '本人', updateIdentity: () => {} }
-  await evaluateSnippet(source.slice(start, source.indexOf('  const loadMyPosts =', start)), {
-    useAuthStore: { getState: () => auth }, prd01Api: { getHomeDetail: async () => ({ profile: { nickname: '本人', avatar: '' } }) },
-    resolveOwnAvatar: value => value, emptyProfile: {}, config: {}, buildProfileDescription: () => '',
-    setProfile: updater => { profile = updater(profile) },
-  }, 'loadIdentity()')
+  const start = source.indexOf('  const profile: ProfileSummary =')
+  const profile = evaluateSnippet(source.slice(start, source.indexOf('  const [loading', start)), {
+    summary: { avatar: '', nickname: '本人' },
+    auth: { avatar: 'https://cdn.test/stale-female.png' },
+    resolveOwnAvatar: value => value, emptyProfile: {}, readNonNegativeNumber: value => Number(value || 0),
+  }, 'profile')
   assert.equal(profile.avatar, '')
 })

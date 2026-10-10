@@ -1,5 +1,5 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
@@ -37,11 +37,12 @@ type ZhiyinTab = 'YUEMU' | 'SINCERE'
 type Sheet = 'actions' | 'report' | 'uncertified' | null
 
 interface QianxunZhiyinTabProps {
+  onSharePostChange?: (post: CommunityPostVO | undefined) => void
   secondaryTop: number
   contentTop: number
 }
 
-export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZhiyinTabProps) {
+export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePostChange }: QianxunZhiyinTabProps) {
   const currentUserId = useAuthStore(state => state.userId)
   const [activeTab, setActiveTab] = useState<ZhiyinTab>('YUEMU')
   const [soulmatePosts, setSoulmatePosts] = useState<CommunityPostVO[]>()
@@ -56,10 +57,10 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop }: QianxunZh
   const returnFromPostDetailRef = useRef<number>()
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
-  useShareAppMessage(() => ({
-    title: sheet === 'actions' && selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻时空站台',
-    path: sheet === 'actions' && selectedPost?.id ? `/pages/qianxun/post-detail?id=${selectedPost.id}` : '/pages/index/index',
-  }))
+  useEffect(() => {
+    onSharePostChange?.(sheet === 'actions' ? selectedPost : undefined)
+    return () => onSharePostChange?.(undefined)
+  }, [onSharePostChange, selectedPost, sheet])
 
   const loadSoulmate = async () => {
     setLoading(state => ({ ...state, YUEMU: true }))

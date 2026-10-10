@@ -1,3 +1,5 @@
+import { shareMessage } from '@/utils/shareMessage'
+import { postShare, topicShare } from '@/domain/sharePresentation'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, useLoad, useShareAppMessage } from '@tarojs/taro'
 import { useRef, useState } from 'react'
@@ -55,12 +57,11 @@ export default function QianxunTopicPage() {
   const topicIdRef = useRef<number>()
   const resumeRefreshRef = useRef(false)
   const requestSequenceRef = useRef(0)
-  useShareAppMessage(() => ({
-    title: selectedOwnPost?.content ? selectedOwnPost.content.slice(0, 28) : topic?.name || '千寻时空站台',
-    path: selectedOwnPost?.id
-      ? `/pages/qianxun/post-detail?id=${selectedOwnPost.id}`
-      : topicId ? `/pages/qianxun/topic?topicId=${topicId}` : '/pages/index/index',
-  }))
+  useShareAppMessage(event => shareMessage(
+    event.from === 'button' && selectedOwnPost
+      ? postShare(selectedOwnPost)
+      : topicShare(topicId, topic?.name, topic?.coverUrl)
+  ))
 
   const loadTopic = async (id: number, requestedSort: 'HOT' | 'LATEST' = sort) => {
     const sequence = requestSequenceRef.current + 1

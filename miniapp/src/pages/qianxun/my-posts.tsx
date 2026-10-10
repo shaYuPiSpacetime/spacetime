@@ -68,7 +68,7 @@ export default function QianxunMyPostsPage() {
   const auth = useAuthStore.getState()
   const profile: ProfileSummary = {
     nickname: summary?.nickname || auth.nickname || emptyProfile.nickname,
-    avatar: normalizeAvatarUrl(summary?.avatar || auth.avatar, defaultAvatar),
+    avatar: normalizeAvatarUrl(summary ? summary.avatar : auth.avatar, defaultAvatar),
     description: summary?.description || emptyProfile.description,
     postCount: readNonNegativeNumber(summary?.stats?.postCount),
     followingCount: readNonNegativeNumber(summary?.stats?.followingCount),

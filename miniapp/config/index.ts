@@ -28,6 +28,10 @@ function miniAssetName(moduleId: string) {
   if (relativePath.startsWith('assets/lanhu/verification/')) {
     return `pages/verification/${relativePath}`
   }
+  // 邀请页插画仅在推广分包使用，不占用首页和分享封面的主包预算。
+  if (relativePath.startsWith('assets/lanhu/promotion/')) {
+    return `pages/promotion/${relativePath}`
+  }
   if (relativePath === 'assets/lanhu/pages/featured-person.webp') {
     return `pages/featured/${relativePath}`
   }

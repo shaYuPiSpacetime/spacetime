@@ -40,6 +40,7 @@ async function mountInviteHome(params, token) {
     reLaunch: async value => { calls.push(['reLaunch', value.url]) },
     redirectTo: async value => { calls.push(['redirectTo', value.url]) },
     showShareMenu: async () => {},
+    hideShareMenu: async () => {},
   }
   const mocks = {
     '@tarojs/taro': { default: taro, useRouter: () => ({ params }), useShareAppMessage: () => {} },
@@ -52,6 +53,7 @@ async function mountInviteHome(params, token) {
     },
     'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
     '@/constants/config': { TOKEN_KEY: 'test-token-key' },
+    '@/utils/shareMessage': { shareMessage: value => value },
     '@/constants/ossIcons': { miniappOssIcons: {} },
     '@/domain/promotionAttribution': domain,
     '@/domain/promotionInvitePresentation': { displayedLadderStage: () => ({ ladders: [], max: 0, progress: 0 }) },

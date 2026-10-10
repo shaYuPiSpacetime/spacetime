@@ -1,3 +1,5 @@
+import { shareMessage } from '@/utils/shareMessage'
+import { profileShare } from '@/domain/sharePresentation'
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -59,9 +61,7 @@ export default function HeartUserPage() {
   const returnAfterUnlike = router.params.from === 'my-likes'
   const [profile, setProfile] = useState<PublicProfileVO | null>(null)
   useShareAppMessage(() => ({
-    title: profile?.nickname ? `${profile.nickname}的主页` : '时空邂逅用户主页',
-    path: `/pages/heart/user?targetUserId=${targetUserId}`,
-    imageUrl: profile?.heroPhoto || profile?.avatar || undefined,
+    ...shareMessage(profileShare(targetUserId, profile?.nickname, [profile?.heroPhoto || '', profile?.avatar || '', ...(profile?.photos || [])])),
   }))
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileError, setProfileError] = useState('')

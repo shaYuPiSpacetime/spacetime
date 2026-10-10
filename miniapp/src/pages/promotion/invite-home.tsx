@@ -1,3 +1,4 @@
+import { shareMessage } from '@/utils/shareMessage'
 import { Button, Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -51,8 +52,7 @@ export default function InviteHomePage() {
   const nativeShareReady = shareAvailable && shareTarget.attributable
 
   useShareAppMessage(() => ({
-    title: shareTarget.title || EMPTY_SHARE.title,
-    path: shareTarget.path,
+    ...shareMessage({ kind: 'invite', title: shareTarget.title || EMPTY_SHARE.title, path: shareTarget.path, images: [] }),
   }))
 
   const loadHome = useCallback(async () => {
@@ -96,8 +96,16 @@ export default function InviteHomePage() {
       setShareAvailable(false)
       return
     }
-    void Taro.showShareMenu({ withShareTicket: true }).catch(() => setShareAvailable(false))
   }, [isInviteEntry, loadHome])
+
+  useEffect(() => {
+    if (isInviteEntry || Taro.getEnv() !== Taro.ENV_TYPE.WEAPP) return
+    if (!nativeShareReady) {
+      void Taro.hideShareMenu({ menus: ['shareAppMessage'] }).catch(() => undefined)
+      return
+    }
+    void Taro.showShareMenu({ withShareTicket: true }).catch(() => setShareAvailable(false))
+  }, [isInviteEntry, nativeShareReady])
 
   const copyShareLink = useCallback(async () => {
     if (!shareTarget.attributable || !shareTarget.link) {

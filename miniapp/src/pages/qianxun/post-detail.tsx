@@ -1,3 +1,5 @@
+import { shareMessage } from '@/utils/shareMessage'
+import { postShare } from '@/domain/sharePresentation'
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useLoad, useShareAppMessage } from '@tarojs/taro'
 import { useMemo, useState } from 'react'
@@ -78,8 +80,7 @@ export default function QianxunPostDetailPage() {
     [comments, commentSort]
   )
   useShareAppMessage(() => ({
-    title: post?.content ? post.content.slice(0, 28) : '千寻时空站台',
-    path: post?.id ? `/pages/qianxun/post-detail?id=${post.id}` : '/pages/index/index',
+    ...shareMessage(postShare(post)),
   }))
 
   const loadPost = async (postId: number) => {

@@ -1,3 +1,5 @@
+import { shareMessage } from '@/utils/shareMessage'
+import { postShare } from '@/domain/sharePresentation'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -92,6 +94,7 @@ export default function RecommendFamilyPage() {
   const [config, setConfig] = useState<CommunityConfig | undefined>(readCachedCommunityConfig)
   const [ownerAvatar, setOwnerAvatar] = useState(defaultAvatar)
   const [selectedPost, setSelectedPost] = useState<CommunityPostVO>()
+  const [zhiyinSharePost, setZhiyinSharePost] = useState<CommunityPostVO>()
   const [sheet, setSheet] = useState<'actions' | 'report' | 'uncertified' | null>(null)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   // 删除动态等主动回顶场景使用受控 scrollTop；其余时间非受控，避免干扰渲染层滚动位置。
@@ -107,12 +110,11 @@ export default function RecommendFamilyPage() {
   const returnFromPostDetailRef = useRef<number>()
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
-  useShareAppMessage(() => ({
-    title: sheet === 'actions' && selectedPost?.content ? selectedPost.content.slice(0, 28) : '千寻时空站台',
-    path: sheet === 'actions' && selectedPost?.id
-      ? `/pages/index/index?scene=${activeTab}&postId=${selectedPost.id}`
-      : '/pages/index/index',
-  }))
+  useShareAppMessage(event => shareMessage(postShare(
+    event.from === 'button'
+      ? primaryTab === 'KINDRED' ? zhiyinSharePost : sheet === 'actions' ? selectedPost : undefined
+      : undefined
+  )))
 
   const tabs = useMemo(() => (config?.homeTabs || []).map(item => ({ label: item.entryName, scene: sceneByEntryKey[item.entryKey] })).filter((item): item is { label: string; scene: CommunityScene } => Boolean(item.scene)), [config?.homeTabs])
   const visiblePosts = postsByScene[activeTab] || []
@@ -444,7 +446,7 @@ export default function RecommendFamilyPage() {
           </View>
         </ScrollView>
         <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
-      </> : <QianxunZhiyinTab secondaryTop={headerMetrics.secondaryTop} contentTop={headerMetrics.contentTop} />}
+      </> : <QianxunZhiyinTab onSharePostChange={setZhiyinSharePost} secondaryTop={headerMetrics.secondaryTop} contentTop={headerMetrics.contentTop} />}
 
       <CommunityPostActionSheet
         visible={sheet === 'actions' && selectedPost !== undefined}

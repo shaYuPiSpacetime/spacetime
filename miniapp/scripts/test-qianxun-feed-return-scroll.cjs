@@ -51,7 +51,16 @@ function mount(t) {
       }, [])
     }
   }
-  taro.useShareAppMessage = () => {}
+  const shareHandlers = new Set()
+  taro.useShareAppMessage = callback => {
+    const latest = React.useRef(callback)
+    latest.current = callback
+    React.useEffect(() => {
+      const handler = event => latest.current(event)
+      shareHandlers.add(handler)
+      return () => shareHandlers.delete(handler)
+    }, [])
+  }
   const host = tag => props => {
     if (tag === 'div' && props.lowerThreshold === 120) feedScrollProps = props
     const attributes = {
@@ -131,11 +140,16 @@ function mount(t) {
       if (name === './QianxunHeader') return {
         QIANXUN_BLUE: '#2876FF',
         getQianxunHeaderMetrics: () => ({ secondaryTop: 0, contentTop: 100 }),
-        QianxunHeader: props => React.createElement('button', { id: 'open-kindred', onClick: () => props.onChange('KINDRED') }, '知音'),
+        QianxunHeader: props => React.createElement('div', null,
+          React.createElement('button', { id: 'open-kindred', onClick: () => props.onChange('KINDRED') }, '知音'),
+          React.createElement('button', { id: 'open-family', onClick: () => props.onChange('FAMILY') }, '家人')),
       }
       if (name === './QianxunTopicSpotlight') return { __esModule: true, default: () => null }
       if (name === './QianxunZhiyinTab') return load('features/qianxun/QianxunZhiyinTab.tsx')
       if (name === '@/components/CommunityPostActionSheet') return load('components/CommunityPostActionSheet.tsx')
+      if (name === '@/utils/shareMessage') return { shareMessage: value => value }
+      if (name === '@/constants/qianxunTypography') return load('constants/qianxunTypography.ts')
+      if (name === '@/domain/sharePresentation') return load('domain/sharePresentation.ts')
       throw new Error(`未模拟依赖：${name}`)
     }
     Function('module', 'exports', 'require', compiled)(module, module.exports, localRequire)
@@ -151,7 +165,7 @@ function mount(t) {
   })
   const run = async key => act(async () => { for (const callback of lifecycle[key]) callback() })
   return {
-    container, navigation, requests, detailRequests,
+    container, navigation, requests, detailRequests, shareHandlers,
     render: () => act(async () => root.render(React.createElement(Component))),
     loadMore: () => act(async () => { feedScrollProps.onScrollToLower() }),
     hide: () => run('hide'), show: () => run('show'),
@@ -243,4 +257,25 @@ test('详情中隐藏作者后，返回信息流时移除该作者动态', async
   await app.show()
   const ids = [...app.container.querySelectorAll('.qianxun-community-card')].map(item => Number(item.getAttribute('data-post-id')))
   assert.deepEqual(ids, [5, 4])
+})
+
+test('S-04: 知音动态分享随面板开关和栏目切换同步，始终只有一个回调', async t => {
+  const app = mount(t)
+  await app.render()
+  const share = from => [...app.shareHandlers][0]({ from })
+  assert.equal(app.shareHandlers.size, 1)
+  await act(async () => app.container.querySelector('#open-kindred').click())
+  await act(async () => app.container.querySelector('#qianxun-zhiyin-sincere').click())
+  const card = app.container.querySelector('.qianxun-zhiyin-post-card')
+  const more = [...card.querySelectorAll('span')].find(node => node.textContent === '⋮')
+  await act(async () => more.parentElement.click())
+  assert.equal(app.shareHandlers.size, 1)
+  assert.match(share('button').path, /^\/pages\/qianxun\/post-detail\?id=\d+$/)
+  assert.equal(share('menu').path, '/pages/index/index')
+  const cancel = [...app.container.querySelectorAll('span')].find(node => node.textContent === '取消')
+  await act(async () => cancel.parentElement.click())
+  assert.equal(share('button').path, '/pages/index/index')
+  await act(async () => app.container.querySelector('#open-family').click())
+  assert.equal(app.shareHandlers.size, 1)
+  assert.equal(share('menu').path, '/pages/index/index')
 })

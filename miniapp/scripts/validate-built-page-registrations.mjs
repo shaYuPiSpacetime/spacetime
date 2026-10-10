@@ -22,6 +22,11 @@ function countRegistrations(source, expression) {
 }
 
 const pageFiles = new Set(routes.map(route => path.normalize(path.join(distRoot, `${route}.js`))))
+// 子组件内的分享 Hook 不会自动开启页面生命周期，必须检查最终页面产物。
+for (const route of ['pages/index/index', 'pages/profile/edit', 'pages/heart/user', 'pages/qianxun/topic', 'pages/qianxun/post-detail', 'pages/promotion/invite-home']) {
+  const source = fs.readFileSync(path.join(distRoot, `${route}.js`), 'utf8')
+  assert.match(source, /enableShareAppMessage\s*[:=]\s*(?:true|!0)/, `${route} 必须注册原生分享生命周期`)
+}
 for (const pageFile of pageFiles) {
   assert.ok(fs.existsSync(pageFile), `页面构建产物缺失：${path.relative(distRoot, pageFile)}`)
   const source = fs.readFileSync(pageFile, 'utf8')

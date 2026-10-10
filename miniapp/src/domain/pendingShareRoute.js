@@ -20,6 +20,10 @@ export function resolvePendingShareRoute(path, query) {
     const id = positiveId(queryValue(path, query, 'id'))
     return id ? `/pages/qianxun/post-detail?id=${id}` : null
   }
+  if (route === 'pages/qianxun/topic') {
+    const id = positiveId(queryValue(path, query, 'topicId'))
+    return id ? `/pages/qianxun/topic?topicId=${id}` : null
+  }
   if (route === 'pages/heart/user') {
     const id = positiveId(queryValue(path, query, 'targetUserId')
       ?? queryValue(path, query, 'userId'))

@@ -1,3 +1,5 @@
+import { shareMessage } from '@/utils/shareMessage'
+import { profileShare } from '@/domain/sharePresentation'
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import type { ReactNode } from 'react'
@@ -217,9 +219,7 @@ export default function ProfileEditPage() {
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
   const [nickname, setNickname] = useState('')
   useShareAppMessage(() => ({
-    title: nickname ? `${nickname}的主页` : '时空邂逅用户主页',
-    path: currentUserId ? `/pages/heart/user?targetUserId=${currentUserId}` : '/pages/profile/index',
-    imageUrl: previewBackground || previewAvatar || undefined,
+    ...shareMessage(profileShare(currentUserId, nickname, [previewBackground, previewAvatar])),
   }))
   const [basic, setBasic] = useState<BasicProfile>({})
   const [regionTree, setRegionTree] = useState<RegionTreeOption[]>([])
