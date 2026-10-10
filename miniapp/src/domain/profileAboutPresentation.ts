@@ -7,6 +7,12 @@ export type ProfileAboutSummaryItem = {
   value: string
 }
 
+export type ProfileAboutSection = {
+  items: ProfileAboutSummaryItem[]
+  prompts: ProfileAboutSummaryItem[]
+  visible: boolean
+}
+
 export const PROFILE_ABOUT_SUMMARY_DEFINITIONS = [
   {
     key: 'meetingPreference',
@@ -65,6 +71,29 @@ function toProfileAboutSummaryItem(
     title: String(question.title || definition?.title || question.questionKey),
     placeholder: String(question.placeholder || definition?.placeholder || ''),
     value,
+  }
+}
+
+/**
+ * 外层“关于我”卡片：已填写项优先，未填写项按后台顺序补足前三个；
+ * 推荐项只取剩余的未填写题目，确保两组不重复。
+ */
+export function buildProfileAboutSection(
+  questions: Array<Pick<AboutMeQuestion, 'questionKey' | 'title' | 'placeholder' | 'latestContent' | 'effectiveContent'>> = [],
+): ProfileAboutSection {
+  const filled = questions.filter(question => Boolean(resolveOwnerVisibleText(question)))
+  const unfilled = questions.filter(question => !resolveOwnerVisibleText(question))
+  const selected = [...filled, ...unfilled].slice(0, 3)
+  const selectedKeys = new Set(selected.map(question => question.questionKey))
+  const prompts = unfilled
+    .filter(question => !selectedKeys.has(question.questionKey))
+    .slice(0, 3)
+
+  return {
+    items: selected.map(question =>
+      toProfileAboutSummaryItem(question, resolveOwnerVisibleText(question))),
+    prompts: prompts.map(question => toProfileAboutSummaryItem(question, '')),
+    visible: questions.length > 0,
   }
 }
 

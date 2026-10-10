@@ -130,87 +130,51 @@ test('主页预览空内容和空图片不生成占位模块', () => {
   assert.doesNotMatch(preview, /minHeight: '5900rpx'/, '隐藏空模块后禁止保留固定超长页面高度')
 })
 
-test('关于我无填写取后台可见问题前三项，有填写时按真实填写条数回显', () => {
+test('外层关于我主展示与推荐项按后台顺序动态分组且互不重复', () => {
   const presentationPath = 'src/domain/profileAboutPresentation.ts'
   assert.ok(fs.existsSync(path.join(root, presentationPath)), '缺少关于我摘要领域映射')
-  const { buildProfileAboutPrompts, buildProfileAboutSummary } =
+  const { buildProfileAboutSection } =
     loadTypeScriptModule(presentationPath)
 
   const configuredQuestions = [
-    { questionKey: 'carStatus', title: '购车情况', placeholder: '说说你的购车情况', latestContent: '', effectiveContent: '', canSubmit: true },
+    { questionKey: 'carStatus', title: '购车情况', placeholder: '说说你的购车情况', latestContent: '已有代步车', effectiveContent: '', canSubmit: true },
     { questionKey: 'childrenPlan', title: '是否想要孩子', placeholder: '说说你对孩子的规划', latestContent: '', effectiveContent: '', canSubmit: true },
     { questionKey: 'hasChild', title: '有无子女', placeholder: '说说你当前的子女情况', latestContent: '', effectiveContent: '', canSubmit: true },
-    { questionKey: 'housingStatus', title: '住房情况', placeholder: '说说你的住房情况', latestContent: '', effectiveContent: '', canSubmit: true },
+    { questionKey: 'housingStatus', title: '住房情况', placeholder: '说说你的住房情况', latestContent: '', effectiveContent: '自有住房', canSubmit: true },
+    { questionKey: 'meetingPreference', title: '见面偏好', placeholder: '说说你喜欢怎样见面', latestContent: '', effectiveContent: '', canSubmit: true },
+    { questionKey: 'preferredActivities', title: '喜欢的见面活动', placeholder: '说说喜欢的活动', latestContent: '', effectiveContent: '', canSubmit: true },
   ]
-  const empty = buildProfileAboutSummary(configuredQuestions)
-  assert.equal(empty.length, 3)
-  assert.deepEqual(empty.map(item => item.key), ['carStatus', 'childrenPlan', 'hasChild'])
-  assert.deepEqual(empty.map(item => item.value), ['', '', ''])
-  assert.ok(empty.every(item => item.placeholder), '空值三项必须展示后台引导文案')
-  assert.deepEqual(buildProfileAboutPrompts(configuredQuestions).map(item => item.key), ['carStatus', 'childrenPlan', 'hasChild'])
-
-  const filled = buildProfileAboutSummary([
-    {
-      questionKey: 'housingStatus',
-      title: '接口乱序住房标题',
-      placeholder: '接口住房占位',
-      latestContent: '',
-      effectiveContent: '',
-      canSubmit: true,
-    },
-    {
-      questionKey: 'meetingPreference',
-      title: '接口见面标题',
-      placeholder: '接口见面占位',
-      latestContent: '',
-      effectiveContent: '周末喝咖啡或一起散步',
-      canSubmit: true,
-    },
-    {
-      questionKey: 'carStatus',
-      title: '购车情况',
-      placeholder: '购车占位',
-      latestContent: '已有代步车',
-      canSubmit: true,
-    },
-  ])
-
-  assert.deepEqual(filled.map(item => item.key), ['meetingPreference', 'carStatus'])
-  assert.equal(filled.length, 2, '填写两条时只能展示两条，不得补齐默认占位项')
-  assert.equal(filled[0].value, '周末喝咖啡或一起散步', '无最新内容时使用已生效内容')
-  assert.equal(filled[1].title, '购车情况', '额外已填写问题必须使用接口标题完整回显')
-  assert.equal(filled[1].value, '已有代步车', '本人页优先回显最新填写内容')
-
-  const configuredDefaults = buildProfileAboutSummary(configuredQuestions, ['housingStatus'])
-  assert.deepEqual(
-    configuredDefaults.map(item => item.key),
-    ['housingStatus'],
-    '默认摘要也必须排除后台关闭的字段'
+  const section = buildProfileAboutSection(configuredQuestions)
+  assert.equal(section.visible, true)
+  assert.deepEqual(section.items.map(item => item.key), ['carStatus', 'housingStatus', 'childrenPlan'])
+  assert.deepEqual(section.items.map(item => item.value), ['已有代步车', '自有住房', ''])
+  assert.deepEqual(section.prompts.map(item => item.key), ['hasChild', 'meetingPreference', 'preferredActivities'])
+  assert.equal(
+    section.items.some(item => section.prompts.some(prompt => prompt.key === item.key)),
+    false,
+    '主展示项与补充推荐项不得重复'
   )
-  assert.deepEqual(buildProfileAboutSummary(configuredQuestions, []), [], '所有关于我字段关闭时不得生成默认摘要')
+  assert.deepEqual(
+    buildProfileAboutSection([]),
+    { items: [], prompts: [], visible: false },
+    '后台没有可见题目时必须隐藏整个外层关于我卡片'
+  )
 })
 
 test('资料编辑页关于我摘要和入口同步后台字段显隐', () => {
   const edit = read('src/pages/profile/edit.tsx')
 
-  assert.match(edit, /visibleAboutFieldKeys\(fieldSettings\)/, '主页面必须派生可见关于我字段集合')
   assert.match(
     edit,
-    /filterVisibleAboutQuestions\(aboutDetail\.questions, aboutFieldSettings\)/,
-    '首次加载摘要必须过滤后台关闭的题目'
+    /filterVisibleAboutQuestions\(aboutQuestions, config\?\.fieldSettings \|\| \[\]\)/,
+    '外层主页面必须与内层页面消费同一份 Store 运行配置'
   )
-  assert.match(
-    edit,
-    /filterVisibleAboutQuestions\(update\.questions, fieldSettings\)/,
-    '子页面回传后仍必须按当前配置过滤'
-  )
-  assert.match(
-    edit,
-    /aboutVisibilityReady && visibleAboutKeys\.length > 0 \? \(/,
-    '配置加载完成前或全部字段关闭时必须隐藏关于我区块入口'
-  )
+  assert.match(edit, /buildProfileAboutSection\(configuredAboutQuestions\)/, '外层卡片必须统一生成主展示和推荐集合')
+  assert.doesNotMatch(edit, /aboutFieldSettings/, '关于我禁止使用接口携带的旧配置快照覆盖 Store 最新配置')
+  assert.match(edit, /aboutSection\.visible \? \(/, '后台没有可见题目时必须隐藏关于我区块入口')
+  assert.match(edit, /prompts\.length > 0 \? \(/, '没有剩余推荐项时必须隐藏推荐区域')
   assert.doesNotMatch(edit, /const aboutStoryPrompts\s*=\s*\[/, '摘要区不得写死推荐问题')
-  assert.match(edit, /buildProfileAboutPrompts\(aboutQuestions\)/, '摘要区推荐问题必须按后台顺序动态取前三项')
+  assert.match(edit, /onClick=\{\(\) => onClick\(item\.key\)\}/, '推荐标签必须直达对应题目')
 })
 
 test('编辑资料地区优先展示接口标签，缺标签时按省市树回显中文', () => {
@@ -308,7 +272,7 @@ test('主页预览按出生年份和真实性别展示资料，并按蓝湖拉�
 test('编辑资料主页面按蓝湖比例和真实组件展示关键模块', () => {
   const edit = read('src/pages/profile/edit.tsx')
 
-  assert.match(edit, /buildProfileAboutSummary\(/, '初始化和局部更新必须复用关于我摘要映射')
+  assert.match(edit, /buildProfileAboutSection\(/, '初始化和局部更新必须复用关于我分组映射')
   assert.match(edit, /data-role="profile-score-track"/, '资料评分必须使用蓝湖浮标进度条')
   assert.doesNotMatch(edit, />\s*资料完整度\s*</, '蓝湖评分区不展示额外的“资料完整度”标题')
   assert.match(edit, /margin: '0 auto'/, '评分卡必须紧接蓝湖顶部导航，不得额外下移')
@@ -891,7 +855,7 @@ test('编辑资料二级页沿用渐变导航并严格使用蓝湖歌曲与关�
   assert.match(songs, /title="爱听的歌曲"/, '歌曲页标题必须与蓝湖一致')
   assert.doesNotMatch(songs, /song\.coverUrl/, '歌曲列表必须统一使用蓝湖音乐圆盘图标')
   assert.doesNotMatch(edit, /fieldId: 'carStatus'|fieldId: 'childrenPlan'|fieldId: 'hasChild'/, '关于我补充项不得在页面写死题目')
-  assert.match(edit, /buildProfileAboutPrompts\(aboutQuestions\)/, '关于我补充项必须动态展示后台可见问题前三项')
+  assert.match(edit, /buildProfileAboutSection\(configuredAboutQuestions\)/, '关于我补充项必须从后台可见问题动态生成')
   assert.match(edit, /function RightChevron/, '页面右箭头必须使用稳定图形组件')
   assert.match(edit, /function VoiceActionIcon/, '语音操作图标必须使用稳定图形组件')
 })

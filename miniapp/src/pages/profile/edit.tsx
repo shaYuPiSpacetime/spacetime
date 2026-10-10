@@ -10,8 +10,7 @@ import {
   buildBasicProfileLocationText,
 } from '@/domain/basicProfilePresentation'
 import {
-  buildProfileAboutPrompts,
-  buildProfileAboutSummary,
+  buildProfileAboutSection,
   buildProfilePreviewAboutSummary,
   resolveOwnerVisibleText,
   resolvePreviewVisibleText,
@@ -19,7 +18,6 @@ import {
 } from '@/domain/profileAboutPresentation'
 import {
   filterVisibleAboutQuestions,
-  visibleAboutFieldKeys,
 } from '@/domain/profileAboutVisibility'
 import { normalizeOptionalWechatId } from '@/domain/profileWechat'
 import { useProfileScore } from '@/hooks/useProfileScore'
@@ -226,13 +224,10 @@ export default function ProfileEditPage() {
   const [basic, setBasic] = useState<BasicProfile>({})
   const [regionTree, setRegionTree] = useState<RegionTreeOption[]>([])
   const [fieldSettings, setFieldSettings] = useState<ProfileFieldSetting[]>([])
-  const [aboutVisibilityReady, setAboutVisibilityReady] = useState(false)
   const [verification, setVerification] = useState<VerificationStatus>({})
   const [intro, setIntro] = useState('')
   const [previewIntro, setPreviewIntro] = useState('')
-  const [aboutTopics, setAboutTopics] = useState<ProfileAboutSummaryItem[]>([])
   const [aboutQuestions, setAboutQuestions] = useState<AboutMeQuestion[]>([])
-  const [previewAboutTopics, setPreviewAboutTopics] = useState<ProfileAboutSummaryItem[]>([])
   const [selectedTags, setSelectedTags] = useState<ProfileTagItem[]>([])
   const [communityPosts, setCommunityPosts] = useState<CommunityPostVO[]>([])
   const [favoriteSong, setFavoriteSong] = useState('')
@@ -260,10 +255,17 @@ export default function ProfileEditPage() {
   const recordingSecondsRef = useRef(0)
   const recordingTimer = useRef<ReturnType<typeof setInterval>>()
   const voiceAudio = useRef<ReturnType<typeof Taro.createInnerAudioContext>>()
-  const visibleAboutKeys = useMemo(() => visibleAboutFieldKeys(fieldSettings), [fieldSettings])
-  const aboutStoryPrompts = useMemo(
-    () => buildProfileAboutPrompts(aboutQuestions),
-    [aboutQuestions],
+  const configuredAboutQuestions = useMemo(
+    () => filterVisibleAboutQuestions(aboutQuestions, config?.fieldSettings || []),
+    [aboutQuestions, config?.fieldSettings],
+  )
+  const aboutSection = useMemo(
+    () => buildProfileAboutSection(configuredAboutQuestions),
+    [configuredAboutQuestions],
+  )
+  const previewAboutTopics = useMemo(
+    () => buildProfilePreviewAboutSummary(configuredAboutQuestions),
+    [configuredAboutQuestions],
   )
 
   useEffect(() => {
@@ -294,9 +296,8 @@ export default function ProfileEditPage() {
         setNickname(String(profile.nickname || basicResult.nickname || ''))
         setBasic(basicResult)
         setRegionTree(regions)
-        const aboutFieldSettings = home.fieldSettings || basicResult.fieldSettings || []
-        setFieldSettings(aboutFieldSettings)
-        setAboutVisibilityReady(true)
+        const basicFieldSettings = home.fieldSettings || basicResult.fieldSettings || []
+        setFieldSettings(basicFieldSettings)
         setVerification(home.verificationStatus || {})
         if (avatar) {
           setProfileAvatar(avatar)
@@ -308,11 +309,7 @@ export default function ProfileEditPage() {
         setWechat(wechatId || '')
         setIntro(resolveOwnerVisibleText(introDetail))
         setPreviewIntro(resolvePreviewVisibleText(introDetail))
-        const visibleAboutQuestions = filterVisibleAboutQuestions(aboutDetail.questions, aboutFieldSettings)
-        const initialVisibleAboutKeys = visibleAboutFieldKeys(aboutFieldSettings)
-        setAboutQuestions(visibleAboutQuestions)
-        setAboutTopics(buildProfileAboutSummary(visibleAboutQuestions, initialVisibleAboutKeys))
-        setPreviewAboutTopics(buildProfilePreviewAboutSummary(visibleAboutQuestions))
+        setAboutQuestions(aboutDetail.questions)
         const tagCodes = parseTagCodes(tags)
         setSelectedTags(tagCodes.map(code => ({
           code,
@@ -681,10 +678,7 @@ export default function ProfileEditPage() {
       setSelectedTags(update.items)
     }
     if (update.type === 'about') {
-      const visibleAboutQuestions = filterVisibleAboutQuestions(update.questions, fieldSettings)
-      setAboutQuestions(visibleAboutQuestions)
-      setAboutTopics(buildProfileAboutSummary(visibleAboutQuestions, visibleAboutKeys))
-      setPreviewAboutTopics(buildProfilePreviewAboutSummary(visibleAboutQuestions))
+      setAboutQuestions(update.questions)
     }
     if (update.type === 'song') setFavoriteSong(update.display)
     if (update.type === 'verification') setVerification(update.status)
@@ -924,10 +918,10 @@ export default function ProfileEditPage() {
             onRecord={openVoiceRecorder}
             onDelete={() => setVoiceSheet('delete')}
           />
-          {aboutVisibilityReady && visibleAboutKeys.length > 0 ? (
+          {aboutSection.visible ? (
             <AboutDetailSection
-              items={aboutTopics}
-              prompts={aboutStoryPrompts}
+              items={aboutSection.items}
+              prompts={aboutSection.prompts}
               onAdd={() => handleProfileAction('关于我', '/pages/profile-edit/about')}
               onFill={key =>
                 handleProfileAction(
@@ -1975,20 +1969,24 @@ function AboutDetailSection({
           </View>
         ))}
       </View>
-      <View style={{ height: '1rpx', background: '#EFF2F7', marginTop: '4rpx' }} />
-      <Text
-        style={{
-          display: 'block',
-          color: titleColor,
-          fontSize: '28rpx',
-          lineHeight: '40rpx',
-          fontWeight: 700,
-          marginTop: '20rpx',
-        }}
-      >
-        补充更多关于我的故事
-      </Text>
-      <AboutStoryChips prompts={prompts} onClick={onAdd} />
+      {prompts.length > 0 ? (
+        <>
+          <View style={{ height: '1rpx', background: '#EFF2F7', marginTop: '4rpx' }} />
+          <Text
+            style={{
+              display: 'block',
+              color: titleColor,
+              fontSize: '28rpx',
+              lineHeight: '40rpx',
+              fontWeight: 700,
+              marginTop: '20rpx',
+            }}
+          >
+            补充更多关于我的故事
+          </Text>
+          <AboutStoryChips prompts={prompts} onClick={onFill} />
+        </>
+      ) : null}
       <View
         onClick={onAdd}
         style={{
@@ -2025,7 +2023,7 @@ function AboutStoryChips({
   onClick,
 }: {
   prompts: ProfileAboutSummaryItem[]
-  onClick: () => void
+  onClick: (key: string) => void
 }) {
   return (
     <ScrollView
@@ -2037,7 +2035,7 @@ function AboutStoryChips({
         {prompts.map(item => (
           <View
             key={item.key}
-            onClick={onClick}
+            onClick={() => onClick(item.key)}
             style={{
               height: '54rpx',
               borderRadius: '28rpx',

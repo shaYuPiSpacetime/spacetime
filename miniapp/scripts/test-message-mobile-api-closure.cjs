@@ -62,7 +62,7 @@ test('私信时间按本地日期和相邻消息十分钟间隔显示', () => {
   assert.match(privateChat, /formatPrivateChatTime\(message\.sentAt, messages\[index - 1\]\?\.sentAt\)/)
   assert.match(privateChat, /confirmHold/)
   assert.doesNotMatch(privateChat, /disabled=\{Boolean\(detail && !detail\.canSend\) \|\| sending\}/)
-  assert.match(privateChat, /setMessages\(current => \{[\s\S]*?upsertMessages\(current, page\.list\)/)
+  assert.match(privateChat, /mergePrivateChatMessages\(/, '所有消息来源必须经过稳定标识语义合并')
   assert.match(styles, /\.chat-message-time\s*\{/)
 })
 
@@ -116,6 +116,9 @@ test('私信滚动策略区分首次进入、返回页面和新消息场景', ()
   assert.equal(resolvePrivateChatScrollIntent('incoming', false), 'preserve', '查看历史时收到新消息不得打断阅读')
   assert.equal(resolvePrivateChatScrollIntent('resume'), 'preserve', '从用户主页返回必须保留原位置')
   assert.equal(resolvePrivateChatScrollIntent('prepend'), 'preserve', '加载更早消息必须保留当前锚点')
+  assert.equal(resolvePrivateChatScrollIntent('keyboard_open'), 'latest', '键盘首次打开时应确保输入区附近最新消息可见')
+  assert.equal(resolvePrivateChatScrollIntent('supplement', true), 'latest', '停留底部时近期消息补齐应继续跟随底部')
+  assert.equal(resolvePrivateChatScrollIntent('supplement', false), 'preserve', '阅读历史时近期消息补齐不得打断阅读')
 })
 
 test('私信发送保留键盘，键盘弹出和发送后消息区露出最新消息', () => {
@@ -126,8 +129,9 @@ test('私信发送保留键盘，键盘弹出和发送后消息区露出最新�
   assert.match(privateChat, /keyboardHeight/)
   assert.match(privateChat, /className="private-chat-scroll"[\s\S]*?style=\{\{[\s\S]*?keyboardHeight/)
   assert.match(privateChat, /className="chat-input-bar"[\s\S]*?style=\{\{[\s\S]*?keyboardHeight/)
-  assert.match(privateChat, /setMessages\(current => upsertMessages\(current, \[message\]\)\)[\s\S]*?requestScrollToLatest\(\)/)
-  assert.match(privateChat, /\[keyboardHeight, messages\.length, requestScrollToLatest\]/, '消息提交渲染后也要定位到底部')
+  assert.match(privateChat, /mergePrivateChatMessages\(messagesRef\.current, \[message\]\)[\s\S]*?setMessages\(next\)[\s\S]*?requestScrollToLatest\(\)/)
+  assert.match(privateChat, /previousKeyboardHeightRef/, '键盘滚动必须识别关闭到打开的状态转换')
+  assert.doesNotMatch(privateChat, /\[keyboardHeight, messages\.length, requestScrollToLatest\]/, '消息数量变化不得导致键盘场景二次滚动')
   assert.doesNotMatch(privateChat, /setInputFocused\(false\)[\s\S]*?setTimeout\(\(\) => setInputFocused\(true\), 0\)/)
 })
 
@@ -148,23 +152,26 @@ test('私信点击消息区域时显式收起键盘，但发送按钮仍保留�
 test('私信首屏与页面恢复不等待原生轮询、不隐藏正文且不重载跳位', () => {
   const privateChat = read('src/pages/message/private-chat.tsx')
   const styles = read('src/pages/message/message.scss')
-  const initialHistory = privateChat.match(/const revealInitial = \(items: ChatMessage\[\]\) => \{[\s\S]*?const localHistoryPromise/)?.[0] || ''
+  const initialCommit = privateChat.match(/const commitInitialSnapshot = useCallback\([\s\S]*?const load = useCallback/)?.[0] || ''
   const olderHistory = privateChat.match(/const loadEarlier = async \(\) => \{[\s\S]*?\n  \}/)?.[0] || ''
-  const timHistoryMerge = privateChat.match(/const page = await withMessageTimeout\([\s\S]*?revealInitial\(upsertMessages\(localHistory\.page\?\.list \|\| \[\], page\.list\)\)/)?.[0] || ''
+  const preservingRefresh = privateChat.match(/const refreshPreservingPosition = useCallback\([\s\S]*?\n  \),/)?.[0] || ''
   const resumeBlock = privateChat.match(/useDidShow\(\(\) => \{[\s\S]*?\n  \}\)/)?.[0] || ''
+  const hideBlock = privateChat.match(/useDidHide\(\(\) => \{[\s\S]*?\n  \}\)/)?.[0] || ''
 
   assert.match(privateChat, /scrollIntoView=\{scrollTarget\}/, '滚动目标不能在异步消息加载前固定为底部')
   assert.match(privateChat, /current === 'chat-bottom-a' \? 'chat-bottom-b' : 'chat-bottom-a'/, '重复打开会话时也应改变滚动目标')
   assert.match(privateChat, /id="chat-bottom-a"[\s\S]*?id="chat-bottom-b"/, '两个滚动锚点必须始终位于消息末尾')
-  assert.match(initialHistory, /requestScrollToLatest\(\)/, '首屏历史到达后必须直接请求最新消息位置')
+  assert.match(initialCommit, /requestScrollToLatest\(\)/, '首屏快照提交时必须同时请求最新消息位置')
   assert.doesNotMatch(privateChat, /Taro\.createSelectorQuery\(\)[\s\S]*?isChatScrollTargetSettled/, '首屏不能轮询原生布局后才展示，否则会长时间空白')
   assert.doesNotMatch(privateChat, /private-chat-content--preparing/, '消息正文不能通过透明状态等待滚动完成')
   assert.doesNotMatch(styles, /\.private-chat-content--preparing\s*\{/, '样式层不得再隐藏整块聊天正文')
   assert.match(privateChat, /if \(!hasCompletedInitialShowRef\.current\) \{[\s\S]*?hasCompletedInitialShowRef\.current = true[\s\S]*?return/, '首次进入只能由挂载加载一次，不能再被 useDidShow 重复触发')
   assert.doesNotMatch(resumeBlock, /void load\(\)/, '从用户主页返回不能重新执行首屏加载导致跳顶或闪烁')
   assert.match(resumeBlock, /refreshPreservingPosition/, '页面恢复只允许静默合并新数据并保留当前位置')
-  assert.match(privateChat, /revealInitial\(localHistory\.page\?\.list \|\| \[\]\)/, '本地历史完成后必须结束首屏定位')
-  assert.doesNotMatch(timHistoryMerge, /page\.list\.length > 0\) requestScrollToLatest\(\)/, 'TIM 历史合并不能在首屏揭示后再次强制跳到底部')
+  assert.doesNotMatch(preservingRefresh, /listConversationMessages|listHistory|setMessages\(/, '页面恢复不得重新拉取或替换消息历史')
+  assert.doesNotMatch(hideBlock, /setScrollTarget\(/, '进入对方主页或举报页时不能清空当前滚动位置')
+  assert.match(privateChat, /commitInitialSnapshot/, '本地历史与近期补充必须通过一次首屏快照提交')
+  assert.match(privateChat, /resolvePrivateChatScrollIntent\('supplement', nearBottomRef\.current\)/, 'TIM 补齐只能按当前是否接近底部决定滚动')
   assert.doesNotMatch(olderHistory, /requestScrollToLatest\(\)/, '上翻加载历史不能把用户拉回底部')
 })
 

@@ -15,6 +15,11 @@ import {
   waitForMessageGatewayReady,
   withMessageTimeout,
 } from '@/domain/messageRuntime'
+import {
+  mergePrivateChatMessages,
+  readPrivateChatSession,
+  writePrivateChatSession,
+} from '@/domain/privateChatSession'
 import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
 import { loadMessageImGateway } from '@/im/loadMessageImGateway'
 import type { MessageImEvent, MessageImGateway } from '@/im/MessageImGateway'
@@ -27,37 +32,12 @@ import { DotsButton, MESSAGE_AVATAR, MessageNav } from './shared'
 import './message.scss'
 
 function messageMergeKey(message: ChatMessage): string {
-  return message.messageNo || message.timMessageId || message.clientMsgId
-}
-
-function isSameMessage(left: ChatMessage, right: ChatMessage): boolean {
-  return Boolean(
-    (left.messageNo && right.messageNo && left.messageNo === right.messageNo)
-    || (left.timMessageId && right.timMessageId && left.timMessageId === right.timMessageId)
-    || (left.clientMsgId && right.clientMsgId && left.clientMsgId === right.clientMsgId),
-  )
+  return message.messageNo || message.timMessageId || message.timMsgKey || message.clientMsgId
 }
 
 function messageAnchorId(message: ChatMessage): string {
   const stable = messageMergeKey(message).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 80)
   return `chat-message-${stable}`
-}
-
-function upsertMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
-  const merged = [...current]
-  incoming.forEach(item => {
-    const index = merged.findIndex(currentItem => isSameMessage(currentItem, item))
-    if (index >= 0) {
-      const previous = merged[index]
-      merged[index] = {
-        ...previous,
-        ...item,
-        // 并发请求可能乱序返回，保留本地点击发送时刻，避免气泡因回执先后而跳位。
-        sentAt: previous.clientMsgId === item.clientMsgId ? previous.sentAt : item.sentAt,
-      }
-    } else merged.push(item)
-  })
-  return merged.sort((left, right) => left.sentAt.localeCompare(right.sentAt))
 }
 
 function createClientReportId(): string {
@@ -68,6 +48,25 @@ const DETAIL_TIMEOUT_MS = 8_000
 const CONNECTION_TIMEOUT_MS = 25_000
 const HISTORY_TIMEOUT_MS = 10_000
 const SEND_TIMEOUT_MS = 15_000
+const INITIAL_TIM_BUDGET_MS = 180
+
+type PrivateChatHistoryPage = {
+  list: ChatMessage[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+type TimHistoryLoadResult = {
+  page?: { list: ChatMessage[] }
+  error?: unknown
+}
+
+function waitForInitialBudget<T>(promise: Promise<T>): Promise<T | undefined> {
+  return Promise.race([
+    promise,
+    new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), INITIAL_TIM_BUDGET_MS)),
+  ])
+}
 
 export default function PrivateChatPage() {
   const router = useRouter()
@@ -216,31 +215,44 @@ function EstablishedPrivateChatPage() {
   const router = useRouter()
   const isMockScene = Boolean(router.params.mockScene)
   const conversationNo = router.params.conversationNo || 'conversation-lin'
+  const sessionUserId = String(useAuthStore(state => state.userId) || '')
   const markConversationRead = useMessageRuntimeStore(state => state.markConversationRead)
   const service = isMockScene ? mockMessageService : messageService
-  const [detail, setDetail] = useState<MessageConversationDetail>()
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [historyCursor, setHistoryCursor] = useState<string>()
-  const [historyCompleted, setHistoryCompleted] = useState(false)
-  const [scrollTarget, setScrollTarget] = useState<string>()
+  const initialSessionRef = useRef(readPrivateChatSession(sessionUserId, conversationNo))
+  const initialSession = initialSessionRef.current
+  const stateSessionKeyRef = useRef(`${sessionUserId}:${conversationNo}`)
+  const [detail, setDetail] = useState<MessageConversationDetail | undefined>(initialSession?.detail)
+  const [messages, setMessages] = useState<ChatMessage[]>(initialSession?.messages || [])
+  const [historyCursor, setHistoryCursor] = useState<string | undefined>(initialSession?.historyCursor)
+  const [historyCompleted, setHistoryCompleted] = useState(initialSession?.historyCompleted || false)
+  const [scrollTarget, setScrollTarget] = useState<string | undefined>(
+    initialSession?.messages.length ? 'chat-bottom-a' : undefined,
+  )
   const [inputValue, setInputValue] = useState('')
   const [retryTarget, setRetryTarget] = useState<ChatMessage>()
   const [showActions, setShowActions] = useState(false)
   const [messageReportTarget, setMessageReportTarget] = useState<ChatMessage>()
-  const [initialLoading, setInitialLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(!initialSession?.initialLoaded)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyAnchorId, setHistoryAnchorId] = useState('')
   const [inputFocused, setInputFocused] = useState(false)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
   const readAckKey = useRef('')
-  const messagesRef = useRef<ChatMessage[]>([])
-  const initialPositionedRef = useRef(false)
-  const scrollTargetRef = useRef<'chat-bottom-a' | 'chat-bottom-b'>('chat-bottom-b')
+  const messagesRef = useRef<ChatMessage[]>(initialSession?.messages || [])
+  const scrollTargetRef = useRef<'chat-bottom-a' | 'chat-bottom-b'>(
+    initialSession?.messages.length ? 'chat-bottom-a' : 'chat-bottom-b',
+  )
   const mountedRef = useRef(true)
   const hasCompletedInitialShowRef = useRef(false)
   const pageVisibleRef = useRef(true)
-  const nearBottomRef = useRef(true)
+  const nearBottomRef = useRef(initialSession?.nearBottom ?? true)
+  const scrollSnapshotRef = useRef({
+    scrollTop: initialSession?.scrollTop || 0,
+    scrollHeight: initialSession?.scrollHeight || 0,
+  })
+  const previousKeyboardHeightRef = useRef(0)
+  const loadVersionRef = useRef(0)
   const timConversationIdRef = useRef(isMockScene ? conversationNo : '')
   const gatewayRef = useRef<MessageImGateway>()
   const gatewayPromiseRef = useRef<Promise<MessageImGateway>>()
@@ -270,12 +282,31 @@ function EstablishedPrivateChatPage() {
   }, [])
 
   useEffect(() => {
-    if (keyboardHeight > 0 && messages.length > 0) requestScrollToLatest()
-  }, [keyboardHeight, messages.length, requestScrollToLatest])
+    const wasOpen = previousKeyboardHeightRef.current > 0
+    const isOpen = keyboardHeight > 0
+    previousKeyboardHeightRef.current = keyboardHeight
+    if (
+      !wasOpen
+      && isOpen
+      && messagesRef.current.length > 0
+      && resolvePrivateChatScrollIntent('keyboard_open') === 'latest'
+    ) requestScrollToLatest()
+  }, [keyboardHeight, requestScrollToLatest])
 
   useEffect(() => {
+    if (stateSessionKeyRef.current !== `${sessionUserId}:${conversationNo}`) return
     messagesRef.current = messages
-  }, [messages])
+    writePrivateChatSession(sessionUserId, conversationNo, {
+      detail,
+      messages,
+      historyCursor,
+      historyCompleted,
+      initialLoaded: !initialLoading,
+      scrollTop: scrollSnapshotRef.current.scrollTop,
+      scrollHeight: scrollSnapshotRef.current.scrollHeight,
+      nearBottom: nearBottomRef.current,
+    })
+  }, [conversationNo, detail, historyCompleted, historyCursor, initialLoading, messages, sessionUserId])
 
   useEffect(() => {
     if (!historyAnchorId) return
@@ -340,16 +371,16 @@ function EstablishedPrivateChatPage() {
           }
         : current)
     }
-    setMessages(current => {
-      const next = upsertMessages(current, relevant)
-      setTimeout(() => void acknowledgeRendered(next), 0)
-      return next
-    })
-    if (hasIncoming
+    const next = mergePrivateChatMessages(messagesRef.current, relevant)
+    if (next === messagesRef.current) return
+    messagesRef.current = next
+    setMessages(next)
+    setTimeout(() => void acknowledgeRendered(next), 0)
+    if (
+      hasIncoming
       && pageVisibleRef.current
-      && resolvePrivateChatScrollIntent('incoming', nearBottomRef.current) === 'latest') {
-      Taro.nextTick(requestScrollToLatest)
-    }
+      && resolvePrivateChatScrollIntent('incoming', nearBottomRef.current) === 'latest'
+    ) Taro.nextTick(requestScrollToLatest)
   }
 
   const getGateway = useCallback(async (): Promise<MessageImGateway> => {
@@ -411,19 +442,45 @@ function EstablishedPrivateChatPage() {
     return connect
   }, [getGateway, service])
 
+  const commitInitialSnapshot = useCallback((
+    nextDetail: MessageConversationDetail | undefined,
+    localPage: PrivateChatHistoryPage | undefined,
+    nextMessages: ChatMessage[],
+  ) => {
+    const cached = readPrivateChatSession(sessionUserId, conversationNo)
+    const nextHistoryCursor = localPage
+      ? localPage.nextCursor || undefined
+      : cached?.historyCursor
+    const nextHistoryCompleted = localPage
+      ? !localPage.hasMore
+      : cached?.historyCompleted || false
+    messagesRef.current = nextMessages
+    setDetail(nextDetail)
+    setMessages(nextMessages)
+    setHistoryCursor(nextHistoryCursor)
+    setHistoryCompleted(nextHistoryCompleted)
+    if (nextMessages.length > 0
+      && resolvePrivateChatScrollIntent('initial') === 'latest') requestScrollToLatest()
+    setInitialLoading(false)
+    writePrivateChatSession(sessionUserId, conversationNo, {
+      detail: nextDetail,
+      messages: nextMessages,
+      historyCursor: nextHistoryCursor,
+      historyCompleted: nextHistoryCompleted,
+      initialLoaded: true,
+      scrollTop: scrollSnapshotRef.current.scrollTop,
+      scrollHeight: scrollSnapshotRef.current.scrollHeight,
+      nearBottom: true,
+    })
+  }, [conversationNo, requestScrollToLatest, sessionUserId])
+
   const load = useCallback(
     () => loadSingleFlight.run(conversationNo, async () => {
-      if (!initialPositionedRef.current) setInitialLoading(true)
+      const version = ++loadVersionRef.current
+      const isCurrentLoad = () => mountedRef.current && version === loadVersionRef.current
+      const cached = readPrivateChatSession(sessionUserId, conversationNo)
+      if (!cached?.initialLoaded) setInitialLoading(true)
       setErrorMessage('')
-      let initialRevealed = initialPositionedRef.current
-      const revealInitial = (items: ChatMessage[]) => {
-        if (initialRevealed) return
-        initialRevealed = true
-        if (items.length > 0
-          && resolvePrivateChatScrollIntent('initial') === 'latest') requestScrollToLatest()
-        initialPositionedRef.current = true
-        setInitialLoading(false)
-      }
       const localHistoryPromise = withMessageTimeout(
         service.listConversationMessages(conversationNo, undefined, 30),
         HISTORY_TIMEOUT_MS,
@@ -436,70 +493,94 @@ function EstablishedPrivateChatPage() {
         gateway => ({ gateway, error: undefined }),
         error => ({ gateway: undefined, error }),
       )
-      try {
-        const detailPromise = withMessageTimeout(
-          service.getConversation(conversationNo),
-          DETAIL_TIMEOUT_MS,
-          '会话加载超时，请重试',
-        )
-        const localHistory = await localHistoryPromise
-        if (localHistory.page) {
-          const localMessages = localHistory.page.list
-          setMessages(current => {
-            const next = upsertMessages(current, localMessages)
-            messagesRef.current = next
-            return next
-          })
-          setHistoryCursor(localHistory.page.nextCursor || undefined)
-          setHistoryCompleted(!localHistory.page.hasMore)
-          if (localMessages.length > 0) revealInitial(localMessages)
-        } else {
-          setHistoryCursor(undefined)
-          setHistoryCompleted(true)
-        }
-        const nextDetail = await detailPromise
-        const gatewayId = isMockScene ? conversationNo : nextDetail.timConversationId
-        setDetail(nextDetail)
-        if (!nextDetail.canEnterConversation || !gatewayId) {
-          timConversationIdRef.current = ''
-          if (localHistory.error) {
-            setErrorMessage(localHistory.error instanceof Error
-              ? localHistory.error.message : '历史消息加载失败')
-          }
-          revealInitial(localHistory.page?.list || [])
-          return
-        }
-        timConversationIdRef.current = gatewayId
-        const connected = await gatewayPromise
-        if (!connected.gateway) throw connected.error
-        const page = await withMessageTimeout(
-          connected.gateway.listHistory(gatewayId),
-          HISTORY_TIMEOUT_MS,
-          '聊天记录加载超时，请重试',
-        )
-        setMessages(current => {
-          const next = upsertMessages(current, page.list)
-          messagesRef.current = next
-          return next
+      const detailPromise = withMessageTimeout(
+        service.getConversation(conversationNo),
+        DETAIL_TIMEOUT_MS,
+        '会话加载超时，请重试',
+      ).then(
+        nextDetail => ({ detail: nextDetail, error: undefined }),
+        error => ({ detail: undefined, error }),
+      )
+
+      const [localHistory, detailResult] = await Promise.all([localHistoryPromise, detailPromise])
+      if (!isCurrentLoad()) return
+
+      const nextDetail = detailResult.detail || cached?.detail
+      const gatewayId = nextDetail
+        ? (isMockScene ? conversationNo : nextDetail.timConversationId)
+        : ''
+      timConversationIdRef.current = nextDetail?.canEnterConversation && gatewayId ? gatewayId : ''
+
+      let nextMessages = mergePrivateChatMessages(
+        cached?.messages || messagesRef.current,
+        localHistory.page?.list || [],
+      )
+      let timHistoryPromise: Promise<TimHistoryLoadResult> | undefined
+      if (nextDetail?.canEnterConversation && gatewayId) {
+        timHistoryPromise = gatewayPromise.then(async connected => {
+          if (!connected.gateway) throw connected.error
+          const page = await withMessageTimeout(
+            connected.gateway.listHistory(gatewayId),
+            HISTORY_TIMEOUT_MS,
+            '聊天记录加载超时，请重试',
+          )
+          return { page }
+        }).catch(error => ({ error }))
+      }
+
+      const initialTim = timHistoryPromise
+        ? await waitForInitialBudget(timHistoryPromise)
+        : undefined
+      if (!isCurrentLoad()) return
+      if (initialTim?.page) {
+        nextMessages = mergePrivateChatMessages(nextMessages, initialTim.page.list)
+      }
+
+      commitInitialSnapshot(nextDetail, localHistory.page, nextMessages)
+      setTimeout(() => void acknowledgeRendered(nextMessages), 0)
+
+      const blockingError = detailResult.error || (!localHistory.page ? localHistory.error : undefined)
+      if (blockingError) setErrorMessage(resolveMessageError(blockingError).message)
+
+      if (timHistoryPromise && !initialTim) {
+        void timHistoryPromise.then(result => {
+          if (!isCurrentLoad() || !result.page) return
+          const supplemented = mergePrivateChatMessages(messagesRef.current, result.page.list)
+          if (supplemented === messagesRef.current) return
+          messagesRef.current = supplemented
+          setMessages(supplemented)
+          void acknowledgeRendered(supplemented)
+          if (
+            pageVisibleRef.current
+            && resolvePrivateChatScrollIntent('supplement', nearBottomRef.current) === 'latest'
+          ) Taro.nextTick(requestScrollToLatest)
         })
-        revealInitial(upsertMessages(localHistory.page?.list || [], page.list))
-        setTimeout(() => void acknowledgeRendered(messagesRef.current), 0)
-      } catch (error) {
-        const resolved = resolveMessageError(error)
-        setErrorMessage(resolved.message)
-        revealInitial(messagesRef.current)
       }
     }),
-    [acknowledgeRendered, conversationNo, ensureConnected, isMockScene, loadSingleFlight, requestScrollToLatest, service],
+    [acknowledgeRendered, commitInitialSnapshot, conversationNo, ensureConnected, isMockScene, loadSingleFlight, requestScrollToLatest, service, sessionUserId],
   )
 
   useEffect(() => {
+    const cached = readPrivateChatSession(sessionUserId, conversationNo)
+    stateSessionKeyRef.current = `${sessionUserId}:${conversationNo}`
+    loadVersionRef.current += 1
     readAckKey.current = ''
-    initialPositionedRef.current = false
-    setInitialLoading(true)
+    messagesRef.current = cached?.messages || []
+    setDetail(cached?.detail)
+    setMessages(cached?.messages || [])
+    setHistoryCursor(cached?.historyCursor)
+    setHistoryCompleted(cached?.historyCompleted || false)
+    setInitialLoading(!cached?.initialLoaded)
     setHistoryAnchorId('')
+    if (cached?.messages.length) {
+      scrollTargetRef.current = 'chat-bottom-a'
+      setScrollTarget('chat-bottom-a')
+    } else {
+      scrollTargetRef.current = 'chat-bottom-b'
+      setScrollTarget(undefined)
+    }
     timConversationIdRef.current = isMockScene ? conversationNo : ''
-  }, [conversationNo, isMockScene])
+  }, [conversationNo, isMockScene, sessionUserId])
 
   useEffect(() => {
     void load()
@@ -507,6 +588,7 @@ function EstablishedPrivateChatPage() {
 
   useEffect(() => () => {
     mountedRef.current = false
+    loadVersionRef.current += 1
     unsubscribeGatewayRef.current?.()
     unsubscribeGatewayRef.current = undefined
   }, [])
@@ -514,33 +596,24 @@ function EstablishedPrivateChatPage() {
   const refreshPreservingPosition = useCallback(async () => {
     if (isMockScene) return
     try {
-      const [detailResult, historyResult] = await Promise.allSettled([
-        service.getConversation(conversationNo),
-        service.listConversationMessages(conversationNo, undefined, 30),
-      ])
+      const detailResult = await service.getConversation(conversationNo)
       if (!mountedRef.current) return
-      if (detailResult.status === 'fulfilled') {
-        setDetail(detailResult.value)
-        timConversationIdRef.current = detailResult.value.timConversationId || ''
-      }
-      if (historyResult.status === 'fulfilled') {
-        const page = historyResult.value
-        const next = upsertMessages(messagesRef.current, page.list)
-        messagesRef.current = next
-        setMessages(next)
-        setHistoryCursor(page.nextCursor || undefined)
-        setHistoryCompleted(!page.hasMore)
-        void acknowledgeRendered(next)
-      }
+      setDetail(detailResult)
+      timConversationIdRef.current = detailResult.timConversationId || ''
+      writePrivateChatSession(sessionUserId, conversationNo, { detail: detailResult })
       void messagePlatformRuntime.refreshUnread()
     } catch {
       // 页面恢复刷新失败时保留当前画面，不用错误层打断用户阅读。
     }
-  }, [acknowledgeRendered, conversationNo, isMockScene, service])
+  }, [conversationNo, isMockScene, service, sessionUserId])
 
   useDidHide(() => {
     pageVisibleRef.current = false
-    setScrollTarget(undefined)
+    writePrivateChatSession(sessionUserId, conversationNo, {
+      scrollTop: scrollSnapshotRef.current.scrollTop,
+      scrollHeight: scrollSnapshotRef.current.scrollHeight,
+      nearBottom: nearBottomRef.current,
+    })
   })
 
   useDidShow(() => {
@@ -565,11 +638,9 @@ function EstablishedPrivateChatPage() {
         HISTORY_TIMEOUT_MS,
         '聊天记录加载超时，请重试',
       )
-      setMessages(current => {
-        const next = upsertMessages(page.list, current)
-        messagesRef.current = next
-        return next
-      })
+      const next = mergePrivateChatMessages(page.list, messagesRef.current)
+      messagesRef.current = next
+      setMessages(next)
       setHistoryCursor(page.nextCursor || undefined)
       setHistoryCompleted(!page.hasMore)
       if (anchor) setHistoryAnchorId(messageAnchorId(anchor))
@@ -617,7 +688,9 @@ function EstablishedPrivateChatPage() {
         SEND_TIMEOUT_MS,
         '消息发送超时，请稍后确认发送结果',
       )
-      setMessages(current => upsertMessages(current, [message]))
+      const next = mergePrivateChatMessages(messagesRef.current, [message])
+      messagesRef.current = next
+      setMessages(next)
       requestScrollToLatest()
       if (message.sendStatus === 'failed') {
         setRetryTarget(message)
@@ -643,7 +716,9 @@ function EstablishedPrivateChatPage() {
     try {
       const gateway = await ensureConnected()
       const retried = await gateway.retry(timConversationId, retryTarget.clientMsgId)
-      setMessages(current => upsertMessages(current, [retried]))
+      const next = mergePrivateChatMessages(messagesRef.current, [retried])
+      messagesRef.current = next
+      setMessages(next)
       if (retried.sendStatus !== 'failed') {
         setDetail(current => current?.femaleProtection?.appliesToCurrentUser
           ? {
@@ -671,7 +746,9 @@ function EstablishedPrivateChatPage() {
             recoveredTimConversationId,
             retryTarget.clientMsgId,
           )
-          setMessages(current => upsertMessages(current, [retried]))
+          const next = mergePrivateChatMessages(messagesRef.current, [retried])
+          messagesRef.current = next
+          setMessages(next)
           if (retried.sendStatus !== 'failed' && recoveredDetail.femaleProtection?.appliesToCurrentUser) {
             setDetail({
               ...recoveredDetail,
@@ -737,9 +814,18 @@ function EstablishedPrivateChatPage() {
         onScroll={event => {
           const windowHeight = Taro.getWindowInfo().windowHeight
           const visibleHeight = Math.max(1, windowHeight - 137 - keyboardHeight)
+          scrollSnapshotRef.current = {
+            scrollTop: event.detail.scrollTop,
+            scrollHeight: event.detail.scrollHeight,
+          }
           nearBottomRef.current = event.detail.scrollHeight
             - event.detail.scrollTop
             - visibleHeight <= 96
+          writePrivateChatSession(sessionUserId, conversationNo, {
+            scrollTop: event.detail.scrollTop,
+            scrollHeight: event.detail.scrollHeight,
+            nearBottom: nearBottomRef.current,
+          })
         }}
         onScrollToLower={() => { nearBottomRef.current = true }}
         onScrollToUpper={() => {
@@ -805,7 +891,7 @@ function EstablishedPrivateChatPage() {
         style={{ bottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined, paddingBottom: keyboardHeight > 0 ? '5px' : undefined }}
       >
         {!detail?.canSend && detail?.sendBlockedReason ? <Text className="chat-reply-label">{resolveConversationSendBlockedReason(detail.sendBlockedReason)}</Text> : null}
-        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canEnterConversation)} maxlength={500} adjustPosition={false} holdKeyboard cursorSpacing={12} confirmType="send" confirmHold focus={inputFocused} onFocus={event => { setInputFocused(true); setKeyboardHeight(event.detail.height || 0); requestScrollToLatest() }} onBlur={() => { setInputFocused(false); setKeyboardHeight(0) }} onKeyboardHeightChange={event => setKeyboardHeight(Math.max(0, event.detail.height))} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
+        <Input className="chat-input" value={inputValue} disabled={Boolean(detail && !detail.canEnterConversation)} maxlength={500} adjustPosition={false} holdKeyboard cursorSpacing={12} confirmType="send" confirmHold focus={inputFocused} onFocus={event => { setInputFocused(true); setKeyboardHeight(event.detail.height || 0) }} onBlur={() => { setInputFocused(false); setKeyboardHeight(0) }} onKeyboardHeightChange={event => setKeyboardHeight(Math.max(0, event.detail.height))} onInput={event => setInputValue(event.detail.value)} onConfirm={() => void send()} />
         <View className={`chat-send-button${canSend ? '' : ' chat-send-button--disabled'}`} onClick={() => void send()}><Text>发送</Text></View>
       </View>
 

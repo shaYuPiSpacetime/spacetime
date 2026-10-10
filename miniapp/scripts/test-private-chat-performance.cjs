@@ -36,8 +36,10 @@ test('ordinary text send clears composer before SDK network wait and never shows
 })
 
 test('message merge uses stable provider identities', () => {
-  assert.match(chat, /function messageMergeKey/)
-  assert.match(chat, /message\.messageNo \|\| message\.timMessageId \|\| message\.clientMsgId/)
+  assert.match(chat, /mergePrivateChatMessages/)
+  assert.match(chat, /readPrivateChatSession/)
+  assert.match(chat, /writePrivateChatSession/)
+  assert.doesNotMatch(chat, /function upsertMessages/)
 })
 
 test('private chat renders durable local history and only uses TIM to supplement recent messages', () => {

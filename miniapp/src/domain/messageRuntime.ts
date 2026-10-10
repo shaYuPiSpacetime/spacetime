@@ -39,7 +39,14 @@ type MiniappRoutePage = {
   options?: Record<string, unknown>
 }
 
-export type PrivateChatScrollCause = 'initial' | 'resume' | 'incoming' | 'outgoing' | 'prepend'
+export type PrivateChatScrollCause =
+  | 'initial'
+  | 'resume'
+  | 'incoming'
+  | 'outgoing'
+  | 'prepend'
+  | 'keyboard_open'
+  | 'supplement'
 export type PrivateChatScrollIntent = 'latest' | 'preserve'
 
 /**
@@ -49,8 +56,8 @@ export function resolvePrivateChatScrollIntent(
   cause: PrivateChatScrollCause,
   nearBottom = false,
 ): PrivateChatScrollIntent {
-  if (cause === 'initial' || cause === 'outgoing') return 'latest'
-  if (cause === 'incoming') return nearBottom ? 'latest' : 'preserve'
+  if (cause === 'initial' || cause === 'outgoing' || cause === 'keyboard_open') return 'latest'
+  if (cause === 'incoming' || cause === 'supplement') return nearBottom ? 'latest' : 'preserve'
   return 'preserve'
 }
 
