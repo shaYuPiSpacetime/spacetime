@@ -45,4 +45,6 @@
 - 快照晚于登录恢复、重复组件重建、脚本模块重建、取消喜欢、导航失败等 Node 回归：相关滚动套件 20/20；账号冻结套件 8/8。完整 `prebuild:weapp` 通过（新增账号稍后就绪用例在随后 20 项中单独通过）。
 - 真机 iOS 侧滑仍未执行；微信模拟器原生页面、滚动组件、截图和请求证据已完成，不能把模拟器验证表述为真机验收。
 
-脚本：`miniapp/scripts/verify-given-likes-return-runtime.cjs`。本地证据：`.runtime/given-likes-return-20261010/runtime-red.log`、`runtime-red-evidence.json`、`rebuilt-red.png`、`runtime-fixed.log`、`runtime-evidence.json`、`rebuilt-after-return.png`。发布结果待新生产构建上传后补记。
+脚本：`miniapp/scripts/verify-given-likes-return-runtime.cjs`。本地证据：`.runtime/given-likes-return-20261010/runtime-red.log`、`runtime-red-evidence.json`、`rebuilt-red.png`、`runtime-fixed.log`、`runtime-evidence.json`、`rebuilt-after-return.png`。
+
+追加发布完成：源码 `721db33f11e57706858d57740241d174496ebf65` 已 Push；当次重新 fetch 并同步，使用关闭固定登录/E2E 的生产环境重新构建，87 页注册、无开发 Token、包体门禁全部通过。上传前远端 master、本地 HEAD、构建 SHA 一致。微信 CLI 上传体验版 **1.0.20261010.1613** 成功（exit 0）；主包 1,386,162 字节、总包 2,846,391 字节。仅小程序业务源码变更，无后端部署需求。上传证据在同一运行目录的 `upload.log`、`upload-info.json`。
