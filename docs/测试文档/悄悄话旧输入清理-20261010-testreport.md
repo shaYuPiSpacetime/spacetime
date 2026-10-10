@@ -24,4 +24,9 @@
 
 ## 发布记录
 
-待发布后补充。
+- 发布前重新拉取并核对 `origin/master`，构建与上传提交均为 `8ede66d22dff9b3803f731fbc1d82bcff3db7010`。
+- 从该提交关闭开发固定登录和 E2E 模式重新执行生产构建，Webpack 编译和产物门禁通过。
+- 独立发布目录为 `.runtime/weapp-release-8ede66d2-1791636396280/project`；426 个构建文件和 `project.config.json` 的 SHA-256 全部一致，未复制 `project.private.config.json`。
+- 微信开发者工具 CLI 已登录，体验版 `1.0.20261010.205018` 的 preview 与 upload 均成功。
+- preview/upload 的 15 项包统计逐项一致：主包 `1,389,511` 字节，消息分包 `437,327` 字节，总包 `2,858,246` 字节。
+- 发布目录上级保留 `manifest.json`、`preview-info.json` 和 `upload-info.json` 作为本轮发布证据。
