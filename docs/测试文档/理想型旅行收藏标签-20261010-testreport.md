@@ -4,7 +4,7 @@
 
 ## 结论
 
-本地回归通过，待部署后复核 L1。
+通过：本地 46 项回归及部署后 L1 搜索验证通过。
 
 ## 根因与修复
 
@@ -19,6 +19,7 @@ IdealServiceImpl 已支持旧旅行编码 TRAVEL_MEMORY，但按后台标签名�
 | 既有 Controller | 3/3通过 |
 | 合计 | 46/46通过，无跳过 |
 | 修复前线上重新搜索 | 账号173****9764，单选喜欢旅行369人，首页20条，偏好不变；本次未复现线上0人 |
+| 部署后 L1-01 | 通过：单选喜欢旅行369人，首页20条均标注喜欢旅行，推荐偏好不变；未解锁、未收费 |
 
 执行：Java21，`mvn -Dtest=IdealServiceImplTest,IdealControllerTest test`。不涉及前端交互，未执行 L4。
 
@@ -26,4 +27,9 @@ IdealServiceImpl 已支持旧旅行编码 TRAVEL_MEMORY，但按后台标签名�
 
 ## 交付
 
-待填：代码提交、后端自动部署、体验版上传以及部署后 L1 结果。
+- 代码提交：`d2beea2c8efb723b9b64fe62db951efb07afdf8c`，已 Push master 并核对实际远端 SHA。
+- 后端自动部署：[38032228511](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38032228511)，该代码 SHA 的 build/deploy 均成功。
+- 体验版：`1.0.20261010.1450`，官方 CLI `√ upload`，回执总包 2,841,536 bytes。
+- 本次发布重新 fetch 并 ff 同步 master；为保留其他任务的未提交小程序修改，从已同步提交导出 miniapp 源码到临时目录构建，上传前实际远端 SHA 与构建 SHA 一致。
+- 构建门禁通过：87 页面注册、登录首页且无开发 Token、主包大小。未重复全量测试。
+- 线上 L1 创建免费筛选快照；旧快照保持原结果。修复前后当前账号人数均为369，不能宣称本次修复增加了该账号人数。
