@@ -6,6 +6,10 @@ on:
       - 'scripts/ops/audit-location-20261010.py'
       - '.github/workflows/ops-audit-location-20261010.yml'
   workflow_dispatch:
+  workflow_run:
+    workflows: [ spacetime-backend-prod ]
+    types: [ completed ]
+    branches: [ master ]
 permissions:
   contents: read
 concurrency:
@@ -13,6 +17,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   audit:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

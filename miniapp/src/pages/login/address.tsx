@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { toTwoLevelRegionErrorMessage } from '@/domain/basicProfileRegion'
 import { matchLocationRegion } from '@/domain/locationRegion'
+import { toLocationFailureMessage } from '@/domain/locationFailure'
 import {
   normalizeTwoLevelRegionSelection,
   type TwoLevelRegionSelection,
@@ -40,6 +41,7 @@ export default function LoginAddressPage() {
   const [pageLoading, setPageLoading] = useState(true)
   const [loadError, setLoadError] = useState<string>()
   const variantRef = useRef('default')
+  const locationRequestRef = useRef(false)
 
   const hasCompleteAddress = Boolean(selectedProvince && selectedCity)
   useLoad(options => {
@@ -140,8 +142,10 @@ export default function LoginAddressPage() {
   }
 
   const handleLocation = async () => {
-    if (locationLoading) return
+    if (locationRequestRef.current) return
+    locationRequestRef.current = true
     setLocationLoading(true)
+    let stage: 'coordinates' | 'city' = 'coordinates'
     try {
       const authorized = await ensureUserLocationAuthorized()
       if (!authorized) {
@@ -153,6 +157,7 @@ export default function LoginAddressPage() {
       if (typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
         throw new Error('INVALID_LOCATION')
       }
+      stage = 'city'
       const resolved = await prd01Api.reverseGeocode({
         latitude: location.latitude,
         longitude: location.longitude,
@@ -165,9 +170,10 @@ export default function LoginAddressPage() {
         return
       }
       handleManualConfirm(match.province, match.city, tree)
-    } catch {
-      handleLocationFail()
+    } catch (error) {
+      handleLocationFail(toLocationFailureMessage(error, stage))
     } finally {
+      locationRequestRef.current = false
       setLocationLoading(false)
     }
   }

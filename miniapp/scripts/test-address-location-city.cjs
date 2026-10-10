@@ -11,18 +11,22 @@ const addressPath = path.resolve(__dirname, '../src/pages/login/address.tsx')
 const matcherPath = path.resolve(__dirname, '../src/domain/locationRegion.ts')
 const servicePath = path.resolve(__dirname, '../src/services/prd01.ts')
 
-function loadRegionMatcher() {
-  const source = fs.readFileSync(matcherPath, 'utf8')
+function loadDomain(file) {
+  const source = fs.readFileSync(file, 'utf8')
   const compiled = ts.transpileModule(source, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS },
-    fileName: matcherPath,
+    fileName: file,
   }).outputText
   const module = { exports: {} }
   new Function('module', 'exports', compiled)(module, module.exports)
-  return module.exports.matchLocationRegion
+  return module.exports
 }
 
+const loadRegionMatcher = () => loadDomain(matcherPath).matchLocationRegion
+const { toLocationFailureMessage } = loadDomain(path.resolve(__dirname, '../src/domain/locationFailure.ts'))
+
 function loadLocationHandler(dependencies) {
+  dependencies = { locationRequestRef: { current: false }, toLocationFailureMessage, ...dependencies }
   const source = fs.readFileSync(addressPath, 'utf8')
   const file = ts.createSourceFile(addressPath, source, ts.ScriptTarget.ES2020, true, ts.ScriptKind.TSX)
   let handler
@@ -121,6 +125,45 @@ test('地图服务失败时仍然打开手选面板', async () => {
   assert.equal(state.location, false)
   assert.equal(state.loading, false)
   assert.match(state.toast, /手动选择/)
+  assert.match(state.toast, /城市识别服务/)
+})
+
+test('定位失败按环节分类且不透出原始敏感异常', () => {
+  assert.match(toLocationFailureMessage({ errMsg: 'getLocation:fail auth deny' }, 'coordinates'), /权限/)
+  assert.match(toLocationFailureMessage({ errMsg: 'getLocation:fail system permission denied' }, 'coordinates'), /手机定位/)
+  assert.match(toLocationFailureMessage({ errMsg: 'getLocation:fail timeout' }, 'coordinates'), /超时/)
+  assert.match(toLocationFailureMessage(null, 'coordinates'), /暂未获取到位置/)
+  assert.equal(toLocationFailureMessage(new Error('https://example.invalid/?key=secret'), 'city'), '城市识别服务暂不可用，请手动选择')
+})
+
+test('取坐标失败不调用城市服务；连点只执行一次，失败后可重试', async () => {
+  let rejectLocation
+  let locationCalls = 0
+  let cityCalls = 0
+  const messages = []
+  const ref = { current: false }
+  const handleLocation = loadLocationHandler({
+    locationRequestRef: ref,
+    setLocationLoading: () => {},
+    ensureUserLocationAuthorized: async () => true,
+    handleLocationFail: message => messages.push(message),
+    prd01Api: { reverseGeocode: async () => { cityCalls++ } },
+    Taro: { getLocation: () => { locationCalls++; return new Promise((_, reject) => { rejectLocation = reject }) } },
+  })
+  const first = handleLocation()
+  await handleLocation()
+  assert.equal(locationCalls, 1)
+  rejectLocation({ errMsg: 'getLocation:fail timeout' })
+  await first
+  assert.equal(ref.current, false)
+  assert.equal(cityCalls, 0)
+  assert.match(messages[0], /超时/)
+  const retry = handleLocation()
+  await Promise.resolve()
+  assert.equal(locationCalls, 2)
+  rejectLocation({ errMsg: 'getLocation:fail auth deny' })
+  await retry
+  assert.match(messages[1], /权限/)
 })
 
 test('精确经纬度通过请求体发送，不放进 URL 查询参数', () => {

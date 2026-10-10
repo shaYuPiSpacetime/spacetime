@@ -12,6 +12,7 @@ on:
       - 'docs/官网/官网隐私政策.md'
       - 'scripts/test-prod-wechat-pay-config.mjs'
       - 'scripts/test-prod-tencent-im-config.mjs'
+      - 'scripts/test-prod-tencent-map-config.mjs'
       - 'scripts/test-virtual-product-migration-guard.mjs'
       - '.github/workflows/deploy-backend-prod.yml'
   workflow_dispatch:
@@ -47,6 +48,7 @@ jobs:
           node scripts/test-prod-oss-endpoint.mjs
           node scripts/test-prod-wechat-pay-config.mjs
           node scripts/test-prod-tencent-im-config.mjs
+          node scripts/test-prod-tencent-map-config.mjs
           node scripts/test-virtual-product-migration-guard.mjs
 
       - name: Validate ACR password
