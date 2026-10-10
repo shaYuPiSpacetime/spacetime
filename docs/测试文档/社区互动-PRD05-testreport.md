@@ -359,3 +359,13 @@ PRD-05 本轮闭环实现的后端、管理后台、小程序、开发库迁移�
 2026-10-10 交付重试：本轮 HTTPS fetch 成功，`git merge --ff-only origin/master` 确认无待合入变更，远端为 `3274f817`，本地业务修复为 `c8f9de6f`。SSH fetch 仍返回 `Permission denied (publickey)`，HTTPS Push 返回 `could not read Username ... terminal prompts disabled`，当前没有可用 GitHub 推送凭据，因此未推送或触发自动部署。
 
 已从本轮源码重新执行生产 Taro 构建和 `postbuild:weapp`，均通过；微信登录有效。待发布独立目录为 `.runtime/weapp-release-20261010225930-c8f9de6f/project`，426 个 dist 文件及公开配置共 427 项 SHA-256 一致，未复制私有配置。CLI preview 成功，总包 2,858,112 字节、主包 1,389,562 字节、千寻分包 135,876 字节；原始记录为该目录父级的 `hash-audit.json` 与 `preview-info.json`。由于远端尚未包含本地业务提交，未执行 upload，不能把预览打包认定为体验版发布。恢复 GitHub 认证后须再次同步远端、从最新源码构建并完成 preview/upload 包字节对照及后端部署核对。本轮沿用已记录的定向测试结果，未重复全量测试。
+
+### 13.1 认证恢复后的发布核对（2026-10-10）
+
+- GitHub SSH 认证已恢复；本轮重新 fetch 并同步 `origin/master`，随后将本地 4 个提交 Push 到 `master`，远端更新为 `49f2afaa966f79640e0fda30c2b24597cbdee84b`，包含动态状态校验修复 `c8f9de6f` 与女性保护期修复 `e3933d77`。
+- 从 `49f2afaa` 重新生产构建，关闭固定开发登录与 E2E 模式；Taro 构建和 `postbuild:weapp` 通过，87 页注册正常，无开发 Token，仅保留既有私信脚本体积提示。
+- 独立目录：`.runtime/weapp-release-20261010233530-49f2afaa/project`。426 个 dist 文件及公开配置共 427 项 SHA-256 一致，未复制私有配置；上传后再次核对哈希通过。首次候选目录将 dist 文件放在根目录，因配置要求 `dist/` 导致 preview 失败，未上传；随后创建上述全新目录保留正确结构并重新校验。
+- 上传前 `git ls-remote origin refs/heads/master` 与构建 SHA 一致；微信 CLI 上传版本 `1.0.20261010.2335` 成功。preview/upload 全部 15 项包大小（含总计）一致：总包 2,858,112 字节，主包 1,389,562 字节，千寻分包 135,876 字节。
+- 原始证据：上述发布目录父级的 `hash-audit.json`、`preview-info.json`、`upload-info.json`、`package-audit.json`。
+- 管理端自动部署 `38064060516` 与后端自动部署 `38064060508` 均成功，部署 HEAD 为 `49f2afaa`。后端镜像上传耗时较长，随后构建及服务器部署任务均完成；服务端修复已随本次部署交付。
+- 公网管理端首页 HTTP 200，后端部署完成后再次请求 `GET https://admin.shikongxiehou.com/api/health` 返回业务码 200、`data=ok`。真实删除分享入口与真机验收仍待执行；本轮未重复全量测试。
