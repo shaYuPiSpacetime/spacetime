@@ -369,3 +369,11 @@ PRD-05 本轮闭环实现的后端、管理后台、小程序、开发库迁移�
 - 原始证据：上述发布目录父级的 `hash-audit.json`、`preview-info.json`、`upload-info.json`、`package-audit.json`。
 - 管理端自动部署 `38064060516` 与后端自动部署 `38064060508` 均成功，部署 HEAD 为 `49f2afaa`。后端镜像上传耗时较长，随后构建及服务器部署任务均完成；服务端修复已随本次部署交付。
 - 公网管理端首页 HTTP 200，后端部署完成后再次请求 `GET https://admin.shikongxiehou.com/api/health` 返回业务码 200、`data=ok`。真实删除分享入口与真机验收仍待执行；本轮未重复全量测试。
+
+### 13.2 最新 master 重新上传体验版（2026-10-11）
+
+- 按用户要求重新 fetch，并将本地 `master` 从 `2ca33c9e` 快进同步到 `origin/master` 的 `9ade455d164289e5755d7e6a6882d30c18d99fd5`；远端 14 个变更文件与工作区未提交文件无路径重叠，未覆盖或混入其他改动。
+- 从 `9ade455d` 关闭固定开发登录与 E2E 模式重新生产构建；Taro 编译和 `postbuild:weapp` 通过，87 页注册正常，无开发 Token，主包 1.40 MiB、总包 2.82 MiB。
+- 独立发布目录为 `.runtime/weapp-release-9ade455d-1791648006243/project`；426 个 dist 文件及 `project.config.json` 复制前后 SHA-256 一致，未复制 `project.private.config.json`。
+- preview 后重新执行 `git ls-remote origin refs/heads/master`，远端仍为构建提交 `9ade455d`。微信 CLI 上传体验版 `1.0.20261011.000128` 成功。
+- preview/upload 的 15 项包统计逐项一致：总包 `2,858,330` 字节、主包 `1,389,595` 字节、消息分包 `437,327` 字节；原始证据保留在发布目录上级的 `manifest.json`、`preview-info.json` 和 `upload-info.json`。
