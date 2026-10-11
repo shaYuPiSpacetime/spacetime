@@ -679,6 +679,7 @@ export class MockMessageService implements MessageService {
       quoteToken: `mock-quote-${input.targetUserNo}`, quoteExpireTime: '2099-01-01 00:00:00',
       whisperExpireDays: 7, cooldownDays: 3, confirmText: '确认发送悄悄话',
       targetUserNo: input.targetUserNo, targetNickname: '对方',
+      existingWhisperNo: null, existingConversationNo: null,
     }
   }
 

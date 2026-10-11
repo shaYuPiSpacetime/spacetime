@@ -5,6 +5,7 @@ import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/dom
 import {
   createWhisper,
   precheckWhisper,
+  resolveConversationByPeerUserId,
   type WhisperPrecheckCommand,
 } from '@/services/message'
 import type { WhisperPrecheckResponse } from '@/types/message'
@@ -40,6 +41,33 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
     setPrecheck(result)
   }
 
+  const openExistingEntry = async (result: WhisperPrecheckResponse) => {
+    if (result.existingWhisperNo) {
+      await close()
+      await Taro.navigateTo({
+        url: `/pages/message/whisper-detail?whisperNo=${encodeURIComponent(result.existingWhisperNo)}`,
+      })
+      return
+    }
+    if (result.reasonCode !== 'MATCHED_PRIVATE_CHAT') return
+    try {
+      const peerUserId = result.targetUserNo.replace(/^USR-/, '')
+      const conversation = result.existingConversationNo
+        ? { conversationNo: result.existingConversationNo }
+        : await resolveConversationByPeerUserId(peerUserId)
+      await close()
+      await Taro.navigateTo({
+        url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}`,
+      })
+    } catch (error) {
+      await close()
+      await Taro.showToast({
+        title: resolveWhisperErrorMessage(error, '私信会话暂不可用，请刷新后重试'),
+        icon: 'none',
+      })
+    }
+  }
+
   useDidShow(() => {
     if (!refreshAfterRecharge.current) return
     refreshAfterRecharge.current = false
@@ -61,7 +89,12 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
       sourceScene: target.sourceScene,
       sourceBizNo: target.sourceBizNo,
     }).then(result => {
-      if (active) setPrecheck(result)
+      if (!active) return
+      if (result.existingWhisperNo || result.reasonCode === 'MATCHED_PRIVATE_CHAT') {
+        void openExistingEntry(result)
+        return
+      }
+      setPrecheck(result)
     }).catch(error => {
       if (!active) return
       onClose()

@@ -390,6 +390,10 @@ export interface WhisperPrecheckResponse {
   confirmText: string
   targetUserNo: string
   targetNickname: string | null
+  /** 已有待处理悄悄话编号；存在时应进入详情页。 */
+  existingWhisperNo: string | null
+  /** 已匹配的已有私信会话编号。 */
+  existingConversationNo: string | null
 }
 
 export interface WhisperCreateResponse {

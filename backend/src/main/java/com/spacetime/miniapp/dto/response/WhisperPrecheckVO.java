@@ -23,4 +23,8 @@ public class WhisperPrecheckVO {
     private String confirmText;
     private String targetUserNo;
     private String targetNickname;
+    /** 已有待处理悄悄话编号；存在时前端应进入详情而不是重复新建。 */
+    private String existingWhisperNo;
+    /** 已有私信会话编号；匹配完成时前端应进入私信。 */
+    private String existingConversationNo;
 }

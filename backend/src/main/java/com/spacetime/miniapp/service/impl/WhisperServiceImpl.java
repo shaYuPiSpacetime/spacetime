@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.common.dao.AppMessageDeliveryOutboxDao;
+import com.spacetime.common.dao.AppMessageConversationDao;
 import com.spacetime.common.dao.AppMessageRecordDao;
 import com.spacetime.common.dao.AppMessageRuleVersionDao;
 import com.spacetime.common.dao.AppMessageRuntimeControlDao;
@@ -18,6 +19,7 @@ import com.spacetime.common.dao.UserAssetDao;
 import com.spacetime.common.dao.UserCoinLogDao;
 import com.spacetime.common.dao.VipBenefitDao;
 import com.spacetime.common.entity.AppMessageDeliveryOutbox;
+import com.spacetime.common.entity.AppMessageConversation;
 import com.spacetime.common.entity.AppMessageRecord;
 import com.spacetime.common.entity.AppMessageRuleVersion;
 import com.spacetime.common.entity.AppMessageRuntimeControl;
@@ -78,6 +80,8 @@ public class WhisperServiceImpl implements WhisperService {
     private static final int IDEMPOTENCY_CONFLICT = 30020;
     private static final int QUOTE_CHANGED = 30021;
     private static final int INTERNAL_ERROR = 5001;
+    private static final String EXISTING_PENDING = "EXISTING_PENDING";
+    private static final String MATCHED_PRIVATE_CHAT = "MATCHED_PRIVATE_CHAT";
     private static final int CONTENT_MAX_LENGTH = 60;
     private static final int REQUEST_ID_MIN_LENGTH = 8;
     private static final int REQUEST_ID_MAX_LENGTH = 64;
@@ -93,6 +97,7 @@ public class WhisperServiceImpl implements WhisperService {
             "whisper_reverse");
 
     private final AppMessageWhisperDao whisperDao;
+    private final AppMessageConversationDao conversationDao;
     private final AppMessageRecordDao recordDao;
     private final AppMessageDeliveryOutboxDao outboxDao;
     private final AppUserDao appUserDao;
@@ -116,7 +121,26 @@ public class WhisperServiceImpl implements WhisperService {
         LocalDateTime now = LocalDateTime.now();
         SourceContext source = sourceContext(req.getSourceScene(), req.getSourceBizNo());
         requireGlobalSendEnabled();
-        WhisperTarget target = requireEligiblePair(senderUserId, req.getTargetUserNo(), now);
+        WhisperTarget target = resolveTarget(senderUserId, req.getTargetUserNo());
+        long low = Math.min(senderUserId, target.receiver().getId());
+        long high = Math.max(senderUserId, target.receiver().getId());
+        if (matchDao.selectActivePair(low, high) != null) {
+            AppMessageConversation conversation = conversationDao.selectActivePair(low, high);
+            return blockedPrecheck(senderUserId, req.getTargetUserNo(), target,
+                    MATCHED_PRIVATE_CHAT, "双方已经匹配，请直接发送私信", null,
+                    conversation == null ? null : conversation.getConversationNo());
+        }
+        AppMessageWhisper active = whisperDao.selectActivePair(low, high);
+        if (active != null) {
+            return blockedPrecheck(senderUserId, req.getTargetUserNo(), target,
+                    EXISTING_PENDING, "双方已有悄悄话待回复", active.getWhisperNo(), null);
+        }
+        AppMessageWhisper latest = whisperDao.selectLatestPair(low, high);
+        if (latest != null && Objects.equals(senderUserId, latest.getSenderUserId())
+                && MessageWhisperStatusEnum.EXPIRED.getCode().equals(latest.getStatus())
+                && latest.getCooldownUntil() != null && latest.getCooldownUntil().isAfter(now)) {
+            throw new BusinessException(COOLDOWN_ACTIVE, "悄悄话仍在冷却期，请稍后再试");
+        }
         AppMessageRuleVersion rule = requireCurrentRule();
         CoinSceneConfig scene = enabledWhisperScene();
         UserAsset asset = userAssetDao.selectByUserId(senderUserId);
@@ -153,6 +177,46 @@ public class WhisperServiceImpl implements WhisperService {
                 : "确认消耗 " + payment.coinAmount() + " 千寻币发送悄悄话");
         result.setTargetUserNo(req.getTargetUserNo());
         result.setTargetNickname(target.receiver().getNickname());
+        return result;
+    }
+
+    /**
+     * 构造不可新建但可继续已有关系的预检查结果，避免前端只能收到 Toast 而丢失历史入口。
+     *
+     * @param senderUserId 当前用户 ID
+     * @param targetUserNo 目标用户编号
+     * @param target 已完成准入校验的目标用户
+     * @param reasonCode 分流原因
+     * @param reasonText 分流提示
+     * @param existingWhisperNo 已有悄悄话编号
+     * @param existingConversationNo 已有私信会话编号
+     * @return 可供前端分流的预检查结果
+     */
+    private WhisperPrecheckVO blockedPrecheck(Long senderUserId, String targetUserNo,
+                                               WhisperTarget target, String reasonCode,
+                                               String reasonText, String existingWhisperNo,
+                                               String existingConversationNo) {
+        UserAsset asset = userAssetDao.selectByUserId(senderUserId);
+        WhisperPrecheckVO result = new WhisperPrecheckVO();
+        result.setCanSend(false);
+        result.setReasonCode(reasonCode);
+        result.setReasonText(reasonText);
+        result.setContentMaxLength(CONTENT_MAX_LENGTH);
+        result.setPayType(PAY_COIN);
+        result.setCoinAmount(0);
+        result.setFree(false);
+        result.setCoinBalance(coinBalance(asset));
+        result.setFreeWhisperRemain(0);
+        result.setFreeWhisperDailyQuota(configuredDailyFreeQuota());
+        result.setQuoteToken(null);
+        result.setQuoteExpireTime(null);
+        result.setWhisperExpireDays(0);
+        result.setCooldownDays(0);
+        result.setConfirmText(reasonText);
+        result.setTargetUserNo(targetUserNo);
+        result.setTargetNickname(target.receiver().getNickname());
+        result.setExistingWhisperNo(existingWhisperNo);
+        result.setExistingConversationNo(existingConversationNo);
         return result;
     }
 
@@ -249,24 +313,11 @@ public class WhisperServiceImpl implements WhisperService {
 
     private WhisperTarget requireEligiblePair(Long senderUserId, String targetUserNo,
                                                LocalDateTime now) {
-        if (senderUserId == null) {
-            throw new BusinessException(401, "未登录或登录已过期");
-        }
-        Long receiverUserId = parseTargetUserId(targetUserNo);
-        if (Objects.equals(senderUserId, receiverUserId)) {
-            throw new BusinessException(PARAM_ERROR, "不能给自己发送悄悄话");
-        }
-        AppUser sender = requireOpenUser(senderUserId, "发送方关系准入未开放");
-        AppUser receiver = requireNormalReceiver(receiverUserId);
-        long low = Math.min(senderUserId, receiverUserId);
-        long high = Math.max(senderUserId, receiverUserId);
+        WhisperTarget target = resolveTarget(senderUserId, targetUserNo);
+        long low = Math.min(senderUserId, target.receiver().getId());
+        long high = Math.max(senderUserId, target.receiver().getId());
         if (matchDao.selectActivePair(low, high) != null) {
             throw new BusinessException(RELATION_FORBIDDEN, "双方已经匹配，请直接发送私信");
-        }
-        String blacklist = RelationBlockTypeEnum.BLACKLIST.getCode();
-        if (relationBlockDao.selectActive(senderUserId, receiverUserId, blacklist) != null
-                || relationBlockDao.selectActive(receiverUserId, senderUserId, blacklist) != null) {
-            throw new BusinessException(RELATION_FORBIDDEN, "双方当前不可发送悄悄话");
         }
         if (whisperDao.selectActivePair(low, high) != null) {
             throw new BusinessException(DUPLICATE_PENDING, "双方已有悄悄话待回复");
@@ -276,6 +327,24 @@ public class WhisperServiceImpl implements WhisperService {
                 && MessageWhisperStatusEnum.EXPIRED.getCode().equals(latest.getStatus())
                 && latest.getCooldownUntil() != null && latest.getCooldownUntil().isAfter(now)) {
             throw new BusinessException(COOLDOWN_ACTIVE, "悄悄话仍在冷却期，请稍后再试");
+        }
+        return target;
+    }
+
+    private WhisperTarget resolveTarget(Long senderUserId, String targetUserNo) {
+        if (senderUserId == null) {
+            throw new BusinessException(401, "未登录或登录已过期");
+        }
+        Long receiverUserId = parseTargetUserId(targetUserNo);
+        if (Objects.equals(senderUserId, receiverUserId)) {
+            throw new BusinessException(PARAM_ERROR, "不能给自己发送悄悄话");
+        }
+        AppUser sender = requireOpenUser(senderUserId, "发送方关系准入未开放");
+        AppUser receiver = requireNormalReceiver(receiverUserId);
+        String blacklist = RelationBlockTypeEnum.BLACKLIST.getCode();
+        if (relationBlockDao.selectActive(senderUserId, receiverUserId, blacklist) != null
+                || relationBlockDao.selectActive(receiverUserId, senderUserId, blacklist) != null) {
+            throw new BusinessException(RELATION_FORBIDDEN, "双方当前不可发送悄悄话");
         }
         return new WhisperTarget(sender, receiver);
     }
