@@ -24,6 +24,10 @@ import com.spacetime.common.entity.AppUserImAccount;
 import com.spacetime.common.model.message.TencentImCallbackRequest;
 import com.spacetime.common.model.message.TencentImCallbackResponse;
 import com.spacetime.common.service.RelationAccessProjectionService;
+import com.spacetime.common.dao.AppMessageRuleVersionDao;
+import com.spacetime.common.entity.AppMessageRuleVersion;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -72,6 +76,7 @@ class TencentImCallbackServiceImplTest {
     @Mock private TransactionStatus transactionStatus;
 
     private TencentImCallbackServiceImpl service;
+    @Mock private AppMessageRuleVersionDao ruleDao;
 
     @BeforeEach
     void setUp() {
@@ -88,7 +93,8 @@ class TencentImCallbackServiceImplTest {
                 properties, new ObjectMapper(), accountDao, userDao, accessProjectionService,
                 matchDao, conversationDao, memberDao, relationBlockDao, runtimeControlDao, recordDao,
                 outboxDao, whisperDao, transactionOperations,
-                Clock.fixed(Instant.ofEpochSecond(REQUEST_TIME), ZoneId.of("UTC")));
+                Clock.fixed(Instant.ofEpochSecond(REQUEST_TIME), ZoneId.of("UTC")),
+                new MessageFemaleProtectionServiceImpl(ruleDao));
     }
 
     @Test
@@ -135,6 +141,38 @@ class TencentImCallbackServiceImplTest {
                 "C2C.CallbackBeforeSendMsg", textBody("C2C.CallbackBeforeSendMsg")));
 
         assertThat(response.errorCode()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 3})
+    void currentZeroDaysShouldOverridePendingFemaleReplyInCallback(int days) {
+        openTextConversation(true);
+        AppMessageConversation conversation = conversationDao.selectActivePair(11L, 22L);
+        conversation.setLastMessageId(41L);
+        AppMessageRuleVersion current = new AppMessageRuleVersion();
+        current.setFemaleProtectionDays(days);
+        when(ruleDao.selectCurrent("global")).thenReturn(current);
+        if (days > 0) {
+            AppMessageRecord lastMessage = new AppMessageRecord();
+            lastMessage.setConversationId(30L);
+            lastMessage.setSenderUserId(11L);
+            lastMessage.setSendStatus("sent");
+            lastMessage.setMessageType("text");
+            when(recordDao.selectById(41L)).thenReturn(lastMessage);
+        }
+
+        TencentImCallbackResponse response = service.handle(signedRequest(
+                "C2C.CallbackBeforeSendMsg", textBody("C2C.CallbackBeforeSendMsg")));
+
+        if (days == 0) {
+            assertThat(response.errorCode()).isZero();
+            verify(recordDao, never()).selectById(41L);
+        } else {
+            assertThat(response.errorCode()).isNotZero();
+            assertThat(response.errorInfo()).contains("等待");
+        }
+        assertThat(conversation.getProtectionEnabled()).isEqualTo(1);
+        assertThat(conversation.getProtectionUntil()).isEqualTo(LocalDateTime.of(2026, 8, 13, 12, 0));
     }
 
     @Test

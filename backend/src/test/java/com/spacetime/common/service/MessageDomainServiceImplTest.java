@@ -25,6 +25,11 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.model.message.PrivateMessageSendResult;
 import com.spacetime.common.model.message.WhisperReplyResult;
 import com.spacetime.common.service.impl.MessageDomainServiceImpl;
+import com.spacetime.common.dao.AppMessageRuleVersionDao;
+import com.spacetime.common.entity.AppMessageRuleVersion;
+import com.spacetime.common.service.impl.MessageFemaleProtectionServiceImpl;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,6 +55,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("悄悄话回复、TIM 投递与匹配最终确认")
@@ -69,6 +75,7 @@ class MessageDomainServiceImplTest {
     @Mock private TransactionStatus transactionStatus;
 
     private MessageDomainServiceImpl service;
+    @Mock private AppMessageRuleVersionDao ruleDao;
     private LocalDateTime now;
 
     @BeforeEach
@@ -80,7 +87,8 @@ class MessageDomainServiceImplTest {
         service = new MessageDomainServiceImpl(
                 whisperDao, conversationDao, memberDao, recordDao, outboxDao,
                 relationDomainService, appUserDao, relationBlockDao, accessProjectionService,
-                deliveryOutboxService, transactionOperations, new ObjectMapper());
+                deliveryOutboxService, transactionOperations, new ObjectMapper(),
+                new MessageFemaleProtectionServiceImpl(ruleDao));
         now = LocalDateTime.of(2026, 8, 10, 12, 0);
     }
 
@@ -269,10 +277,20 @@ class MessageDomainServiceImplTest {
         verify(outboxDao, never()).insert(any());
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @DisplayName("普通私信应先写消息和Outbox再投递TIM")
-    void privateMessageShouldPersistBeforeDelivery() {
+    void privateMessageShouldPersistBeforeDelivery(boolean zeroDaysOverride) {
         AppMessageConversation conversation = activeConversation();
+        if (zeroDaysOverride) {
+            conversation.setProtectionEnabled(1);
+            conversation.setMaleUserId(1L);
+            conversation.setFemaleUserId(2L);
+            conversation.setProtectionUntil(now.plusDays(1));
+            AppMessageRuleVersion current = new AppMessageRuleVersion();
+            current.setFemaleProtectionDays(0);
+            when(ruleDao.selectCurrent("global")).thenReturn(current);
+        }
         AppMessageConversationMember member = conversationMember();
         openPair();
         when(conversationDao.selectByConversationNoForUpdate("CV-1")).thenReturn(conversation);
@@ -324,6 +342,31 @@ class MessageDomainServiceImplTest {
         assertThat(outboxCaptor.getValue().getEventType()).isEqualTo("private_text");
         assertThat(outboxCaptor.getValue().getPayloadJson()).doesNotContain("你好");
         verify(deliveryOutboxService).process(60L, now);
+        if (zeroDaysOverride) {
+            assertThat(conversation.getProtectionEnabled()).isEqualTo(1);
+            assertThat(conversation.getProtectionUntil()).isEqualTo(now.plusDays(1));
+        }
+    }
+
+    @Test
+    @DisplayName("正数配置不解除已有会话的 REST 保护校验")
+    void positiveDaysShouldKeepExistingPrivateMessageProtection() {
+        AppMessageConversation conversation = activeConversation();
+        conversation.setProtectionEnabled(1);
+        conversation.setMaleUserId(1L);
+        conversation.setFemaleUserId(2L);
+        conversation.setProtectionUntil(now.plusDays(1));
+        AppMessageRuleVersion current = new AppMessageRuleVersion();
+        current.setFemaleProtectionDays(3);
+        when(ruleDao.selectCurrent("global")).thenReturn(current);
+        when(conversationDao.selectByConversationNoForUpdate("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(conversationMember());
+
+        assertThatThrownBy(() -> service.sendPrivateMessage(
+                1L, "CV-1", "blocked-client-message", "你好", now))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("等待女方");
+        verify(recordDao, never()).insert(any());
+        verifyNoInteractions(outboxDao, deliveryOutboxService);
     }
 
     @Test

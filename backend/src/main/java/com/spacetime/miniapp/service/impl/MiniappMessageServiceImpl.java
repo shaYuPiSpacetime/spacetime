@@ -80,6 +80,7 @@ import com.spacetime.miniapp.dto.response.WhisperHideVO;
 import com.spacetime.miniapp.service.MiniappMessageService;
 import com.spacetime.miniapp.service.MiniappRelationService;
 import com.spacetime.miniapp.service.MiniappSettingService;
+import com.spacetime.common.service.MessageFemaleProtectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -137,6 +138,7 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
     private final UserUnlockRecordDao userUnlockRecordDao;
     private final RelationDomainService relationDomainService;
     private final MessageConversationLifecycleService conversationLifecycleService;
+    private final MessageFemaleProtectionService femaleProtectionService;
 
     @Override
     public MessageHomeVO home(Long userId, String cursor, int size) {
@@ -375,8 +377,13 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         Long peerId = member.getPeerUserId();
         boolean active = MessageConversationStatusEnum.ACTIVE.getCode().equals(
                 conversation.getStatus());
+        LocalDateTime now = LocalDateTime.now();
+        boolean protectionEnabled = femaleProtectionService.isEnabled(conversation);
+        boolean protectionActive = protectionEnabled
+                && (conversation.getProtectionUntil() == null
+                    || now.isBefore(conversation.getProtectionUntil()));
         SendPermission permission = active
-                ? sendPermission(conversation, userId, LocalDateTime.now())
+                ? sendPermission(conversation, userId, protectionActive)
                 : new SendPermission(true, false, "conversation_invalid");
         boolean canReportChat = recordDao.existsReportableIncomingText(
                 conversation.getId(), userId);
@@ -388,11 +395,11 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
                 : optionalTimConversationId(peerId);
 
         MessageFemaleProtectionVO protection = new MessageFemaleProtectionVO();
-        protection.setEnabled(Integer.valueOf(1).equals(conversation.getProtectionEnabled()));
-        protection.setAppliesToCurrentUser(protectionActive(conversation, LocalDateTime.now())
+        protection.setEnabled(protectionEnabled);
+        protection.setAppliesToCurrentUser(protectionActive
                 && Objects.equals(userId, conversation.getMaleUserId()));
         protection.setWaitingForFemaleReply("female_reply_pending".equals(permission.reason()));
-        protection.setProtectionUntil(conversation.getProtectionUntil());
+        protection.setProtectionUntil(protectionEnabled ? conversation.getProtectionUntil() : null);
 
         MessageConversationDetailVO result = new MessageConversationDetailVO();
         result.setConversationNo(conversation.getConversationNo());
@@ -888,19 +895,19 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
     }
 
     private SendPermission sendPermission(AppMessageConversation conversation, Long userId,
-                                           LocalDateTime now) {
+                                           boolean protectionActive) {
         if (!MessageConversationStatusEnum.ACTIVE.getCode().equals(conversation.getStatus())) {
             return new SendPermission(false, false, "conversation_invalid");
         }
-        boolean waitingForFemaleReply = waitingForFemaleReply(conversation, userId, now);
+        boolean waitingForFemaleReply = waitingForFemaleReply(conversation, userId, protectionActive);
         return waitingForFemaleReply
                 ? new SendPermission(true, false, "female_reply_pending")
                 : new SendPermission(true, true, null);
     }
 
     private boolean waitingForFemaleReply(AppMessageConversation conversation, Long userId,
-                                           LocalDateTime now) {
-        if (!protectionActive(conversation, now)
+                                           boolean protectionActive) {
+        if (!protectionActive
                 || !Objects.equals(userId, conversation.getMaleUserId())
                 || conversation.getLastMessageId() == null) {
             return false;
@@ -908,12 +915,6 @@ public class MiniappMessageServiceImpl implements MiniappMessageService {
         AppMessageRecord lastMessage = recordDao.selectById(conversation.getLastMessageId());
         return lastMessage != null
                 && Objects.equals(lastMessage.getSenderUserId(), conversation.getMaleUserId());
-    }
-
-    private boolean protectionActive(AppMessageConversation conversation, LocalDateTime now) {
-        return Integer.valueOf(1).equals(conversation.getProtectionEnabled())
-                && (conversation.getProtectionUntil() == null
-                    || now.isBefore(conversation.getProtectionUntil()));
     }
 
     private MessagePeerUserVO toPeerUser(Long peerId, AppUser user, String avatar) {

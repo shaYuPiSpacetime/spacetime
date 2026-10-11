@@ -34,6 +34,7 @@ import com.spacetime.common.model.message.TencentImCallbackRequest;
 import com.spacetime.common.model.message.TencentImCallbackResponse;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.common.service.TencentImCallbackService;
+import com.spacetime.common.service.MessageFemaleProtectionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -86,6 +87,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
     private final AppMessageWhisperDao whisperDao;
     private final TransactionOperations transactionOperations;
     private final Clock clock;
+    private final MessageFemaleProtectionService femaleProtectionService;
 
     @Autowired
     public TencentImCallbackServiceImpl(
@@ -102,10 +104,11 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
             AppMessageRecordDao recordDao,
             AppMessageDeliveryOutboxDao outboxDao,
             AppMessageWhisperDao whisperDao,
-            TransactionOperations transactionOperations) {
+            TransactionOperations transactionOperations,
+            MessageFemaleProtectionService femaleProtectionService) {
         this(properties, objectMapper, accountDao, userDao, accessProjectionService, matchDao,
                 conversationDao, memberDao, relationBlockDao, runtimeControlDao, recordDao, outboxDao,
-                whisperDao, transactionOperations, Clock.systemUTC());
+                whisperDao, transactionOperations, Clock.systemUTC(), femaleProtectionService);
     }
 
     TencentImCallbackServiceImpl(
@@ -123,7 +126,8 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
             AppMessageDeliveryOutboxDao outboxDao,
             AppMessageWhisperDao whisperDao,
             TransactionOperations transactionOperations,
-            Clock clock) {
+            Clock clock,
+            MessageFemaleProtectionService femaleProtectionService) {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.accountDao = accountDao;
@@ -139,6 +143,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
         this.whisperDao = whisperDao;
         this.transactionOperations = transactionOperations;
         this.clock = clock;
+        this.femaleProtectionService = femaleProtectionService;
     }
 
     @Override
@@ -562,7 +567,7 @@ public class TencentImCallbackServiceImpl implements TencentImCallbackService {
 
     private boolean femaleProtectionBlocks(AppMessageConversation conversation,
                                              Long senderUserId, LocalDateTime now) {
-        if (!Integer.valueOf(1).equals(conversation.getProtectionEnabled())
+        if (!femaleProtectionService.isEnabled(conversation)
                 || !Objects.equals(senderUserId, conversation.getMaleUserId())
                 || (conversation.getProtectionUntil() != null
                     && !now.isBefore(conversation.getProtectionUntil()))

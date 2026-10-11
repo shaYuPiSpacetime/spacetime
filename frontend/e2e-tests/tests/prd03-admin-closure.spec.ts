@@ -193,7 +193,8 @@ test.describe('女性保护期零天配置', () => {
     await femaleDays.fill('0');
     await page.getByLabel('到期后冷却期').fill('7');
     await page.getByRole('button', { name: '保存当前配置' }).click();
-    await page.getByPlaceholder('填写5-100字变更原因').fill('将新会话女性保护期设为零');
+    await expect(page.getByText('将发布新配置版本。女性保护期为 0 天时，所有会话立即解除保护；其他规则影响新会话和新申请，历史快照保留。')).toBeVisible();
+    await page.getByPlaceholder('填写5-100字变更原因').fill('将所有会话女性保护期设为零');
     await page.getByRole('button', { name: '确认保存' }).click();
     await expect.poll(() => published).toMatchObject({
       expectedVersion: 'MSG-CFG-003', femaleProtectionDays: 0, whisperExpireDays: 7, whisperCooldownDays: 7,

@@ -1,5 +1,9 @@
 package com.spacetime.miniapp.service;
 
+import com.spacetime.common.dao.AppMessageRuleVersionDao;
+import com.spacetime.common.entity.AppMessageRuleVersion;
+import com.spacetime.common.service.impl.MessageFemaleProtectionServiceImpl;
+
 import com.spacetime.common.dao.AppMessageConversationDao;
 import com.spacetime.common.dao.AppMessageConversationMemberDao;
 import com.spacetime.common.dao.AppMessageRecordDao;
@@ -103,6 +107,7 @@ class MiniappMessageServiceImplTest {
     @Mock private MessageConversationLifecycleService conversationLifecycleService;
 
     private MiniappMessageServiceImpl service;
+    @Mock private AppMessageRuleVersionDao ruleDao;
     private LocalDateTime now;
 
     @BeforeEach
@@ -113,7 +118,8 @@ class MiniappMessageServiceImplTest {
                 messageDomainService, notificationDomainService, announcementHydrationService,
                 accessProjectionService,
                 settingService, relationService, accountProvider, relationMatchDao,
-                userUnlockRecordDao, relationDomainService, conversationLifecycleService);
+                userUnlockRecordDao, relationDomainService, conversationLifecycleService,
+                new MessageFemaleProtectionServiceImpl(ruleDao));
         now = LocalDateTime.of(2026, 8, 10, 12, 0);
     }
 
@@ -464,6 +470,79 @@ class MiniappMessageServiceImplTest {
         assertThat(result.getFemaleProtection().getAppliesToCurrentUser()).isTrue();
         assertThat(result.getFemaleProtection().getWaitingForFemaleReply()).isTrue();
         assertThat(result.getFemaleProtection().getProtectionUntil()).isNull();
+    }
+
+    @Test
+    @DisplayName("零天配置立即解除旧会话保护，改回正数仍读取原快照")
+    void zeroDaysShouldReleaseExistingConversationWithoutChangingSnapshot() {
+        AppMessageConversation conversation = conversation();
+        conversation.setProtectionEnabled(1);
+        conversation.setFemaleUserId(2L);
+        conversation.setMaleUserId(1L);
+        LocalDateTime originalUntil = LocalDateTime.now().plusDays(1);
+        conversation.setProtectionUntil(originalUntil);
+        conversation.setConfigVersion("original-version");
+        conversation.setLastMessageId(41L);
+        AppMessageRecord lastMessage = new AppMessageRecord();
+        lastMessage.setId(41L);
+        lastMessage.setSenderUserId(1L);
+        AppMessageRuleVersion current = new AppMessageRuleVersion();
+        current.setFemaleProtectionDays(0);
+        when(ruleDao.selectCurrent("global")).thenReturn(current);
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount(2L, "tu_peer_2"));
+        when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+
+        MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
+
+        assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getSendBlockedReason()).isNull();
+        assertThat(result.getFemaleProtection().getEnabled()).isFalse();
+        assertThat(result.getFemaleProtection().getAppliesToCurrentUser()).isFalse();
+        assertThat(result.getFemaleProtection().getWaitingForFemaleReply()).isFalse();
+        assertThat(result.getFemaleProtection().getProtectionUntil()).isNull();
+        verify(recordDao, never()).selectById(41L);
+        assertThat(conversation.getProtectionEnabled()).isEqualTo(1);
+        assertThat(conversation.getProtectionUntil()).isEqualTo(originalUntil);
+        assertThat(conversation.getConfigVersion()).isEqualTo("original-version");
+
+        current.setFemaleProtectionDays(3);
+        when(recordDao.selectById(41L)).thenReturn(lastMessage);
+        MessageConversationDetailVO restored = service.conversationDetail(1L, "CV-1");
+        assertThat(restored.getCanSend()).isFalse();
+        assertThat(restored.getSendBlockedReason()).isEqualTo("female_reply_pending");
+        assertThat(restored.getFemaleProtection().getProtectionUntil()).isEqualTo(originalUntil);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 1})
+    @DisplayName("正数配置不新增或延长已有会话保护")
+    void positiveDaysShouldNotProtectUnprotectedOrExpiredConversation(int snapshotEnabled) {
+        AppMessageConversation conversation = conversation();
+        conversation.setProtectionEnabled(snapshotEnabled);
+        conversation.setFemaleUserId(2L);
+        conversation.setMaleUserId(1L);
+        conversation.setProtectionUntil(LocalDateTime.now().minusDays(1));
+        conversation.setLastMessageId(41L);
+        if (snapshotEnabled == 1) {
+            AppMessageRuleVersion current = new AppMessageRuleVersion();
+            current.setFemaleProtectionDays(30);
+            when(ruleDao.selectCurrent("global")).thenReturn(current);
+        }
+        when(conversationDao.selectByConversationNo("CV-1")).thenReturn(conversation);
+        when(memberDao.selectByConversationAndUser(30L, 1L)).thenReturn(member());
+        when(appUserDao.selectById(2L)).thenReturn(user(2L, "小月"));
+        when(imAccountDao.selectByUserId(2L)).thenReturn(imAccount(2L, "tu_peer_2"));
+        when(auditContentService.publicAvatar(2L)).thenReturn("avatar-2");
+
+        MessageConversationDetailVO result = service.conversationDetail(1L, "CV-1");
+
+        assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getFemaleProtection().getAppliesToCurrentUser()).isFalse();
+        assertThat(result.getFemaleProtection().getWaitingForFemaleReply()).isFalse();
+        verify(recordDao, never()).selectById(41L);
     }
 
     @Test

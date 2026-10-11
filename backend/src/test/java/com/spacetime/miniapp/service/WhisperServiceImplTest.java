@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spacetime.common.dao.AppMessageConversationDao;
 import com.spacetime.common.dao.AppMessageDeliveryOutboxDao;
 import com.spacetime.common.dao.AppMessageRecordDao;
 import com.spacetime.common.dao.AppMessageRuleVersionDao;
@@ -60,6 +61,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class WhisperServiceImplTest {
     @Mock private AppMessageWhisperDao whisperDao;
+    @Mock private AppMessageConversationDao conversationDao;
     @Mock private AppMessageRecordDao recordDao;
     @Mock private AppMessageDeliveryOutboxDao outboxDao;
     @Mock private AppUserDao appUserDao;
@@ -78,7 +80,7 @@ class WhisperServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new WhisperServiceImpl(whisperDao, recordDao, outboxDao, appUserDao,
+        service = new WhisperServiceImpl(whisperDao, conversationDao, recordDao, outboxDao, appUserDao,
                 userAssetDao, sceneConfigDao, coinLogDao, vipBenefitDao, matchDao,
                 relationBlockDao, ruleVersionDao, runtimeControlDao,
                 accessProjectionService, quoteStore, new ObjectMapper().findAndRegisterModules());
@@ -214,13 +216,17 @@ class WhisperServiceImplTest {
     }
 
     @Test
-    void precheckRejectsExistingPendingPair() {
+    void precheckReturnsExistingPendingPairWithoutIssuingQuote() {
         stubEligibleUsers();
         AppMessageWhisper pending = existingWhisper("other-request");
         when(whisperDao.selectActivePair(7L, 8L)).thenReturn(pending);
 
-        assertThatThrownBy(() -> service.precheck(7L, precheckReq()))
-                .hasMessageContaining("待回复");
+        WhisperPrecheckVO result = service.precheck(7L, precheckReq());
+        assertThat(result.getCanSend()).isFalse();
+        assertThat(result.getReasonCode()).isEqualTo("EXISTING_PENDING");
+        assertThat(result.getReasonText()).contains("待回复");
+        assertThat(result.getExistingWhisperNo()).isEqualTo(pending.getWhisperNo());
+        assertThat(result.getQuoteToken()).isNull();
 
         verify(quoteStore, never()).issue(any());
     }

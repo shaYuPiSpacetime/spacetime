@@ -184,8 +184,14 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
         QIANXUN_BLUE: '#2876FF',
         getQianxunHeaderMetrics: () => ({ secondaryTop: 0, contentTop: 100 }),
         QianxunHeader: props => React.createElement('div', null,
-          React.createElement('button', { id: 'open-kindred', onClick: () => props.onChange('KINDRED') }, '知音'),
-          React.createElement('button', { id: 'open-family', onClick: () => props.onChange('FAMILY') }, '家人')),
+          React.createElement('button', { id: 'open-kindred', onClick: () => {
+            load('custom-tab-bar/tabState.ts').setActiveTabKey('kindred')
+            props.onChange('KINDRED')
+          } }, '知音'),
+          React.createElement('button', { id: 'open-family', onClick: () => {
+            load('custom-tab-bar/tabState.ts').setActiveTabKey('index')
+            props.onChange('FAMILY')
+          } }, '家人')),
       }
       if (name === './QianxunTopicSpotlight') return { __esModule: true, default: () => null }
       if (name === './QianxunZhiyinTab') return load('features/qianxun/QianxunZhiyinTab.tsx')
@@ -522,6 +528,7 @@ test('时空站台三点面板关闭后，复用原滚动容器且不刷新动�
 test('时空站台进入动态详情再返回时，保留原动态顺序', async t => {
   const app = mount(t)
   await app.render()
+  await app.show()
   await act(async () => app.container.querySelector('#open-kindred').click())
   await act(async () => app.container.querySelector('#qianxun-zhiyin-sincere').click())
   const ids = () => [...app.container.querySelectorAll('.qianxun-zhiyin-post-card')].map(item => Number(item.getAttribute('data-post-id')))

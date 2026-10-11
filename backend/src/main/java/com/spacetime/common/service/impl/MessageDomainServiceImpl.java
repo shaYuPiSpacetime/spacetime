@@ -31,6 +31,7 @@ import com.spacetime.common.model.message.WhisperReplyResult;
 import com.spacetime.common.model.message.PrivateMessageSendResult;
 import com.spacetime.common.service.MessageDeliveryOutboxService;
 import com.spacetime.common.service.MessageDomainService;
+import com.spacetime.common.service.MessageFemaleProtectionService;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.common.service.RelationDomainService;
 import lombok.RequiredArgsConstructor;
@@ -76,6 +77,7 @@ public class MessageDomainServiceImpl implements MessageDomainService {
     private final MessageDeliveryOutboxService deliveryOutboxService;
     private final TransactionOperations transactionOperations;
     private final ObjectMapper objectMapper;
+    private final MessageFemaleProtectionService femaleProtectionService;
 
     @Override
     public PrivateMessageSendResult sendPrivateMessage(Long senderUserId, String conversationNo,
@@ -120,7 +122,7 @@ public class MessageDomainServiceImpl implements MessageDomainService {
                 || !Integer.valueOf(1).equals(conversation.getActiveMarker())) {
             throw new BusinessException(RELATION_FORBIDDEN, "私信会话已失效");
         }
-        boolean waitingForFemale = Integer.valueOf(1).equals(conversation.getProtectionEnabled())
+        boolean waitingForFemale = femaleProtectionService.isEnabled(conversation)
                 && Objects.equals(senderUserId, conversation.getMaleUserId())
                 && conversation.getFemaleFirstMessageAt() == null
                 && (conversation.getProtectionUntil() == null
