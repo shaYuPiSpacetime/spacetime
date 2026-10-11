@@ -55,8 +55,7 @@ interface QianxunHeaderProps {
 
 const primaryTabs: Array<{ id: string; tab: QianxunPrimaryTab; label: string; left: number }> = [
   { id: 'qianxun-primary-family', tab: 'FAMILY', label: '成家', left: 32 },
-  { id: 'qianxun-primary-kindred', tab: 'KINDRED', label: '时空邂逅', left: 123 },
-  { id: 'qianxun-primary-career', tab: 'CAREER', label: '立业', left: 285 },
+  { id: 'qianxun-primary-career', tab: 'CAREER', label: '立业', left: 123 },
 ]
 
 export function QianxunHeader({ active, avatar, metrics, onChange, onProfile }: QianxunHeaderProps) {
@@ -65,17 +64,19 @@ export function QianxunHeader({ active, avatar, metrics, onChange, onProfile }: 
   const profileTop = metrics.avatarCenterTop === undefined ? `${metrics.primaryTop + (45 - PROFILE_TOUCH_SIZE) / 2}rpx` : `calc(${metrics.avatarCenterTop}px - ${PROFILE_TOUCH_SIZE / 2}rpx)`
   return (
     <View style={{ position: 'relative', width: '750rpx', height: `${metrics.contentTop}rpx` }}>
-      {primaryTabs.map(item => {
+      {active === 'KINDRED' ? (
+        <View id="qianxun-kindred-title" style={{ position: 'absolute', left: '32rpx', top: `${metrics.primaryTop}rpx`, color: NAVY, fontSize: '32rpx', lineHeight: '45rpx', fontWeight: 500 }}>时空邂逅</View>
+      ) : primaryTabs.map(item => {
         const selected = active === item.tab
         return (
           <View
             key={item.tab}
             id={item.id}
             onClick={() => onChange(item.tab)}
-            style={{ position: 'absolute', left: `${item.left - 12}rpx`, top: `${metrics.primaryTop - 22}rpx`, width: item.tab === 'KINDRED' ? '160rpx' : '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ position: 'absolute', left: `${item.left - 12}rpx`, top: `${metrics.primaryTop - 22}rpx`, width: '88rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <Text style={{ color: selected ? NAVY : '#7F8494', fontSize: selected ? '32rpx' : '28rpx', lineHeight: selected ? '45rpx' : '40rpx', fontWeight: 500 }}>{item.label}</Text>
-            {selected ? <View style={{ position: 'absolute', left: item.tab === 'KINDRED' ? '20rpx' : '12rpx', top: '67rpx', width: item.tab === 'KINDRED' ? '120rpx' : '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} /> : null}
+            {selected ? <View style={{ position: 'absolute', left: '12rpx', top: '67rpx', width: '64rpx', height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} /> : null}
           </View>
         )
       })}

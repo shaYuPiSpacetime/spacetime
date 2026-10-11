@@ -38,6 +38,7 @@ import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
+import { getActiveTabKey, setActiveTabKey, subscribeActiveTabKey } from '@/custom-tab-bar/tabState'
 import { getQianxunHeaderMetrics, QianxunHeader, type QianxunPrimaryTab } from './QianxunHeader'
 import QianxunZhiyinTab from './QianxunZhiyinTab'
 import QianxunTopicSpotlight from './QianxunTopicSpotlight'
@@ -57,12 +58,13 @@ function readCachedCommunityConfig() {
 }
 
 function readRequestedPrimaryTab(): QianxunPrimaryTab {
+  if (['FOLLOWING', 'CITY', 'SCHOOL', 'HOT'].includes(String(Taro.getStorageSync(REQUESTED_SCENE_KEY)))) return 'FAMILY'
   const requested = Taro.getStorageSync(REQUESTED_PRIMARY_TAB_KEY)
   if (requested === 'KINDRED') {
     Taro.removeStorageSync(REQUESTED_PRIMARY_TAB_KEY)
     return 'KINDRED'
   }
-  return 'FAMILY'
+  return getActiveTabKey() === 'kindred' ? 'KINDRED' : 'FAMILY'
 }
 
 function readRequestedScene(): CommunityScene | undefined {
@@ -213,7 +215,14 @@ export default function RecommendFamilyPage() {
 
   useEffect(() => {
     refreshFamily()
+    // 初始化完成后同步逻辑入口，不能在渲染期间广播到其他 TabBar 实例。
+    setActiveTabKey(primaryTab === 'KINDRED' ? 'kindred' : 'index')
   }, [])
+
+  useEffect(() => subscribeActiveTabKey(key => {
+    if (key === 'kindred') setPrimaryTab('KINDRED')
+    if (key === 'index') setPrimaryTab('FAMILY')
+  }), [])
 
   useDidHide(() => {
     resumeRefreshRef.current = true
@@ -221,10 +230,12 @@ export default function RecommendFamilyPage() {
 
   useDidShow(() => {
     const requested = readRequestedPrimaryTab()
-    if (requested === 'KINDRED') setPrimaryTab('KINDRED')
+    setPrimaryTab(requested)
+    setActiveTabKey(requested === 'KINDRED' ? 'kindred' : 'index')
     const requestedScene = readRequestedScene()
     if (requestedScene) {
       setPrimaryTab('FAMILY')
+      setActiveTabKey('index')
       setActiveTab(requestedScene)
       void loadScene(requestedScene)
       if (requestedScene === 'HOT') void loadTopicHome()

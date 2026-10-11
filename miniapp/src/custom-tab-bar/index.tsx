@@ -18,6 +18,8 @@ function getCurrentRoute() {
 }
 
 function resolveInitialActiveKey() {
+  // 一个原生页面承载两个逻辑入口，返回详情或跨页切换时保留时空邂逅点亮态。
+  if (getCurrentRoute() === 'pages/index/index' && getActiveTabKey() === 'kindred') return 'kindred'
   return PATH_TO_TAB[getCurrentRoute()] ?? getActiveTabKey()
 }
 
@@ -35,7 +37,7 @@ export default function CustomTabBar() {
   const updateActiveTab = () => {
     const route = getCurrentRoute()
     if (route) {
-      const key = PATH_TO_TAB[route]
+      const key = route === 'pages/index/index' ? resolveInitialActiveKey() : PATH_TO_TAB[route]
       if (key) {
         setActiveTabKey(key)
         setActiveKey(key)

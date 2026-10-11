@@ -134,7 +134,7 @@ export default {
   tabBar: {
     custom: true,
     color: '#999999',
-    selectedColor: '#2876FF',
+    selectedColor: '#333333',
     backgroundColor: '#ffffff',
     borderStyle: 'white',
     list: [
@@ -154,7 +154,7 @@ export default {
         pagePath: 'pages/recommend/index',
         text: '推荐',
         iconPath: 'assets/icons/tab-recommend.png',
-        selectedIconPath: 'assets/icons/tab-recommend.png',
+        selectedIconPath: 'assets/icons/tab-recommend-active.png',
       },
       {
         pagePath: 'pages/chat/index',

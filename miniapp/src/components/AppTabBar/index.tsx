@@ -1,12 +1,15 @@
-import { Image, View, Text } from '@tarojs/components'
+import { Image, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
+import tabEncounterIcon from '@/assets/icons/tab-encounter.png'
+import tabEncounterActiveIcon from '@/assets/icons/tab-encounter-active.png'
 import tabHomeIcon from '@/assets/icons/tab-home.png'
 import tabHomeActiveIcon from '@/assets/icons/tab-home-active.png'
 import tabWorkIcon from '@/assets/icons/tab-work.png'
 import tabWorkActiveIcon from '@/assets/icons/tab-work-active.png'
 import tabRecommendIcon from '@/assets/icons/tab-recommend.png'
+import tabRecommendActiveIcon from '@/assets/icons/tab-recommend-active.png'
 import tabMessageIcon from '@/assets/icons/tab-message.png'
 import tabMessageActiveIcon from '@/assets/icons/tab-message-active.png'
 import tabProfileIcon from '@/assets/icons/tab-profile.png'
@@ -17,8 +20,9 @@ import { formatMessageBadge } from '@/domain/messageRuntime'
 import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { useAuthStore } from '@/stores/authStore'
 import { refreshRecommendBadge, useRecommendBadgeStore } from '@/stores/recommendBadgeStore'
+import { setActiveTabKey } from '@/custom-tab-bar/tabState'
 
-export type TabKey = 'index' | 'community' | 'recommend' | 'chat' | 'profile'
+export type TabKey = 'kindred' | 'index' | 'community' | 'recommend' | 'chat' | 'profile'
 
 interface Tab {
   key: TabKey
@@ -31,9 +35,10 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
+  { key: 'kindred', label: '时空邂逅', path: '/pages/index/index', iconPath: tabEncounterIcon, activeIconPath: tabEncounterActiveIcon, iconWidth: 40, iconHeight: 40 },
   { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, activeIconPath: tabHomeActiveIcon, iconWidth: 40, iconHeight: 40 },
   { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon, iconWidth: 40, iconHeight: 40 },
-  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendIcon, iconWidth: 126, iconHeight: 126 },
+  { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendActiveIcon, iconWidth: 40, iconHeight: 40 },
   { key: 'chat', label: '消息', path: '/pages/chat/index', iconPath: tabMessageIcon, activeIconPath: tabMessageActiveIcon, iconWidth: 40, iconHeight: 40 },
   { key: 'profile', label: '我的', path: '/pages/profile/index', iconPath: tabProfileIcon, activeIconPath: tabProfileActiveIcon, iconWidth: 40, iconHeight: 40 },
 ]
@@ -90,7 +95,7 @@ export function getCapsuleLeftActionsLayout({
 }
 
 /**
- * 底部 TabBar — 对齐蓝湖「我的」底部栏 750×166 坐标。
+ * 底部六入口共用导航，图标与选中态使用蓝湖原始切图。
  */
 export default function AppTabBar({ active, onActiveChange }: Props) {
   const userId = useAuthStore(state => state.userId)
@@ -108,11 +113,16 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
     state => state.unreadSummary.messageUnreadCount,
   )
   const messageBadge = formatMessageBadge(messageUnreadCount)
+  const updateActive = (key: TabKey) => {
+    setActiveTabKey(key)
+    onActiveChange?.(key)
+  }
   const handlePress = (tab: Tab) => {
     const currentRoute = getCurrentRoute()
-    // 等待页已经是推荐的当前状态，重选中心按钮不能先切回主路由再自动入栈。
+    // 等待页已经是推荐的当前状态，重选推荐入口不能先切回主路由再自动入栈。
     if (tab.key === 'recommend' && currentRoute === 'pages/prd08/recommend/waiting/index') return
-    const sourceTab = TABS.find(item => item.path.slice(1) === currentRoute)
+    const sourceTab = TABS.find(item => item.path.slice(1) === currentRoute && item.key === active)
+      ?? TABS.find(item => item.path.slice(1) === currentRoute)
     if (tabSwitchInFlight) {
       // 同一路由内的并发点击属于一次导航事务；路由已变化则说明上次切换已落地，
       // 即使微信 success 回调尚未送达，也不能吞掉用户在新页面上的下一次点击。
@@ -121,19 +131,21 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
     }
     // 是否重复点击只认微信真实路由，不能依赖可能滞后一帧的点亮状态。
     if (tab.path.slice(1) === currentRoute) {
+      // 时空邂逅与千寻共用原生页面，通过共享点亮态切换内容，不重复导航。
+      if (tab.key === 'kindred' || tab.key === 'index') updateActive(tab.key)
       if (tab.key === 'community') Taro.eventCenter.trigger('heartTabReselect')
       return
     }
     tabSwitchInFlight = true
     tabSwitchSourceRoute = currentRoute
     const generation = ++tabSwitchGeneration
-    onActiveChange?.(tab.key)
+    updateActive(tab.key)
     Taro.switchTab({
       url: tab.path,
       success: () => releaseTabSwitch(generation),
       fail: () => {
         if (generation !== tabSwitchGeneration) return
-        onActiveChange?.(sourceTab?.key ?? active)
+        updateActive(sourceTab?.key ?? active)
         releaseTabSwitch(generation)
       },
     })
@@ -146,7 +158,7 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
           position: 'absolute',
           left: '0',
           right: '0',
-          top: '22rpx',
+          top: '0',
           bottom: '0',
           background: '#FFFFFF',
         }}
@@ -154,91 +166,27 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
       <View
         style={{
           position: 'absolute',
-          left: '-8rpx',
-          right: '-8rpx',
-          top: '22rpx',
+          left: '0',
+          right: '0',
+          top: '0',
           height: '1rpx',
           background: '#E3E9F0',
         }}
       />
-      <View
-        id="app-tab-recommend-outer-arc"
-        style={{
-          position: 'absolute',
-          left: '300rpx',
-          top: '0',
-          width: '150rpx',
-          height: '150rpx',
-          borderRadius: '75rpx',
-          background: '#FFFFFF',
-        }}
-      />
       {TABS.map((tab, index) => {
         const isOn = tab.key === active
-        if (tab.key === 'recommend') {
-          return (
-            <View
-              key={tab.key}
-              id={`app-tab-${tab.key}`}
-              style={{
-                position: 'absolute',
-                left: '300rpx',
-                top: '0',
-                width: '150rpx',
-                height: '150rpx',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={() => handlePress(tab)}
-            >
-              <Image
-                id="app-tab-recommend-blue-circle"
-                src={tab.iconPath}
-                mode="aspectFit"
-                style={{
-                  position: 'absolute',
-                  left: '12rpx',
-                  top: '12rpx',
-                  width: `${tab.iconWidth}rpx`,
-                  height: `${tab.iconHeight}rpx`,
-                }}
-              />
-              <NotificationBadge
-                id="app-tab-recommend-badge"
-                value={visibleRecommendCount}
-                bordered
-                style={{ position: 'absolute', right: '5rpx', top: '5rpx', zIndex: 3 }}
-              />
-              <Text
-                id="app-tab-recommend-label"
-                style={{
-                  position: 'absolute',
-                  left: '0',
-                  right: '0',
-                  top: '84rpx',
-                  color: '#FFFFFF',
-                  fontSize: '20rpx',
-                  lineHeight: '28rpx',
-                  textAlign: 'center',
-                }}
-              >
-                推荐
-              </Text>
-            </View>
-          )
-        }
-
         return (
           <View
             key={tab.key}
             id={`app-tab-${tab.key}`}
             style={{
               position: 'absolute',
-              left: `${index * 150}rpx`,
-              top: '44rpx',
-              width: '150rpx',
-              height: '82rpx',
+              left: `${index * 125}rpx`,
+              top: '0',
+              width: '125rpx',
+              height: '100rpx',
+              paddingTop: '18rpx',
+              boxSizing: 'border-box',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -258,6 +206,7 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
               }}
             >
               <Image
+                id={`app-tab-${tab.key}-icon`}
                 src={tab.iconPath}
                 mode="aspectFit"
                 style={{
@@ -270,13 +219,12 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
               <Image
                 src={tab.activeIconPath}
                 mode="aspectFit"
-                style={{
-                  position: 'absolute',
-                  width: `${tab.iconWidth}rpx`,
-                  height: `${tab.iconHeight}rpx`,
-                  opacity: isOn ? 1 : 0,
-                }}
+                style={{ position: 'absolute', width: `${tab.iconWidth}rpx`, height: `${tab.iconHeight}rpx`, opacity: isOn ? 1 : 0 }}
               />
+              {tab.key === 'recommend' ? (
+                <NotificationBadge id="app-tab-recommend-badge" value={visibleRecommendCount} bordered
+                  style={{ position: 'absolute', left: '27rpx', top: '-10rpx' }} />
+              ) : null}
               {tab.key === 'chat' && messageBadge ? (
                 <NotificationBadge
                   id="app-tab-message-unread"
@@ -286,16 +234,19 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
                 />
               ) : null}
             </View>
-            <Text
+            <View
+              id={`app-tab-${tab.key}-label`}
               style={{
                 color: isOn ? '#333333' : '#999999',
                 fontSize: '20rpx',
                 fontWeight: isOn ? 500 : 'normal',
                 lineHeight: '28rpx',
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
               }}
             >
               {tab.label}
-            </Text>
+            </View>
           </View>
         )
       })}
@@ -313,7 +264,7 @@ function TabBarShell({ children }: { children: ReactNode }) {
         bottom: '0',
         zIndex: 9999,
         width: '750rpx',
-        height: '166rpx',
+        height: 'calc(100rpx + env(safe-area-inset-bottom))',
         overflow: 'visible',
       }}
     >

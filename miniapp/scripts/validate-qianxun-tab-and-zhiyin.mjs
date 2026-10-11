@@ -25,8 +25,9 @@ assert.match(indexSource, /entryError/, '千寻准入请求失败时必须退出
 assert.match(indexSource, /setReady\(true\)[\s\S]{0,180}catch|catch[\s\S]{0,260}setReady\(true\)/, '千寻准入请求失败不得永久停留在骨架屏')
 assert.match(indexSource, /setAccessStatus\(verificationResult\.accessStatus\)/, '千寻应缓存服务端准入状态，减少刷新白屏')
 assert.match(headerSource, /qianxun-primary-family/, '缺少千寻成家一级 Tab 稳定选择器')
-assert.match(headerSource, /qianxun-primary-kindred/, '缺少千寻知音一级 Tab 稳定选择器')
-assert.match(headerSource, /label: '时空邂逅'/, '千寻知音一级 Tab 必须展示新名称“时空邂逅”')
+assert.match(headerSource, /qianxun-kindred-title/, '独立时空邂逅入口必须展示模块标题')
+assert.doesNotMatch(headerSource, /qianxun-primary-kindred/, '时空邂逅已移到底部，顶部不能保留重复入口')
+assert.match(read('src/components/AppTabBar/index.tsx'), /key: 'kindred', label: '时空邂逅'/, '时空邂逅必须作为独立底部入口')
 assert.doesNotMatch(familySource, /navigateTo\(\{\s*url:\s*['"]\/pages\/qianxun\/kindred/, '点击知音不得跳出千寻 Tab 页')
 
 assert.ok(exists('src/features/qianxun/QianxunZhiyinTab.tsx'), '缺少知音 Tab 内容组件')

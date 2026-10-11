@@ -9,15 +9,18 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf
 const sha256 = relativePath => crypto.createHash('sha256').update(fs.readFileSync(path.join(root, relativePath))).digest('hex')
 
 const lanhuAssets = {
-  'src/assets/icons/tab-home.png': 'fcb3dc636c4af167617598743fc47d20a9bd96835462fc4341f3509a13fd1a64',
-  'src/assets/icons/tab-home-active.png': 'b447e2a7e2b03ea3fc941fd751acf511e57cfd3781b7de72694caaca67790ade',
-  'src/assets/icons/tab-work.png': '8e8edda2e7e3f8d9f794b994c11cb15d6e34afc5866fc1b42ffa55ed860affd1',
-  'src/assets/icons/tab-work-active.png': 'c3192ff03de11b083be52b807c385b01e1dae022a54358a7050be35dc1970d24',
-  'src/assets/icons/tab-recommend.png': 'fef477879a18c4b6c4aa620642845cb29143a068c01825ae02589d352172865f',
-  'src/assets/icons/tab-message.png': '1c5550eeca4e41c7a2906ebb69acfc541aac6fb49643efe2154ad54b926bcfd3',
-  'src/assets/icons/tab-message-active.png': '2c678a018719a914d99b214adb663bcc69f761fcdcbc998611158b06dca4fc50',
-  'src/assets/icons/tab-profile.png': '3e29c8c5bef3d49d31ee4d4b63b91ffcffbd010895dcb690383c424deace9a07',
-  'src/assets/icons/tab-profile-active.png': 'ef6a7c924a8df839b9c6a148d0f9bd3cc5579e22c61d888df4a4f3c58eaade75',
+  "src/assets/icons/tab-encounter-active.png": "34d8c3c095fdce2e6fe9fb94b71db8caf5269767dfb08b781d111d0575b90c04",
+  "src/assets/icons/tab-encounter.png": "3d66af1bb0bf17886d02eb67791528ca073527f9bbe80729a644718b35a3b5bd",
+  "src/assets/icons/tab-home-active.png": "f4af67cd2fde034193a8800ca030f612c7e43efc535bb2cdc0030cf448ac3b89",
+  "src/assets/icons/tab-home.png": "bba53de4bc392196e42f6f76c6a2c537929d4c72d31fee70c8e04b049244cc37",
+  "src/assets/icons/tab-message-active.png": "2c0af6e0fc95741595f8913a1075c34df8211803ee534b988176652fcb329f5a",
+  "src/assets/icons/tab-message.png": "c40285f381892b9d37f35502a72a04ba483c9c617c14167bc7b7e8d4ec0076e4",
+  "src/assets/icons/tab-profile-active.png": "e8aa11f070bed73e1b87a6305a81a8b8ddbfae7ed6be9db6d23e40fce7dc887d",
+  "src/assets/icons/tab-profile.png": "d792fa7e444eb38cf4721663d5813b37d59ef7508fa3584ba3dd6fa1e7012445",
+  "src/assets/icons/tab-recommend-active.png": "b89b17ee9de601a5b325000edee8fdca9feea8ae833a1a42bdbc5d9181536bd5",
+  "src/assets/icons/tab-recommend.png": "4ed4b85bfded15da920e8b2e1b293d71a4d9f040cced1a3ff105d2f7b1e0e84f",
+  "src/assets/icons/tab-work-active.png": "ec38106c7d2c6f30b4313ecfc9ad011a56c9691040dfeb2da4e3a6e7abaaade2",
+  "src/assets/icons/tab-work.png": "6bbe60e45f77022b9599f2537b01524dde94ee989344654763b1c3340f9e7e6a"
 }
 
 for (const [relativePath, expectedHash] of Object.entries(lanhuAssets)) {
@@ -31,7 +34,7 @@ const sharedState = read('src/custom-tab-bar/tabState.ts')
 const appConfig = read('src/app.config.ts')
 const projectConfig = read('project.config.json')
 
-for (const iconName of ['tab-home', 'tab-home-active', 'tab-work', 'tab-work-active', 'tab-recommend', 'tab-message', 'tab-message-active', 'tab-profile', 'tab-profile-active']) {
+for (const iconName of ['tab-encounter', 'tab-encounter-active', 'tab-recommend-active', 'tab-home', 'tab-home-active', 'tab-work', 'tab-work-active', 'tab-recommend', 'tab-message', 'tab-message-active', 'tab-profile', 'tab-profile-active']) {
   assert.match(appTabBar, new RegExp(`assets/icons/${iconName}\\.png`), `${iconName} 必须直接使用蓝湖 PNG 切图`)
 }
 assert.doesNotMatch(appTabBar, /assets\/icons\/tab-[^']+\.svg/, '底部 Tab 禁止继续混用旧 SVG')
@@ -40,10 +43,7 @@ assert.match(appTabBar, /const isOn = tab\.key === active/, '同一 TabBar 必�
 assert.doesNotMatch(appTabBar, /src=\{isOn \? tab\.activeIconPath : tab\.iconPath\}/, '切 Tab 不得替换图标资源造成闪烁')
 assert.match(appTabBar, /src=\{tab\.iconPath\}[\s\S]{0,260}opacity: isOn \? 0 : 1[\s\S]{0,360}src=\{tab\.activeIconPath\}[\s\S]{0,260}opacity: isOn \? 1 : 0/, '普通态与点亮态图标常驻且互斥显示，点击仍由可见 Tab 控件处理')
 
-assert.match(appTabBar, /id="app-tab-recommend-outer-arc"[\s\S]{0,180}left: '300rpx'[\s\S]{0,120}top: '0'[\s\S]{0,120}width: '150rpx'[\s\S]{0,120}height: '150rpx'[\s\S]{0,120}borderRadius: '75rpx'/, '推荐按钮必须保留位于中间的 150rpx 白色外圆弧')
-assert.match(appTabBar, /id="app-tab-recommend-blue-circle"[\s\S]{0,360}left: '12rpx'[\s\S]{0,160}top: '12rpx'[\s\S]{0,180}width: `\$\{tab\.iconWidth\}rpx`[\s\S]{0,160}height: `\$\{tab\.iconHeight\}rpx`/, '推荐蓝色内圆必须相对外圆下移并保持 12rpx 环宽')
-assert.match(appTabBar, /key: 'recommend'[\s\S]{0,180}iconWidth: 126, iconHeight: 126/, '推荐蓝色内圆必须按蓝湖 126rpx 尺寸渲染')
-assert.match(appTabBar, /id="app-tab-recommend-label"[\s\S]{0,300}top: '84rpx'/, '推荐文案必须贴近星形图标，恢复蓝湖 84rpx 基线')
+assert.match(appTabBar, /key: 'recommend'[^\n]+iconWidth: 40, iconHeight: 40/, '推荐必须使用与其他入口同尺寸的星形切图')
 
 assert.match(sharedState, /const listeners = new Set/, 'Tab 点亮态必须具备跨缓存页面实例的订阅集合')
 assert.match(sharedState, /export function setActiveTabKey\([\s\S]{0,260}listeners\.forEach/, '更新点亮态时必须广播到所有缓存 TabBar 实例')
@@ -57,7 +57,7 @@ assert.doesNotMatch(projectConfig, /"lazyCodeLoading"\s*:\s*"requiredComponents"
 for (const [pagePath, normal, active] of [
   ['pages/index/index', 'tab-home.png', 'tab-home-active.png'],
   ['pages/community/index', 'tab-work.png', 'tab-work-active.png'],
-  ['pages/recommend/index', 'tab-recommend.png', 'tab-recommend.png'],
+  ['pages/recommend/index', 'tab-recommend.png', 'tab-recommend-active.png'],
   ['pages/chat/index', 'tab-message.png', 'tab-message-active.png'],
   ['pages/profile/index', 'tab-profile.png', 'tab-profile-active.png'],
 ]) {
@@ -66,3 +66,16 @@ for (const [pagePath, normal, active] of [
 }
 
 console.log('底部 Tab 蓝湖切图与互斥切换门禁通过')
+
+const tabEntries = [...appTabBar.matchAll(/key: '(\w+)', label: '([^']+)'/g)]
+assert.deepEqual(tabEntries.map(item => [item[1], item[2]]), [
+  ['kindred', '时空邂逅'], ['index', '千寻'], ['community', '心动'],
+  ['recommend', '推荐'], ['chat', '消息'], ['profile', '我的'],
+])
+assert.equal([...appConfig.matchAll(/pagePath:/g)].length, 5, '六个逻辑入口必须兼容五个原生 Tab')
+assert.match(appTabBar, /index \* 125/, '六项必须等宽')
+assert.doesNotMatch(appTabBar, /app-tab-recommend-outer-arc|app-tab-recommend-blue-circle/, '推荐改为平齐星形图标')
+assert.match(customTabBar, /getActiveTabKey\(\) === 'kindred'/, '共用路由必须保留时空邂逅点亮态')
+const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
+assert.match(family, /subscribeActiveTabKey/, '底部入口必须驱动实际内容')
+assert.doesNotMatch(read('src/features/qianxun/QianxunHeader.tsx'), /id: 'qianxun-primary-kindred'/, '顶部不重复绘制时空邂逅入口')
