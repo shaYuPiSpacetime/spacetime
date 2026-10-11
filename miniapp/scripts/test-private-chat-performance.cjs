@@ -58,3 +58,20 @@ test('private chat incrementally pages platform and TIM history without replacin
   assert.match(chat, /timHistoryCompleted/)
   assert.doesNotMatch(loadEarlierBlock, /setMessages\(\[\]\)/)
 })
+
+test('private chat cold start commits one complete initial snapshot without the 180ms TIM race', () => {
+  assert.doesNotMatch(chat, /INITIAL_TIM_BUDGET_MS/)
+  assert.doesNotMatch(chat, /waitForInitialBudget/)
+  assert.match(chat, /冷启动只提交一次完整首屏/)
+  assert.match(chat, /reconcilePrivateChatMessages/)
+})
+
+test('send timeout keeps the optimistic message for eventual gateway settlement instead of duplicating it', () => {
+  const establishedStart = chat.indexOf('  const canSend = Boolean(detail?.canSend)')
+  const sendStart = chat.indexOf('  const send = async () => {', establishedStart)
+  const retryStart = chat.indexOf('  const retry = async () => {', sendStart)
+  const sendBlock = chat.slice(sendStart, retryStart)
+  assert.match(sendBlock, /isMessageTimeoutError\(error\)/)
+  assert.match(sendBlock, /if \(!isMessageTimeoutError\(error\)\) setInputValue/)
+  assert.match(chat, /消息发送失败，可点击重试/)
+})

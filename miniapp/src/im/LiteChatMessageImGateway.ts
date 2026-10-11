@@ -225,9 +225,13 @@ export class LiteChatMessageImGateway implements MessageImGateway {
       })
       const sent = (result?.data?.message || message) as TencentMessage
       this.rawMessages.set(sent.ID, sent)
-      return normalizeMessage(sent)
+      const normalized = normalizeMessage(sent)
+      this.emit({ type: 'conversation_updated', messages: [normalized] })
+      return normalized
     } catch {
-      return normalizeMessage({ ...message, status: 'fail' })
+      const failed = normalizeMessage({ ...message, status: 'fail' })
+      this.emit({ type: 'conversation_updated', messages: [failed] })
+      return failed
     }
   }
 
@@ -252,6 +256,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     const sent = (result?.data?.message || candidate) as TencentMessage
     this.rawMessages.set(sent.ID, sent)
     const normalized = normalizeMessage(sent)
+    this.emit({ type: 'conversation_updated', messages: [normalized] })
     return mustRecreate ? { ...normalized, clientMsgId } : normalized
   }
 

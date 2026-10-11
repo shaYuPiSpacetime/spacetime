@@ -15,6 +15,7 @@ export interface PrivateChatSessionSnapshot {
 
 const sessions = new Map<string, PrivateChatSessionSnapshot>()
 const MAX_SESSION_COUNT = 12
+export const PENDING_MESSAGE_GRACE_MS = 30_000
 
 function sessionKey(userId: string, conversationNo: string): string {
   return `${String(userId || '')}:${String(conversationNo || '')}`
@@ -54,16 +55,60 @@ function compareOptionalNumber(left?: number, right?: number): number {
   return Number(left) - Number(right)
 }
 
+function parseTimMsgKeyOrder(value?: string): { sequence?: number; random?: number } {
+  const parts = String(value || '').split('_')
+  if (parts.length < 2) return {}
+  const sequence = Number(parts[0])
+  const random = Number(parts[1])
+  return {
+    sequence: Number.isFinite(sequence) ? sequence : undefined,
+    random: Number.isFinite(random) ? random : undefined,
+  }
+}
+
+function resolvedSequence(message: ChatMessage): number | undefined {
+  return Number.isFinite(message.providerSequence)
+    ? message.providerSequence
+    : parseTimMsgKeyOrder(message.timMsgKey).sequence
+}
+
+function resolvedRandom(message: ChatMessage): number | undefined {
+  return Number.isFinite(message.providerRandom)
+    ? message.providerRandom
+    : parseTimMsgKeyOrder(message.timMsgKey).random
+}
+
+function numericIdentity(value: string): number | undefined {
+  const match = value.match(/(\d+)$/)
+  if (!match) return undefined
+  const result = Number(match[1])
+  return Number.isFinite(result) ? result : undefined
+}
+
 /** TIM 时间仅精确到秒；相同时间必须继续使用服务端顺序号稳定排序。 */
 function compareMessages(left: ChatMessage, right: ChatMessage): number {
-  const timeOrder = left.sentAt.localeCompare(right.sentAt)
+  const leftTime = Date.parse(left.sentAt)
+  const rightTime = Date.parse(right.sentAt)
+  const timeOrder = Number.isFinite(leftTime) && Number.isFinite(rightTime)
+    ? leftTime - rightTime
+    : left.sentAt.localeCompare(right.sentAt)
   if (timeOrder !== 0) return timeOrder
-  const sequenceOrder = compareOptionalNumber(left.providerSequence, right.providerSequence)
+  const sequenceOrder = compareOptionalNumber(resolvedSequence(left), resolvedSequence(right))
   if (sequenceOrder !== 0) return sequenceOrder
-  const randomOrder = compareOptionalNumber(left.providerRandom, right.providerRandom)
+  const randomOrder = compareOptionalNumber(resolvedRandom(left), resolvedRandom(right))
   if (randomOrder !== 0) return randomOrder
-  // 平台持久化历史没有 TIM sequence，保留 DAO 已确认的返回顺序。
-  return 0
+  const leftIdentity = messageIdentity(left)
+  const rightIdentity = messageIdentity(right)
+  const leftNumber = numericIdentity(leftIdentity)
+  const rightNumber = numericIdentity(rightIdentity)
+  if (leftNumber !== undefined && rightNumber !== undefined && leftNumber !== rightNumber) {
+    return leftNumber - rightNumber
+  }
+  return leftIdentity.localeCompare(rightIdentity)
+}
+
+function messageIdentity(message: ChatMessage): string {
+  return message.timMsgKey || message.timMessageId || message.messageNo || message.clientMsgId
 }
 
 function hasSameMessageValue(left: ChatMessage, right: ChatMessage): boolean {
@@ -106,6 +151,30 @@ export function mergePrivateChatMessages(
     && merged.every((item, index) => hasSameMessageValue(item, current[index]))
   ) return current
   return merged
+}
+
+/**
+ * 用已确认的远端快照校准本地发送队列。发送中的消息必须保留一个确认宽限期，
+ * 超过宽限期仍不在远端时转为 failed，避免永久气泡又不静默丢消息。
+ */
+export function reconcilePrivateChatMessages(
+  current: ChatMessage[],
+  remote: ChatMessage[],
+  now = Date.now(),
+  graceMs = PENDING_MESSAGE_GRACE_MS,
+): ChatMessage[] {
+  const merged = mergePrivateChatMessages(current, remote)
+  if (merged.length === 0) return merged
+  let changed = false
+  const next = merged.map(message => {
+    if (message.sendStatus !== 'sending' || remote.some(remoteMessage => hasSameIdentity(message, remoteMessage))) return message
+    const sentAt = Date.parse(message.sentAt)
+    if (!Number.isFinite(sentAt) || now - sentAt < graceMs) return message
+    changed = true
+    return { ...message, sendStatus: 'failed' as const }
+  })
+  if (!changed) return merged
+  return next
 }
 
 export function readPrivateChatSession(

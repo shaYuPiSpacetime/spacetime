@@ -81,7 +81,7 @@ export function withMessageTimeout<T>(
   timeoutMessage: string,
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(timeoutMessage)), Math.max(1, timeoutMs))
+    const timer = setTimeout(() => reject(new MessageTimeoutError(timeoutMessage)), Math.max(1, timeoutMs))
     promise.then(
       value => {
         clearTimeout(timer)
@@ -93,6 +93,21 @@ export function withMessageTimeout<T>(
       },
     )
   })
+}
+
+/** 超时只代表页面等待窗口结束，底层请求仍可能成功；调用方据此避免重复发送。 */
+export class MessageTimeoutError extends Error {
+  readonly code = 'MESSAGE_TIMEOUT'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'MessageTimeoutError'
+  }
+}
+
+export function isMessageTimeoutError(error: unknown): boolean {
+  return Boolean(error instanceof MessageTimeoutError
+    || (error && typeof error === 'object' && (error as { code?: unknown }).code === 'MESSAGE_TIMEOUT'))
 }
 
 /** SDK 普通文本只有 TIM ID；只有自定义载荷给出独立编号时才按平台编号确认。 */

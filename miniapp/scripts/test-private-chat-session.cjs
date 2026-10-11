@@ -106,6 +106,44 @@ test('缺少 provider sequence 的平台历史保持数据库返回顺序', () =
   assert.deepEqual(merged.map(item => item.content), ['先', '后'])
 })
 
+test('TIM MsgKey 可为平台归档补齐同秒排序，且不依赖接口到达顺序', () => {
+  const { mergePrivateChatMessages } = require(path.join(root, 'src/domain/privateChatSession.ts'))
+  const platform = message({
+    messageNo: 'M100', clientMsgId: 'C100', timMessageId: '', timMsgKey: '100_9_1700000000',
+    content: '平台归档', sentAt: '2026-10-10T10:00:00.000Z', providerSequence: undefined, providerRandom: undefined,
+  })
+  const tim = message({
+    messageNo: 'M99', clientMsgId: 'C99', timMessageId: 'T99', timMsgKey: '99_8_1700000000',
+    content: 'TIM历史', sentAt: '2026-10-10T10:00:00.000Z', providerSequence: undefined, providerRandom: undefined,
+  })
+  const merged = mergePrivateChatMessages([], [platform, tim])
+  assert.deepEqual(merged.map(item => item.content), ['TIM历史', '平台归档'])
+  assert.deepEqual(
+    mergePrivateChatMessages([], [tim, platform]).map(item => item.content),
+    ['TIM历史', '平台归档'],
+  )
+})
+
+test('远端快照会把超时未确认的本地 sending 气泡转为 failed，并保留新发送项', () => {
+  const { reconcilePrivateChatMessages } = require(path.join(root, 'src/domain/privateChatSession.ts'))
+  const stale = message({
+    messageNo: 'M-stale', clientMsgId: 'C-stale', timMessageId: '', timMsgKey: '',
+    direction: 'outgoing', sendStatus: 'sending', sentAt: '2026-10-10T09:00:00.000Z',
+  })
+  const fresh = message({
+    messageNo: 'M-fresh', clientMsgId: 'C-fresh', timMessageId: '', timMsgKey: '',
+    direction: 'outgoing', sendStatus: 'sending', sentAt: '2026-10-10T09:59:50.000Z',
+  })
+  const result = reconcilePrivateChatMessages(
+    [stale, fresh],
+    [],
+    Date.parse('2026-10-10T10:00:00.000Z'),
+    30_000,
+  )
+  assert.equal(result.find(item => item.clientMsgId === 'C-stale').sendStatus, 'failed')
+  assert.equal(result.find(item => item.clientMsgId === 'C-fresh').sendStatus, 'sending')
+})
+
 test('私信会话缓存按登录用户和会话隔离并保存滚动快照', () => {
   const {
     clearPrivateChatSession,

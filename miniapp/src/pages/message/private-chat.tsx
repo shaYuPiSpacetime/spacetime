@@ -8,6 +8,7 @@ import {
   createKeyedSingleFlight,
   formatPrivateChatTime,
   isReadCursorNotFoundError,
+  isMessageTimeoutError,
   isTimAccountMissingError,
   resolveConversationReadCursor,
   resolveConversationSendBlockedReason,
@@ -18,6 +19,7 @@ import {
 } from '@/domain/messageRuntime'
 import {
   mergePrivateChatMessages,
+  reconcilePrivateChatMessages,
   readPrivateChatSession,
   writePrivateChatSession,
 } from '@/domain/privateChatSession'
@@ -53,7 +55,6 @@ const DETAIL_TIMEOUT_MS = 8_000
 const CONNECTION_TIMEOUT_MS = 25_000
 const HISTORY_TIMEOUT_MS = 10_000
 const SEND_TIMEOUT_MS = 15_000
-const INITIAL_TIM_BUDGET_MS = 180
 
 type PrivateChatHistoryPage = {
   list: ChatMessage[]
@@ -69,13 +70,6 @@ type TimHistoryLoadResult = {
 type PlatformHistoryLoadResult = {
   page?: PrivateChatHistoryPage
   error?: unknown
-}
-
-function waitForInitialBudget<T>(promise: Promise<T>): Promise<T | undefined> {
-  return Promise.race([
-    promise,
-    new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), INITIAL_TIM_BUDGET_MS)),
-  ])
 }
 
 export default function PrivateChatPage() {
@@ -373,6 +367,11 @@ function EstablishedPrivateChatPage() {
     )
     if (!relevant.length) return
     const hasIncoming = relevant.some(item => item.direction === 'incoming')
+    const failedOutgoing = relevant.find(item => item.direction === 'outgoing' && item.sendStatus === 'failed')
+    if (failedOutgoing) {
+      setRetryTarget(failedOutgoing)
+      setErrorMessage('消息发送失败，可点击重试')
+    }
     if (hasIncoming) {
       setDetail(current => current?.femaleProtection?.appliesToCurrentUser
         ? {
@@ -565,12 +564,17 @@ function EstablishedPrivateChatPage() {
         }).catch(error => ({ error }))
       }
 
+      // 冷启动只提交一次完整首屏，避免先显示平台历史再因 TIM 补齐而闪烁/跳位。
       const initialTim = timHistoryPromise
-        ? await waitForInitialBudget(timHistoryPromise)
+        ? await timHistoryPromise
         : undefined
       if (!isCurrentLoad()) return
       if (initialTim?.page) {
         nextMessages = mergePrivateChatMessages(nextMessages, initialTim.page.list)
+        nextMessages = reconcilePrivateChatMessages(
+          nextMessages,
+          [...(localHistory.page?.list || []), ...initialTim.page.list],
+        )
       }
 
       commitInitialSnapshot(nextDetail, localHistory.page, initialTim?.page, nextMessages)
@@ -767,7 +771,7 @@ function EstablishedPrivateChatPage() {
           ? previousDetail
           : current)
       }
-      setInputValue(current => current || value)
+      if (!isMessageTimeoutError(error)) setInputValue(current => current || value)
       const resolved = resolveMessageError(error)
       setErrorMessage(resolved.message)
       await Taro.showToast({ title: resolved.message, icon: 'none' })
