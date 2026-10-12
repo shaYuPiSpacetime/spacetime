@@ -17,4 +17,11 @@
 
 ## 发布与边界
 
-生产构建、独立目录哈希及体验包校验待完成后更新。真机视觉验收尚未执行；无后端、管理端或接口变更，L1/L2 不适用。
+- 业务提交：`881b4fd67fe6a96598b8ca2501e206fb4c9e2b99`，已 Push 至 master；上传前实际核对远端 HEAD 与构建 SHA 一致。
+- 在独立 Git archive 源码目录执行完整 `npm run build:weapp`，构建前后门禁通过；`MINIAPP_DEV_FIXED_LOGIN=false`、`MINIAPP_E2E_MODE=false`。
+- 体验版：`1.0.20261012.2144`，微信 CLI upload 成功。
+- 发布目录：`.runtime/weapp-release-20261012214437-881b4fd6/project`。430 个文件 SHA-256 一致，preview/upload 全部主包和分包名、字节数逐项一致。
+- 实际上传：总包 2,862,719 字节，主包 1,389,305 字节，千寻分包 135,924 字节。
+- 原始证据：同级 `build.log`、`hash-audit.json`、`preview-info.json`、`upload-info.json`、`package-audit.json`。
+
+真机视觉验收尚未执行；无后端、管理端或接口变更，L1/L2 不适用。Webpack 存在资源大小建议警告，项目包体门禁通过。
