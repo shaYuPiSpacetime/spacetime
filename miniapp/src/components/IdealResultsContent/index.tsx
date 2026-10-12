@@ -322,7 +322,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
           </View>
           <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '56rpx', padding: '0 12rpx', background: '#FFFFFF', color: '#0C285A', fontSize: '24rpx' }}>
             <View>本页 {currentItemNos.length} 人 · 已选 {selectedItemNos.length} 人</View>
-            {selectedItemNos.length > 0 ? <View onClick={() => { if (!unlocking) setSelection({ snapshotNo, itemNos: [] }) }} style={{ padding: '12rpx', color: BLUE }}>取消选择</View> : <View>可勾选卡片后解锁</View>}
+            {selectedItemNos.length > 0 ? <View onClick={() => { if (!unlocking) setSelection({ snapshotNo, itemNos: [] }) }} style={{ padding: '12rpx', color: BLUE }}>取消选择</View> : <View>勾选卡片右上角</View>}
           </View>
           <View style={{ display: 'flex', gap: '16rpx' }}>
           <View
@@ -538,10 +538,55 @@ function IdealCandidateCard({ item, onUnlock, selected, onSelect }: { item: Idea
         marginBottom: '20rpx',
         padding: '30rpx 28rpx 28rpx',
         borderRadius: '20rpx',
+        border: `2rpx solid ${selected ? BLUE : 'transparent'}`,
         background: selected ? '#EEF5FF' : '#F7F8FA',
         boxSizing: 'border-box',
       }}
     >
+      {!item.unlocked ? (
+        <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16rpx' }}>
+          <Text style={{ color: '#64748B', fontSize: '24rpx' }}>可多选，勾选后统一解锁</Text>
+          <View
+            onClick={onSelect}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              minHeight: '88rpx',
+              minWidth: '220rpx',
+              marginLeft: '16rpx',
+              padding: '0 16rpx',
+              border: `2rpx solid ${BLUE}`,
+              borderRadius: '16rpx',
+              background: selected ? BLUE : '#FFFFFF',
+              color: selected ? '#FFFFFF' : BLUE,
+              fontSize: '26rpx',
+              fontWeight: 600,
+              boxSizing: 'border-box',
+            }}
+          >
+            <View
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40rpx',
+                height: '40rpx',
+                marginRight: '12rpx',
+                borderRadius: '8rpx',
+                border: `2rpx solid ${selected ? '#FFFFFF' : BLUE}`,
+                background: '#FFFFFF',
+                color: BLUE,
+                boxSizing: 'border-box',
+              }}
+            >
+              {selected ? '✓' : ''}
+            </View>
+            <Text>{selected ? '已勾选' : '勾选此人'}</Text>
+          </View>
+        </View>
+      ) : null}
       <View style={{ display: 'flex', alignItems: 'center' }}>
         {avatar ? (
           <Image
@@ -600,16 +645,11 @@ function IdealCandidateCard({ item, onUnlock, selected, onSelect }: { item: Idea
         style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: item.unlocked ? 'space-between' : 'flex-end',
           marginTop: '34rpx',
         }}
       >
-        {!item.unlocked ? (
-          <View onClick={onSelect} style={{ display: 'flex', alignItems: 'center', minHeight: '88rpx', minWidth: '180rpx', color: selected ? BLUE : '#949BAA', fontSize: '25rpx' }}>
-            <View style={{ width: '38rpx', height: '38rpx', marginRight: '14rpx', borderRadius: '19rpx', border: `2rpx solid ${selected ? BLUE : '#A2A8B4'}`, background: selected ? BLUE : '#FFFFFF', color: '#FFFFFF', textAlign: 'center', lineHeight: '38rpx' }}>{selected ? '✓' : ''}</View>
-            <View>{selected ? '已选中' : '选择此人'}</View>
-          </View>
-        ) : <View style={{ color: '#949BAA', fontSize: '23rpx' }}>资料已解锁</View>}
+        {item.unlocked ? <View style={{ color: '#949BAA', fontSize: '23rpx' }}>资料已解锁</View> : null}
         <Text
           onClick={
             item.unlocked && profile
