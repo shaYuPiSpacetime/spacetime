@@ -123,9 +123,13 @@ export class LiteChatMessageImGateway implements MessageImGateway {
   private session = 0
   private readonly c2cReadPlugin = createLiteChatC2CReadPlugin()
 
-  constructor(private readonly loginTimeoutMs = IM_LOGIN_TIMEOUT_MS) {}
+  constructor(
+    private readonly loginTimeoutMs = IM_LOGIN_TIMEOUT_MS,
+    private readonly isAuthSessionCurrent: () => boolean = () => true,
+  ) {}
 
   initialize(credentials: ImCredentials): Promise<void> {
+    if (!this.isAuthSessionCurrent()) return Promise.reject(new Error('登录身份已变化，请重新进入私信'))
     if (
       this.chat &&
       this.sdkAppId === credentials.sdkAppId &&
@@ -158,6 +162,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
 
   private async initializeInternal(credentials: ImCredentials): Promise<void> {
     if (this.chat) await this.logout()
+    if (!this.isAuthSessionCurrent()) throw new Error('登录身份已变化，请重新进入私信')
     const session = ++this.session
     this.sdkAppId = Number(credentials.sdkAppId)
     this.currentUserId = credentials.imUserId
@@ -168,10 +173,13 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     chat.use(this.c2cReadPlugin)
     this.attachEvents(chat, session)
     await chat.login({ userID: credentials.imUserId, userSig: credentials.userSig })
+    if (!this.isAuthSessionCurrent() || this.chat !== chat || this.session !== session) {
+      throw new Error('登录身份已变化，请重新进入私信')
+    }
   }
 
   isReady(): boolean {
-    return this.ready
+    return this.ready && this.isAuthSessionCurrent()
   }
 
   async listConversations(): Promise<TimConversationSnapshot[]> {
@@ -212,8 +220,10 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     const normalized = content.trim()
     if (!normalized) throw new Error('消息内容不能为空')
     const chat = this.requireReadyChat()
+    const targetUserId = resolveTimC2CTargetUserId(timConversationId)
+    this.requirePeerTarget(targetUserId)
     const message = chat.createTextMessage({
-      to: resolveTimC2CTargetUserId(timConversationId),
+      to: targetUserId,
       conversationType: TencentCloudChat.TYPES.CONV_C2C,
       payload: { text: normalized },
     })
@@ -240,6 +250,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     if (!raw) throw new Error('待重发消息已失效，请重新输入')
     const chat = this.requireReadyChat()
     const targetUserId = resolveTimC2CTargetUserId(timConversationId)
+    this.requirePeerTarget(targetUserId)
     const mustRecreate = raw.to !== targetUserId
     const candidate = mustRecreate
       ? chat.createTextMessage({
@@ -282,6 +293,7 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     const wasReady = this.ready
     this.session += 1
     this.ready = false
+    this.initializing = undefined
     this.rawMessages.clear()
     this.chat = undefined
     this.currentUserId = undefined
@@ -290,14 +302,15 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     try {
       // 登录 Promise 超时只结束调用方等待；未就绪实例必须销毁，不能带着旧连接重试。
       if (wasReady) await chat.logout()
-      else await chat.destroy()
     } catch (error) {
       if (!isAlreadyLoggedOutError(error)) throw error
+    } finally {
+      await chat.destroy()
     }
   }
 
   private attachEvents(chat: ChatSdk, session: number) {
-    const isCurrentSession = () => this.chat === chat && this.session === session
+    const isCurrentSession = () => this.chat === chat && this.session === session && this.isAuthSessionCurrent()
     chat.on(TencentCloudChat.EVENT.SDK_READY, () => {
       if (!isCurrentSession()) return
       this.ready = true
@@ -331,10 +344,12 @@ export class LiteChatMessageImGateway implements MessageImGateway {
   }
 
   private emit(event: MessageImEvent) {
+    if (!this.isAuthSessionCurrent()) return
     this.listeners.forEach(listener => listener(event))
   }
 
   private requireChat(): ChatSdk {
+    if (!this.isAuthSessionCurrent()) throw new Error('登录身份已变化，请重新进入私信')
     if (!this.chat) throw new Error('私信服务尚未初始化')
     return this.chat
   }
@@ -343,5 +358,9 @@ export class LiteChatMessageImGateway implements MessageImGateway {
     const chat = this.requireChat()
     if (!this.ready) throw new Error('私信服务连接中，请稍后重试')
     return chat
+  }
+
+  private requirePeerTarget(targetUserId: string): void {
+    if (targetUserId === this.currentUserId) throw new Error('聊天身份异常，不能发送给自己，请重新进入私信')
   }
 }

@@ -25,6 +25,7 @@ import {
 } from '@/domain/privateChatSession'
 import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
 import { loadMessageImGateway } from '@/im/loadMessageImGateway'
+import { getMessageAuthSessionVersion } from '@/domain/messageLifecycle'
 import type {
   MessageHistoryPage as TimMessageHistoryPage,
   MessageImEvent,
@@ -264,6 +265,7 @@ function EstablishedPrivateChatPage() {
   const gatewayRef = useRef<MessageImGateway>()
   const gatewayPromiseRef = useRef<Promise<MessageImGateway>>()
   const connectionPromiseRef = useRef<Promise<MessageImGateway>>()
+  const gatewayAuthVersionRef = useRef(getMessageAuthSessionVersion())
   const sendInFlightRef = useRef(false)
   const unsubscribeGatewayRef = useRef<() => void>()
   const gatewayEventHandlerRef = useRef<(event: MessageImEvent) => void>(() => undefined)
@@ -398,10 +400,23 @@ function EstablishedPrivateChatPage() {
   }
 
   const getGateway = useCallback(async (): Promise<MessageImGateway> => {
+    const authVersion = getMessageAuthSessionVersion()
+    if (!isMockScene && gatewayAuthVersionRef.current !== authVersion) {
+      unsubscribeGatewayRef.current?.()
+      unsubscribeGatewayRef.current = undefined
+      gatewayRef.current = undefined
+      gatewayPromiseRef.current = undefined
+      connectionPromiseRef.current = undefined
+      gatewayAuthVersionRef.current = authVersion
+    }
     if (gatewayRef.current) return gatewayRef.current
     if (!gatewayPromiseRef.current) {
       const gatewayPromise = loadMessageImGateway(isMockScene)
         .then(gateway => {
+          if (!isMockScene && (authVersion !== getMessageAuthSessionVersion()
+            || String(useAuthStore.getState().userId || '') !== sessionUserId)) {
+            throw new Error('登录身份已变化，请重新进入私信')
+          }
           gatewayRef.current = gateway
           unsubscribeGatewayRef.current?.()
           unsubscribeGatewayRef.current = gateway.onEvent(event => {
@@ -416,12 +431,20 @@ function EstablishedPrivateChatPage() {
       gatewayPromiseRef.current = gatewayPromise
     }
     return gatewayPromiseRef.current
-  }, [isMockScene])
+  }, [isMockScene, sessionUserId])
 
   const ensureConnected = useCallback(async (): Promise<MessageImGateway> => {
+    const authVersion = getMessageAuthSessionVersion()
+    const assertCurrentAuthSession = () => {
+      if (!isMockScene && (authVersion !== getMessageAuthSessionVersion()
+        || String(useAuthStore.getState().userId || '') !== sessionUserId)) {
+        throw new Error('登录身份已变化，请重新进入私信')
+      }
+    }
+    assertCurrentAuthSession()
     const existing = gatewayRef.current
-    if (existing?.isReady()) return existing
-    if (connectionPromiseRef.current) return connectionPromiseRef.current
+    if (existing?.isReady() && (isMockScene || gatewayAuthVersionRef.current === authVersion)) return existing
+    if (connectionPromiseRef.current && (isMockScene || gatewayAuthVersionRef.current === authVersion)) return connectionPromiseRef.current
 
     const connect = (async () => {
       const gateway = await withMessageTimeout(
@@ -430,11 +453,13 @@ function EstablishedPrivateChatPage() {
         '私信组件加载超时，请重试',
       )
       if (!gateway.isReady()) {
+        assertCurrentAuthSession()
         const credentials = await withMessageTimeout(
           service.getImCredentials(),
           DETAIL_TIMEOUT_MS,
           '私信凭证获取超时，请重试',
         )
+        assertCurrentAuthSession()
         await withMessageTimeout(
           gateway.initialize(credentials),
           CONNECTION_TIMEOUT_MS,
@@ -446,6 +471,7 @@ function EstablishedPrivateChatPage() {
           '私信连接超时，请重试',
         )
       }
+      assertCurrentAuthSession()
       return gateway
     })()
     connectionPromiseRef.current = connect
@@ -454,7 +480,7 @@ function EstablishedPrivateChatPage() {
     }
     void connect.then(clearConnection, clearConnection)
     return connect
-  }, [getGateway, service])
+  }, [getGateway, isMockScene, service, sessionUserId])
 
   const commitInitialSnapshot = useCallback((
     nextDetail: MessageConversationDetail | undefined,
@@ -513,7 +539,10 @@ function EstablishedPrivateChatPage() {
   const load = useCallback(
     () => loadSingleFlight.run(conversationNo, async () => {
       const version = ++loadVersionRef.current
+      const authVersion = getMessageAuthSessionVersion()
       const isCurrentLoad = () => mountedRef.current && version === loadVersionRef.current
+        && (isMockScene || (authVersion === getMessageAuthSessionVersion()
+          && String(useAuthStore.getState().userId || '') === sessionUserId))
       const cached = readPrivateChatSession(sessionUserId, conversationNo)
       if (!cached?.initialLoaded) setInitialLoading(true)
       setErrorMessage('')
@@ -604,6 +633,11 @@ function EstablishedPrivateChatPage() {
 
   useEffect(() => {
     const cached = readPrivateChatSession(sessionUserId, conversationNo)
+    unsubscribeGatewayRef.current?.()
+    unsubscribeGatewayRef.current = undefined
+    gatewayRef.current = undefined
+    gatewayPromiseRef.current = undefined
+    connectionPromiseRef.current = undefined
     stateSessionKeyRef.current = `${sessionUserId}:${conversationNo}`
     loadVersionRef.current += 1
     readAckKey.current = ''
@@ -735,6 +769,7 @@ function EstablishedPrivateChatPage() {
       return
     }
     const previousDetail = detail
+    const authVersion = getMessageAuthSessionVersion()
     const protectionApplies = Boolean(detail.femaleProtection?.appliesToCurrentUser)
     sendInFlightRef.current = true
     if (protectionApplies) {
@@ -757,6 +792,8 @@ function EstablishedPrivateChatPage() {
         SEND_TIMEOUT_MS,
         '消息发送超时，请稍后确认发送结果',
       )
+      if (!isMockScene && (authVersion !== getMessageAuthSessionVersion()
+        || String(useAuthStore.getState().userId || '') !== sessionUserId)) return
       const next = mergePrivateChatMessages(messagesRef.current, [message])
       messagesRef.current = next
       setMessages(next)
@@ -766,6 +803,7 @@ function EstablishedPrivateChatPage() {
         if (protectionApplies) setDetail(previousDetail)
       }
     } catch (error) {
+      if (!isMockScene && authVersion !== getMessageAuthSessionVersion()) return
       if (protectionApplies) {
         setDetail(current => current?.femaleProtection?.waitingForFemaleReply
           ? previousDetail
@@ -782,9 +820,11 @@ function EstablishedPrivateChatPage() {
 
   const retry = async () => {
     if (!retryTarget || !timConversationId) return
+    const authVersion = getMessageAuthSessionVersion()
     try {
       const gateway = await ensureConnected()
       const retried = await gateway.retry(timConversationId, retryTarget.clientMsgId)
+      if (!isMockScene && authVersion !== getMessageAuthSessionVersion()) return
       const next = mergePrivateChatMessages(messagesRef.current, [retried])
       messagesRef.current = next
       setMessages(next)
@@ -803,6 +843,7 @@ function EstablishedPrivateChatPage() {
       }
       setRetryTarget(undefined)
     } catch (error) {
+      if (!isMockScene && authVersion !== getMessageAuthSessionVersion()) return
       if (!isMockScene && isTimAccountMissingError(error)) {
         try {
           const recoveredDetail = await service.getConversation(conversationNo)

@@ -1,7 +1,21 @@
 import type { MessageImGateway } from './MessageImGateway'
+import { getMessageAuthSessionVersion, onMessageAuthSessionChanged } from '../domain/messageLifecycle'
 
 let liteChatGatewayPromise: Promise<MessageImGateway> | undefined
 let mockGatewayPromise: Promise<MessageImGateway> | undefined
+let disposalPromise: Promise<void> = Promise.resolve()
+
+onMessageAuthSessionChanged(() => {
+  const previous = liteChatGatewayPromise
+  liteChatGatewayPromise = undefined
+  if (!previous) return
+  // 必须等旧实例销毁后创建新实例，Tencent create 可能按 SDKAppID 返回缓存实例。
+  disposalPromise = Promise.all([
+    disposalPromise,
+    previous.then(gateway => gateway.logout(), () => undefined),
+  ]).then(() => undefined)
+  void disposalPromise.catch(() => undefined)
+})
 
 function loadMockGateway(): Promise<MessageImGateway> {
   if (!mockGatewayPromise) {
@@ -19,9 +33,17 @@ export function loadMessageImGateway(useMockScene = false): Promise<MessageImGat
   if (useMockScene || forceMock) return loadMockGateway()
 
   if (!liteChatGatewayPromise) {
-    liteChatGatewayPromise = import('./LiteChatMessageImGateway').then(
-      ({ LiteChatMessageImGateway }) => new LiteChatMessageImGateway(),
-    )
+    const version = getMessageAuthSessionVersion()
+    const previousDisposal = disposalPromise
+    const loading = import('./LiteChatMessageImGateway').then(async ({ LiteChatMessageImGateway }) => {
+      await previousDisposal
+      if (version !== getMessageAuthSessionVersion()) throw new Error('登录身份已变化，请重新进入私信')
+      return new LiteChatMessageImGateway(undefined, () => version === getMessageAuthSessionVersion())
+    })
+    liteChatGatewayPromise = loading
+    void loading.catch(() => {
+      if (liteChatGatewayPromise === loading) liteChatGatewayPromise = undefined
+    })
   }
   return liteChatGatewayPromise
 }

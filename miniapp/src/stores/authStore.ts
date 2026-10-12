@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { TOKEN_KEY, USER_INFO_KEY } from '@/constants/config'
 import type { AccessStatus } from '@/types/prd01'
 import { resetRecommendBadge } from './recommendBadgeStore'
+import { invalidateMessageAuthSession } from '../domain/messageLifecycle'
 
 interface AuthState {
   token: string
@@ -28,7 +29,7 @@ interface AuthState {
   checkLogin: () => void
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   token: '',
   userId: null,
   nickname: '',
@@ -41,6 +42,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   /** 保存登录信息 */
   setLogin: (token, userId, nickname, avatar, extra = {}) => {
+    if (get().userId !== userId || get().token !== token) invalidateMessageAuthSession()
     const previous = Taro.getStorageSync(USER_INFO_KEY)
     if (previous?.userId !== userId) resetRecommendBadge()
     const userInfo = {
@@ -73,6 +75,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   /** 退出登录 */
   logout: () => {
+    invalidateMessageAuthSession()
     resetRecommendBadge()
     Taro.removeStorageSync(TOKEN_KEY)
     Taro.removeStorageSync(USER_INFO_KEY)
@@ -85,9 +88,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (token) {
       const userInfo = Taro.getStorageSync(USER_INFO_KEY)
       if (userInfo) {
+        if (get().userId !== userInfo.userId || get().token !== token) invalidateMessageAuthSession()
         set({ token, ...userInfo, isLoggedIn: true })
       }
     } else {
+      if (get().token || get().userId) invalidateMessageAuthSession()
       resetRecommendBadge()
       set({ token: '', userId: null, nickname: '', avatar: '', openid: '', phone: '', maskedPhone: '', accessStatus: null, isLoggedIn: false })
     }
