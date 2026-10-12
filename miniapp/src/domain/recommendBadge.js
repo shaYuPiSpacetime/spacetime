@@ -1,10 +1,22 @@
 export function resolveRecommendBadgeCount(page) {
-  if (!page || !Array.isArray(page.items) || page.items.length === 0) return 0
+  if (!page || page.waitingReason === 'browse_limit' || page.waitingReason === 'no_candidate'
+    || !Array.isArray(page.items) || page.items.length === 0) return 0
   const viewed = new Set(page.viewedCandidateNos || [])
-  const candidates = new Set(page.items.filter(item => !viewed.has(item.candidateNo)).map(item => item.candidateNo))
-  if (page.remainingBrowseCount == null) return candidates.size
+  // 空对象、空编号不能在 Set 中变成一个 undefined 候选，误显示数字 1。
+  const candidates = new Set(page.items.filter(item => hasCandidateNo(item) && !viewed.has(item.candidateNo)).map(item => item.candidateNo))
+  // 剩余额度尚未取得时保持隐藏，不能用临时卡片数量猜出一个推荐数。
+  if (page.remainingBrowseCount == null || page.remainingBrowseCount === '') return 0
   const remaining = Number(page.remainingBrowseCount)
   return Number.isFinite(remaining) ? Math.min(candidates.size, Math.max(0, remaining)) : 0
+}
+
+function hasCandidateNo(item) {
+  return typeof item?.candidateNo === 'string' && item.candidateNo.trim().length > 0
+}
+
+function hasResolvedCount(page) {
+  return Array.isArray(page?.items) && page.remainingBrowseCount != null
+    && page.remainingBrowseCount !== '' && Number.isFinite(Number(page.remainingBrowseCount))
 }
 
 /** 按游标收齐额度内的真实候选，空扫描页继续查询，重复游标或筛选变化时拒绝发布不完整数字。 */
@@ -22,6 +34,7 @@ export async function collectRecommendCandidatePages(fetchPage, cursor) {
     }
     for (const item of page.items || []) {
       if (candidates.size >= limit) break
+      if (!hasCandidateNo(item)) continue
       candidates.set(item.candidateNo, item)
     }
     if (!page.nextCursor || candidates.size >= limit) break
@@ -56,14 +69,26 @@ export function createRecommendBadgeRuntime({ fetchPage, now = Date.now }) {
   let pending = null
   const listeners = new Set()
   const update = next => {
+    if (state.updatedAt > 0 && state.ownerId === next.ownerId && state.nextResetAt) {
+      // 旧页面的迟到回执不能把新周期/新偏好回退；缺失元信息不视为一次新推荐。
+      if (next.nextResetAt && next.nextResetAt < state.nextResetAt) return
+      if (!next.nextResetAt) next = { ...next, nextResetAt: state.nextResetAt }
+      if (state.nextResetAt === next.nextResetAt) {
+        if (next.preferenceVersion == null) next = { ...next, preferenceVersion: state.preferenceVersion }
+        if (state.preferenceVersion != null && next.preferenceVersion < state.preferenceVersion) return
+        if (next.browseQuota == null) next = { ...next, browseQuota: state.browseQuota }
+      }
+    }
     // 同一偏好和周期内，浏览只会减少未看人数；切 Tab 的后台刷新不能把数字加回去。
     if (state.updatedAt > 0 && state.ownerId === next.ownerId && next.nextResetAt
       && state.nextResetAt === next.nextResetAt && state.preferenceVersion === next.preferenceVersion
       && state.browseQuota === next.browseQuota) {
       next.count = Math.min(state.count, next.count)
     }
+    const displayChanged = state.ownerId !== next.ownerId || state.count !== next.count
     state = next
-    listeners.forEach(listener => listener(state))
+    // 元信息刷新不重绘每个 Tab 的原生角标，空值保持隐藏。
+    if (displayChanged) listeners.forEach(listener => listener(state))
   }
   const reset = () => {
     generation += 1
@@ -71,6 +96,8 @@ export function createRecommendBadgeRuntime({ fetchPage, now = Date.now }) {
     update({ ownerId: null, count: 0, updatedAt: 0, nextResetAt: null, preferenceVersion: null, browseQuota: null })
   }
   const publishPage = (ownerId, page) => {
+    // 未取得服务端额度不建立已清零快照，避免初始占位值压住稍后到达的真实数字。
+    if (!hasResolvedCount(page)) return
     generation += 1
     update({ ownerId, count: resolveRecommendBadgeCount(page), updatedAt: now(), nextResetAt: page?.nextResetAt || null, preferenceVersion: page?.preferenceVersion ?? null, browseQuota: page?.browseQuota ?? null })
   }
@@ -92,6 +119,7 @@ export function createRecommendBadgeRuntime({ fetchPage, now = Date.now }) {
     const request = { ownerId, task: null }
     request.task = Promise.resolve(fetchPage()).then(page => {
       if (generation !== requestGeneration || state.ownerId !== ownerId) return
+      if (!hasResolvedCount(page)) return
       update({ ownerId, count: resolveRecommendBadgeCount(page), updatedAt: now(), nextResetAt: page?.nextResetAt || null, preferenceVersion: page?.preferenceVersion ?? null, browseQuota: page?.browseQuota ?? null })
     }).catch(() => {
       // 短暂网络失败不把已经确认的推荐数字清零。

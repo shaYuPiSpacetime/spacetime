@@ -98,10 +98,10 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
 
     @Override
     public IdealUnlockQuoteVO quoteAll(Long userId, IdealUnlockAllQuoteReq req) {
-        if (req == null) {
-            throw new BusinessException(400, "筛选快照编号不能为空");
+        if (req == null || req.getItemNos() == null || req.getItemNos().isEmpty()) {
+            throw new BusinessException(400, "请更新小程序后，按当前页重新解锁");
         }
-        return createQuote(userId, req.getSnapshotNo(), null, true);
+        return createQuote(userId, req.getSnapshotNo(), req.getItemNos(), true);
     }
 
     @Override
@@ -172,15 +172,13 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
                                            List<String> selectedItemNos, boolean unlockAll) {
         requireOpenUser(userId, "当前账号暂不可解锁理想型用户");
         IdealFilterSnapshot snapshot = requireSnapshot(userId, snapshotNo);
-        List<IdealSnapshotCandidate> candidates = selectedItemNos == null
-                ? safeCandidates(candidateDao.selectBySnapshotId(snapshot.getId()))
-                : exactCandidates(snapshot, normalizeItemNos(selectedItemNos));
+        List<IdealSnapshotCandidate> candidates = exactCandidates(snapshot, normalizeItemNos(selectedItemNos));
         Set<Long> activeTargetUserIds = activeUnlockedTargetUserIds(userId, candidates);
         candidates = candidates.stream()
                 .filter(item -> !activeTargetUserIds.contains(item.getCandidateUserId()))
                 .toList();
         if (unlockAll) {
-            // 全部按快照中当前可见、未解锁的人员报价；拉黑/注销不能阻断其他有效人员。
+            // 全部仅指当前页传入的人员；拉黑/注销不能阻断本页其他有效人员。
             Set<Long> availableIds = availableCandidateIds(userId, candidates);
             candidates = candidates.stream().filter(item -> availableIds.contains(item.getCandidateUserId())).toList();
         } else {

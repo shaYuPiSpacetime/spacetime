@@ -72,6 +72,7 @@ function viewHarness() {
     pageVisibleRef:{current:true}, activeTabRef:{current:'recommend'}, createRequestId:() => 'request',
     Taro:{nextTick:callback => {tick = callback}}, recordRecommendView:async () => {model.calls++},
     setPage:() => {model.updates++}, applyRecommendViewToPage:() => {},
+    useAuthStore:{getState:() => ({userId:50})}, page:null, candidateIndex:0, publishRecommendBadge:() => {},
   }
   const view = Function(...Object.keys(deps), snippet + '; return ensureCandidateView')(...Object.values(deps))
   return {view, model, deps, tick:() => tick()}

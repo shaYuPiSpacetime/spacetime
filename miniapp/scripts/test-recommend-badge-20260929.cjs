@@ -16,8 +16,10 @@ test('推荐角标显示去重后的实际未浏览人数，受剩余额度限�
   assert.equal(resolveRecommendBadgeCount({ remainingBrowseCount: 10, items: [] }), 0)
   assert.equal(resolveRecommendBadgeCount({ remainingBrowseCount: 10, items: [{ candidateNo: '1' }] }), 1)
   assert.equal(resolveRecommendBadgeCount({ remainingBrowseCount: 1, items: [{ candidateNo: '1' }, { candidateNo: '2' }] }), 1)
-  assert.equal(resolveRecommendBadgeCount({ remainingBrowseCount: null, items: [{ candidateNo: '1' }, { candidateNo: '1' }, { candidateNo: '2' }] }), 2)
+  assert.equal(resolveRecommendBadgeCount({ remainingBrowseCount: null, items: [{ candidateNo: '1' }, { candidateNo: '1' }, { candidateNo: '2' }] }), 0)
   assert.equal(resolveRecommendBadgeCount({ remainingBrowseCount: 0, items: [{}] }), 0)
+  assert.equal(resolveRecommendBadgeCount({ remainingBrowseCount: 10, items: [null, {}, { candidateNo: '' }, { candidateNo: ' ' }] }), 0)
+  assert.equal(resolveRecommendBadgeCount({ remainingBrowseCount: 10, waitingReason: 'no_candidate', items: [{ candidateNo: '1' }] }), 0)
   assert.equal(resolveRecommendBadgeCount(null), 0)
 
 })
@@ -58,17 +60,44 @@ test('旧角标响应不覆盖浏览扣减结果，切换账号清空旧账号�
     now: () => 100000,
   })
   const pending = runtime.refresh(7)
-  runtime.publishPage(7, { remainingBrowseCount: 7, items: [{}] })
-  resolveRequest({ remainingBrowseCount: 9, items: [{}] })
+  runtime.publishPage(7, { remainingBrowseCount: 7, items: [{ candidateNo: '1' }] })
+  resolveRequest({ remainingBrowseCount: 9, items: [{ candidateNo: '1' }] })
   await pending
   assert.equal(runtime.getSnapshot().count, 1)
   runtime.refresh(8)
   assert.equal(runtime.getSnapshot().ownerId, 8)
   assert.equal(runtime.getSnapshot().count, 0)
   runtime.reset()
-  resolveRequest({ remainingBrowseCount: 9, items: [{}] })
+  resolveRequest({ remainingBrowseCount: 9, items: [{ candidateNo: '1' }] })
   await Promise.resolve()
   assert.equal(runtime.getSnapshot().count, 0)
+})
+
+test('空状态不被旧周期、旧偏好和缺失元信息的迟到响应恢复为 1', async () => {
+  const { createRecommendBadgeRuntime } = await loadBadgeDomain()
+  const baseline = { items: [], remainingBrowseCount: 0, nextResetAt: '2026-10-13 00:00:00', preferenceVersion: 2, browseQuota: 20 }
+  const runtime = createRecommendBadgeRuntime({ fetchPage: async () => baseline, now: () => 100000 })
+  runtime.publishPage(7, baseline)
+  for (const metadata of [
+    { nextResetAt: '2026-10-12 00:00:00' },
+    { preferenceVersion: 1 },
+    { nextResetAt: null, preferenceVersion: null, browseQuota: null },
+  ]) {
+    runtime.publishPage(7, { ...baseline, ...metadata, remainingBrowseCount: 1, items: [{ candidateNo: '1' }] })
+    assert.equal(runtime.getSnapshot().count, 0)
+    assert.equal(runtime.getSnapshot().nextResetAt, baseline.nextResetAt)
+    assert.equal(runtime.getSnapshot().preferenceVersion, 2)
+  }
+})
+
+test('未知额度不显示 1，也不锁死稍后确认的真实数字', async () => {
+  const { createRecommendBadgeRuntime } = await loadBadgeDomain()
+  const runtime = createRecommendBadgeRuntime({ fetchPage: async () => null, now: () => 100000 })
+  const page = { items: [{ candidateNo: '1' }], nextResetAt: '2026-10-13 00:00:00', preferenceVersion: 2, browseQuota: 20 }
+  runtime.publishPage(7, { ...page, remainingBrowseCount: null })
+  assert.equal(runtime.getSnapshot().count, 0)
+  runtime.publishPage(7, { ...page, remainingBrowseCount: 1 })
+  assert.equal(runtime.getSnapshot().count, 1)
 })
 
 test('跨页和空扫描页收齐真实候选并去重', async () => {
@@ -109,7 +138,7 @@ test('浏览成功按实际人数扣减，重复或不存在的候选不重复�
   assert.equal(applyRecommendViewToPage(viewed, '1'), viewed)
   assert.equal(applyRecommendViewToPage(viewed, 'missing'), viewed)
   assert.equal(resolveRecommendBadgeCount(applyRecommendViewToPage(viewed, '2')), 0)
-  assert.equal(resolveRecommendBadgeCount(applyRecommendViewToPage({ ...page, remainingBrowseCount: null }, '1')), 1)
+  assert.equal(resolveRecommendBadgeCount(applyRecommendViewToPage({ ...page, remainingBrowseCount: null }, '1')), 0)
 })
 
 test('重复游标、筛选版本变化、周期变化和分页失败拒绝不完整数字', async () => {

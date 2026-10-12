@@ -178,8 +178,9 @@ export function quoteIdealUnlock(
   return post<IdealUnlockQuoteVO>('/miniapp/ideal/unlock/quote', { snapshotNo, itemNos })
 }
 
-export function quoteAllIdealUnlock(snapshotNo: string): Promise<IdealUnlockQuoteVO> {
-  return post<IdealUnlockQuoteVO>('/miniapp/ideal/unlock-all/quote', { snapshotNo })
+/** 批量优惠只按当前页明确传入的人员报价，不隐式解锁其他页。 */
+export function quoteAllIdealUnlock(snapshotNo: string, itemNos: string[]): Promise<IdealUnlockQuoteVO> {
+  return post<IdealUnlockQuoteVO>('/miniapp/ideal/unlock-all/quote', { snapshotNo, itemNos })
 }
 
 export function confirmIdealUnlock(

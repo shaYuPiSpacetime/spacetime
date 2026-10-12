@@ -151,7 +151,7 @@ public class IdealHistoryServiceImpl implements IdealHistoryService {
         result.setUnlockDescription(configText("content.ideal.help.unlock",
                 "您可以挑选感兴趣的嘉宾进行解锁（"
                         + Objects.requireNonNullElse(pricing.getUnitPrice(), 0)
-                        + "千寻币/位），一次性解锁当前列表内全部（可享受"
+                        + "千寻币/位），也可勾选多人解锁；结果按页加载，解锁本页全部（可享受"
                         + discountRate(pricing.getDiscountPercent())
                         + "折优惠）。可能不定期推出优惠活动，具体价格请以页面内展示为准。"));
         result.setPricing(pricing);

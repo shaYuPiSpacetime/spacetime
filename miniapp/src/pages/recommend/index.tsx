@@ -1,7 +1,7 @@
 import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import IdealResultsContent from '@/components/IdealResultsContent'
 import RecommendWaitingContent from '@/components/RecommendWaitingContent'
@@ -94,7 +94,7 @@ export default function RecommendPage() {
     Taro.setStorageSync('prd08RecommendActiveTab', activeTab)
   }, [activeTab])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const userId = useAuthStore.getState().userId
     if (page && userId) publishRecommendBadge(userId, { ...page, items: page.items.slice(candidateIndex) })
   }, [page, candidateIndex])
@@ -340,6 +340,11 @@ export default function RecommendPage() {
         })
         if (browseCycleRef.current === browseCycle
           && candidateRequestGenerationRef.current === requestGeneration) {
+          // 回执到达即同步共享角标，不等页面下一轮 effect，避免切 Tab 看到上次的 1。
+          const userId = useAuthStore.getState().userId
+          if (page && userId) publishRecommendBadge(userId, applyRecommendViewToPage(
+            { ...page, items: page.items.slice(candidateIndex) }, currentCandidate.candidateNo
+          ))
           setPage(previous => applyRecommendViewToPage(previous, currentCandidate.candidateNo))
         }
         return true

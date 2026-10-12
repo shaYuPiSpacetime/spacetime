@@ -15,7 +15,8 @@ import {
   type IdealUnlockQuoteVO,
 } from '@/services/ideal'
 
-const PENDING_QUOTE_KEY = 'prd08IdealPendingQuote'
+// 与旧全快照报价隔离，升级后不能自动确认旧的全量解锁。
+const PENDING_QUOTE_KEY = 'prd08IdealPagePendingQuote'
 const BLUE = '#2876FF'
 
 interface Props {
@@ -35,12 +36,16 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
   const [items, setItems] = useState<IdealResultItemVO[]>([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const [pageNumber, setPageNumber] = useState(1)
+  const currentPageNumber = useRef(1)
+  const pageCursors = useRef<Array<string | undefined>>([undefined])
+  const requestGeneration = useRef(0)
   const [unlocking, setUnlocking] = useState(false)
+  const unlockInFlight = useRef(false)
   const [selection, setSelection] = useState<{ snapshotNo: string; itemNos: string[] }>({ snapshotNo, itemNos: [] })
   const selectedItemNos = selection.snapshotNo === snapshotNo ? selection.itemNos : []
   const toggleSelection = (itemNo: string) => {
-    if (unlocking || loading || page?.snapshotNo !== snapshotNo) return
+    if (unlockInFlight.current || loadInFlight.current || unlocking || loading || page?.snapshotNo !== snapshotNo) return
     setSelection(current => {
       const previous = current.snapshotNo === snapshotNo ? current.itemNos : []
       return { snapshotNo, itemNos: previous.includes(itemNo) ? previous.filter(no => no !== itemNo) : [...previous, itemNo] }
@@ -48,44 +53,52 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
   }
   const pendingCheck = useRef(false)
   const loadInFlight = useRef(false)
-  const showEmptyState = !resolvingSnapshot && !loading && !message && !resolutionError && items.length === 0
-  const load = async (cursor?: string, append = true) => {
-    if (loadInFlight.current) return
+  const currentItemNos = page?.snapshotNo === snapshotNo ? items.filter(item => !item.unlocked).map(item => item.itemNo) : []
+  const showEmptyState = !resolvingSnapshot && !loading && !message && !resolutionError && items.length === 0 && pageNumber === 1
+  const load = async (cursor?: string, targetPage = 1): Promise<boolean> => {
+    if (loadInFlight.current) return false
     if (!snapshotNo) {
-      if (resolvingSnapshot) return
+      if (resolvingSnapshot) return false
       setMessage('筛选快照不存在')
       setLoading(false)
-      return
+      return false
     }
-    if (cursor) setLoadingMore(true)
-    else setLoading(true)
+    const generation = ++requestGeneration.current
+    setLoading(true)
     loadInFlight.current = true
     try {
       const data = await getIdealResults(snapshotNo, cursor)
+      if (generation !== requestGeneration.current) return false
       setMessage('')
       setPage(data)
-      setItems(current => (cursor && append ? [...current, ...(data.items || [])] : data.items || []))
+      setItems(data.items || [])
+      setSelection({ snapshotNo, itemNos: [] })
+      pageCursors.current = [...pageCursors.current.slice(0, targetPage - 1), cursor]
+      currentPageNumber.current = targetPage
+      setPageNumber(targetPage)
+      return true
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '理想型结果加载失败')
+      if (generation === requestGeneration.current) setMessage(error instanceof Error ? error.message : '理想型结果加载失败')
+      return false
     } finally {
-      loadInFlight.current = false
-      setLoading(false)
-      setLoadingMore(false)
+      if (generation === requestGeneration.current) {
+        loadInFlight.current = false
+        setLoading(false)
+      }
     }
   }
-  const changeBatch = async () => {
-    if (loading || loadingMore || resolvingSnapshot) return
-    if (!page?.nextCursor) {
-      await Taro.showToast({ title: '已显示全部结果', icon: 'none' })
-      return
-    }
-    await load(page.nextCursor, false)
-    scroll.reset()
+  const changePage = async (direction: -1 | 1) => {
+    if (loadInFlight.current || unlockInFlight.current || loading || unlocking || resolvingSnapshot || page?.snapshotNo !== snapshotNo) return
+    if (direction === -1 && pageNumber === 1) return
+    if (direction === 1 && !page?.nextCursor) return
+    const nextPage = pageNumber + direction
+    const cursor = direction === 1 ? page?.nextCursor || undefined : pageCursors.current[nextPage - 1]
+    if (await load(cursor, nextPage)) scroll.reset()
   }
   const refreshResults = () => {
     if (pendingCheck.current) return
     const pending = Taro.getStorageSync(PENDING_QUOTE_KEY) as
-      | { snapshotNo?: string; quoteToken?: string; requestId?: string }
+      | { snapshotNo?: string; quoteToken?: string; requestId?: string; pageCursors?: Array<string | undefined>; pageNumber?: number }
       | undefined
     if (!pending?.quoteToken || pending.snapshotNo !== snapshotNo) {
       // 普通跳转返回不覆盖已加载批次；新快照、主动刷新和解锁回执单独处理。
@@ -95,16 +108,30 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
     // 常驻但隐藏的面板只预取内容，不能在用户浏览推荐时自动执行待确认的解锁。
     if (!active) return
     pendingCheck.current = true
+    if (pending.pageCursors?.length && pending.pageNumber && pending.pageNumber <= pending.pageCursors.length) {
+      pageCursors.current = pending.pageCursors
+      currentPageNumber.current = pending.pageNumber
+      setPageNumber(pending.pageNumber)
+    }
     void confirmQuote(
       pending.quoteToken,
       pending.requestId || createRequestId('ideal-confirm')
     ).finally(() => {
       pendingCheck.current = false
-      void load()
     })
   }
   // 两个入口都走同一套恢复逻辑，避免首次挂载与充值返回并发加载旧结果。
-  useEffect(refreshResults, [snapshotNo])
+  useEffect(() => {
+    pageCursors.current = [undefined]
+    currentPageNumber.current = 1
+    setPageNumber(1)
+    setPage(null)
+    setItems([])
+    setMessage('')
+    loadInFlight.current = false
+    refreshResults()
+    return () => { requestGeneration.current += 1 }
+  }, [snapshotNo])
   useDidShow(() => {
     if (active) refreshResults()
   })
@@ -113,13 +140,14 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
     if (active && snapshotNo && (!page || (pending?.snapshotNo === snapshotNo && pending?.quoteToken))) refreshResults()
   }, [active])
   const confirmQuote = async (quoteToken: string, requestId: string) => {
+    unlockInFlight.current = true
     setUnlocking(true)
     try {
       const result = await confirmIdealUnlock(quoteToken, requestId)
       Taro.removeStorageSync(PENDING_QUOTE_KEY)
       setSelection({ snapshotNo, itemNos: [] })
       await Taro.showToast({ title: `成功解锁${result.unlockedItems.length}位`, icon: 'success' })
-      await load()
+      scroll.reset()
     } catch (error) {
       Taro.removeStorageSync(PENDING_QUOTE_KEY)
       await Taro.showToast({
@@ -127,11 +155,14 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
         icon: 'none',
       })
     } finally {
+      await load(pageCursors.current[currentPageNumber.current - 1], currentPageNumber.current)
+      unlockInFlight.current = false
       setUnlocking(false)
     }
   }
   const handleQuote = async (quoteLoader: () => Promise<IdealUnlockQuoteVO>) => {
-    if (unlocking || loading || page?.snapshotNo !== snapshotNo) return
+    if (unlockInFlight.current || loadInFlight.current || unlocking || loading || page?.snapshotNo !== snapshotNo) return
+    unlockInFlight.current = true
     setUnlocking(true)
     try {
       const quote = await quoteLoader()
@@ -141,6 +172,8 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
           snapshotNo,
           quoteToken: quote.quoteToken,
           requestId,
+          pageCursors: pageCursors.current,
+          pageNumber: currentPageNumber.current,
         })
         await Taro.navigateTo({
           url: `/pages/coins/unlock-recharge?sourceScene=ideal_user_unlock&quoteToken=${encodeURIComponent(quote.quoteToken)}&cost=${quote.payableCost}&balance=${quote.currentBalance}&snapshotNo=${encodeURIComponent(snapshotNo)}`,
@@ -159,6 +192,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
         icon: 'none',
       })
     } finally {
+      unlockInFlight.current = false
       setUnlocking(false)
     }
   }
@@ -175,9 +209,6 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
           scrollTop={scroll.scrollTop}
           onScroll={scroll.onScroll}
           showScrollbar={false}
-          onScrollToLower={() => {
-            if (page?.nextCursor && !loadingMore) void load(page.nextCursor)
-          }}
           style={{
             position: 'fixed',
             left: 0,
@@ -211,7 +242,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
                 onUnlock={() => void handleQuote(() => quoteIdealUnlock(snapshotNo, [item.itemNo]))}
               />
             ))}
-            {loadingMore ? (
+            {loading && items.length > 0 ? (
               <Text
                 style={{
                   display: 'block',
@@ -224,7 +255,8 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
                 加载中…
               </Text>
             ) : null}
-            {items.length ? (
+            {!items.length && !loading && pageNumber > 1 ? <CenterText text="本页暂无可解锁人员，可返回上一页查看" /> : null}
+            {page && !showEmptyState ? (
               <View
                 style={{
                   display: 'flex',
@@ -234,21 +266,17 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
                 }}
               >
                 <View
-                  onClick={() => void changeBatch()}
-                  style={{ display: 'flex', alignItems: 'center' }}
+                  onClick={() => void changePage(-1)}
+                  style={{ padding: '20rpx 10rpx', color: pageNumber > 1 && !loading && !unlocking ? BLUE : '#B6BDCA', fontSize: '26rpx' }}
                 >
-                  <Image
-                    src={miniappOssIcons.recommendReplay}
-                    mode="aspectFit"
-                    style={{
-                      width: '25rpx',
-                      height: '25rpx',
-                      marginRight: '8rpx',
-                      opacity: 0.58,
-                    }}
-                  />
-                  <Text style={{ color: '#999999', fontSize: '24rpx' }}>换一批</Text>
+                  上一页
                 </View>
+                <View style={{ padding: '20rpx 0', color: '#949BAA', fontSize: '24rpx' }}>第 {pageNumber} 页</View>
+                <View onClick={() => void changePage(1)} style={{ padding: '20rpx 10rpx', color: page.nextCursor && !loading && !unlocking ? BLUE : '#B6BDCA', fontSize: '26rpx' }}>下一页</View>
+              </View>
+            ) : null}
+            {page ? (
+              <View style={{ textAlign: 'center', marginTop: '16rpx' }}>
                 <Text
                   onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/help/index' })}
                   style={{ color: '#999999', fontSize: '24rpx' }}
@@ -260,7 +288,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
           </View>
         </ScrollView>
       )}
-      {!showEmptyState && page?.unlockableCount ? (
+      {!showEmptyState && currentItemNos.length > 0 && page ? (
         <View
           style={{
             position: 'fixed',
@@ -293,12 +321,12 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
             />
           </View>
           <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '56rpx', padding: '0 12rpx', background: '#FFFFFF', color: '#0C285A', fontSize: '24rpx' }}>
-            <View>已选 {selectedItemNos.length} 人</View>
+            <View>本页 {currentItemNos.length} 人 · 已选 {selectedItemNos.length} 人</View>
             {selectedItemNos.length > 0 ? <View onClick={() => { if (!unlocking) setSelection({ snapshotNo, itemNos: [] }) }} style={{ padding: '12rpx', color: BLUE }}>取消选择</View> : <View>可勾选卡片后解锁</View>}
           </View>
           <View style={{ display: 'flex', gap: '16rpx' }}>
           <View
-            onClick={() => void handleQuote(() => quoteAllIdealUnlock(snapshotNo))}
+            onClick={() => void handleQuote(() => quoteAllIdealUnlock(snapshotNo, currentItemNos))}
             style={{
               flex: 1,
               position: 'relative',
@@ -312,7 +340,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
             }}
           >
             <View style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>
-              解锁全部
+              解锁本页（{currentItemNos.length}）
             </View>
             {page.pricing.discountPercent > 0 ? (
               <View

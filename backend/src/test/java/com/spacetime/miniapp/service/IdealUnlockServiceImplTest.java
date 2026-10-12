@@ -72,6 +72,7 @@ class IdealUnlockServiceImplTest {
     @Spy private ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @InjectMocks private IdealUnlockServiceImpl service;
+    private List<String> currentPageItemNos = List.of();
 
     @Test
     void unlockAllQuoteAppliesConfiguredDiscountAndRoundsPayableUp() {
@@ -94,8 +95,9 @@ class IdealUnlockServiceImplTest {
     }
 
     @Test
-    void unlockAllIncludesEveryCandidateBeyondLegacyBatchLimit() {
-        givenOpenSnapshotWithCandidates(120);
+    void unlockAllOnlyQuotesCurrentPageInsteadOfEntire245CandidateSnapshot() {
+        givenOpenSnapshotWithCandidates(245);
+        currentPageItemNos = currentPageItemNos.subList(20, 40);
         givenCommercialConfig(2, 10);
         givenScene(7, 30);
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset(1000));
@@ -103,10 +105,23 @@ class IdealUnlockServiceImplTest {
 
         IdealUnlockQuoteVO result = service.quoteAll(7L, allReq());
 
-        assertThat(result.getCandidateCount()).isEqualTo(120);
+        assertThat(result.getCandidateCount()).isEqualTo(20);
         assertThat(result.getBatchMax()).isZero();
-        assertThat(result.getOriginalCost()).isEqualTo(840);
-        assertThat(result.getPayableCost()).isEqualTo(756);
+        assertThat(result.getOriginalCost()).isEqualTo(140);
+        assertThat(result.getPayableCost()).isEqualTo(126);
+        verify(candidateDao, never()).selectBySnapshotId(any());
+        ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
+        verify(valueOperations).set(anyString(), payload.capture(), eq(Duration.ofMinutes(5)));
+        assertThat(payload.getValue()).contains("IDI-0021", "IDI-0040").doesNotContain("\"IDI-001\"", "IDI-0041");
+    }
+
+    @Test
+    void legacyAllQuoteWithoutPageScopeMustNotUnlockWholeSnapshot() {
+        IdealUnlockAllQuoteReq req = new IdealUnlockAllQuoteReq();
+        req.setSnapshotNo("IDS-001");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.quoteAll(7L, req))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("当前页");
+        verify(candidateDao, never()).selectBySnapshotId(any());
     }
 
     @Test
@@ -239,6 +254,7 @@ class IdealUnlockServiceImplTest {
         List<IdealSnapshotCandidate> candidates = java.util.stream.IntStream.range(0, count)
                 .mapToObj(index -> candidate(100L, "IDI-00" + (index + 1), 8L + index))
                 .toList();
+        currentPageItemNos = candidates.stream().map(IdealSnapshotCandidate::getItemNo).toList();
         lenient().when(candidateDao.selectBySnapshotId(100L)).thenReturn(candidates);
         lenient().when(candidateDao.selectByItemNos(eq(100L), any())).thenAnswer(invocation -> {
             List<String> selected = invocation.getArgument(1);
@@ -275,6 +291,7 @@ class IdealUnlockServiceImplTest {
     private IdealUnlockAllQuoteReq allReq() {
         IdealUnlockAllQuoteReq req = new IdealUnlockAllQuoteReq();
         req.setSnapshotNo("IDS-001");
+        req.setItemNos(currentPageItemNos);
         return req;
     }
 
