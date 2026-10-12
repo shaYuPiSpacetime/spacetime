@@ -464,19 +464,30 @@ class IdealServiceImplTest {
     }
 
     @Test
-    void alumniMatchesEqualStableSchoolCodesOnly() {
+    void alumniMatchesCanonicalCodesAndLegacyNamesButNeverConflictingCodes() {
         AppUser current = openUser(7L, "MALE", 30, "320100");
         current.setSchoolCode("school-001");
+        current.setSchool("华东师范大学");
         AppUser classmate = openUser(8L, "FEMALE", 28, "320100");
         classmate.setSchoolCode("school-001");
         AppUser sameNameWithoutCode = openUser(9L, "FEMALE", 27, "320100");
-        sameNameWithoutCode.setSchool("同名大学");
+        sameNameWithoutCode.setSchool(" 华东师范大学 ");
+        AppUser alias = openUser(10L, "FEMALE", 27, "320100");
+        alias.setSchoolCode("provider-001");
+        AppUser conflictingCode = openUser(11L, "FEMALE", 27, "320100");
+        conflictingCode.setSchoolCode("different-school");
+        conflictingCode.setSchool("华东师范大学");
+        SchoolDictionary school = new SchoolDictionary();
+        school.setSchoolCode("school-001");
+        school.setProviderUuid("provider-001");
+        school.setSchoolName("华东师范大学");
+        when(schoolDictionaryDao.selectByCodes(any())).thenReturn(List.of(school));
         when(appUserDao.selectById(7L)).thenReturn(current);
         when(accessProjectionService.project(current)).thenReturn("OPEN");
         when(preferenceDao.selectByUserId(7L)).thenReturn(preference(7L, 2));
-        when(appUserDao.selectList(any())).thenReturn(List.of(classmate, sameNameWithoutCode));
-        when(accessProjectionService.projectAll(List.of(classmate, sameNameWithoutCode)))
-                .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
+        when(appUserDao.selectList(any())).thenReturn(List.of(classmate, sameNameWithoutCode, alias, conflictingCode));
+        when(accessProjectionService.projectAll(List.of(classmate, sameNameWithoutCode, alias, conflictingCode)))
+                .thenReturn(Map.of(8L, "OPEN", 9L, "OPEN", 10L, "OPEN", 11L, "OPEN"));
         org.mockito.Mockito.doAnswer(invocation -> {
             IdealFilterSnapshot snapshot = invocation.getArgument(0);
             snapshot.setId(100L);
@@ -485,11 +496,11 @@ class IdealServiceImplTest {
 
         IdealSearchVO result = service.search(7L, searchReq(List.of("M08-IDEAL-alumni")));
 
-        assertThat(result.getResultCount()).isEqualTo(1);
+        assertThat(result.getResultCount()).isEqualTo(3);
         ArgumentCaptor<List<IdealSnapshotCandidate>> captor = ArgumentCaptor.forClass(List.class);
         verify(snapshotCandidateDao).insertBatch(captor.capture());
-        assertThat(captor.getValue()).singleElement()
-                .satisfies(item -> assertThat(item.getCandidateUserId()).isEqualTo(8L));
+        assertThat(captor.getValue()).extracting(IdealSnapshotCandidate::getCandidateUserId)
+                .containsExactly(8L, 9L, 10L);
     }
 
     @Test

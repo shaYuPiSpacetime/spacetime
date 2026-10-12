@@ -202,13 +202,13 @@ public class IdealServiceImpl implements IdealService {
         Map<Long, String> access = accessProjectionService.projectAll(queried);
         Set<Long> blockedIds = blockedCandidateIds(userId, queried);
         List<IdealSnapshotCandidate> candidates = new ArrayList<>();
-        Map<String, Boolean> schoolTierByCode = schoolTierByCode(values, queried);
+        Map<String, SchoolDictionary> schoolsByCode = schoolsByCode(current, values, queried);
         LocalDateTime snapshotOrderTime = LocalDateTime.now();
         String matchedCodes = JSONUtil.toJsonStr(values.conditions());
         for (AppUser candidate : queried) {
             if (!"OPEN".equals(access.get(candidate.getId()))
                     || blockedIds.contains(candidate.getId())
-                    || !matchesAll(current, candidate, values, scopes, schoolTierByCode)) {
+                    || !matchesAll(current, candidate, values, scopes, schoolsByCode)) {
                 continue;
             }
             IdealSnapshotCandidate item = new IdealSnapshotCandidate();
@@ -338,12 +338,12 @@ public class IdealServiceImpl implements IdealService {
         // 全量查询基础条件内的用户，不排序、不截断；避免读取照片、简介等无关大字段。
         return wrapper.select(AppUser::getId, AppUser::getAccountStatus, AppUser::getFirstLoginCompleted,
                 AppUser::getAge, AppUser::getBirthday, AppUser::getLocationCity, AppUser::getHeight,
-                AppUser::getSchoolCode, AppUser::getEducationLevel, AppUser::getHometownCity,
+                AppUser::getSchoolCode, AppUser::getSchool, AppUser::getEducationLevel, AppUser::getHometownCity,
                 AppUser::getDatingGoal, AppUser::getTags);
     }
 
     private boolean matchesAll(AppUser current, AppUser candidate, SearchValues values,
-                               TagScopes scopes, Map<String, Boolean> schoolTierByCode) {
+                               TagScopes scopes, Map<String, SchoolDictionary> schoolsByCode) {
         Integer age = ProfileAgeFilter.currentAge(candidate);
         if (age == null || age < values.minAge()
                 || age > values.maxAge()
@@ -351,7 +351,7 @@ public class IdealServiceImpl implements IdealService {
             return false;
         }
         for (String code : values.conditions()) {
-            if (!matchesCondition(code, current, candidate, values.cities(), scopes, schoolTierByCode)) {
+            if (!matchesCondition(code, current, candidate, values.cities(), scopes, schoolsByCode)) {
                 return false;
             }
         }
@@ -359,16 +359,15 @@ public class IdealServiceImpl implements IdealService {
     }
 
     private boolean matchesCondition(String code, AppUser current, AppUser candidate, List<String> cities,
-                                     TagScopes scopes, Map<String, Boolean> schoolTierByCode) {
+                                     TagScopes scopes, Map<String, SchoolDictionary> schoolsByCode) {
         Set<String> tags = tags(candidate, scopes);
         if (scopes.conditionTags().containsKey(code)) {
             return hasAny(tags, scopes.conditionTags().get(code));
         }
         return switch (code) {
             case "M08-IDEAL-height-165" -> candidate.getHeight() != null && candidate.getHeight() >= 165;
-            case "M08-IDEAL-school-tier" -> schoolTierMatches(candidate, schoolTierByCode);
-            case "M08-IDEAL-alumni" -> StrUtil.isNotBlank(current.getSchoolCode())
-                    && current.getSchoolCode().trim().equals(StrUtil.trim(candidate.getSchoolCode()));
+            case "M08-IDEAL-school-tier" -> schoolTierMatches(candidate, schoolsByCode);
+            case "M08-IDEAL-alumni" -> sameSchool(current, candidate, schoolsByCode);
             case "M08-IDEAL-doctor" -> "DOCTOR".equalsIgnoreCase(candidate.getEducationLevel());
             // 现居城市已经是所有理想型结果的基础条件，不能再拿它判定“本地人”。
             // 当前资料模型尚无独立户籍城市字段，因此只使用家乡城市稳定编码。
@@ -380,18 +379,46 @@ public class IdealServiceImpl implements IdealService {
         };
     }
 
-    private boolean schoolTierMatches(AppUser candidate, Map<String, Boolean> schoolTierByCode) {
+    private boolean schoolTierMatches(AppUser candidate, Map<String, SchoolDictionary> schoolsByCode) {
         if (StrUtil.isBlank(candidate.getSchoolCode())) {
             return false;
         }
-        return schoolTierByCode.getOrDefault(candidate.getSchoolCode().trim(), false);
+        SchoolDictionary school = schoolsByCode.get(candidate.getSchoolCode().trim());
+        return school != null && (Boolean.TRUE.equals(school.getIs985()) || Boolean.TRUE.equals(school.getIs211()));
     }
 
-    private Map<String, Boolean> schoolTierByCode(SearchValues values, List<AppUser> queried) {
-        if (!values.conditions().contains("M08-IDEAL-school-tier")) {
+    /** 编码优先；旧资料缺少编码时才以学校全名精确匹配，不做简称或模糊合并。 */
+    private boolean sameSchool(AppUser current, AppUser candidate, Map<String, SchoolDictionary> schoolsByCode) {
+        String currentCode = StrUtil.trimToEmpty(current.getSchoolCode());
+        String candidateCode = StrUtil.trimToEmpty(candidate.getSchoolCode());
+        SchoolDictionary currentSchool = schoolsByCode.get(currentCode);
+        SchoolDictionary candidateSchool = schoolsByCode.get(candidateCode);
+        if (!currentCode.isEmpty() && !candidateCode.isEmpty()) {
+            // 学校正式编码与第三方编号指向同一条字典时也视为同校；冲突编码不能被旧名称覆盖。
+            return currentCode.equals(candidateCode)
+                    || (currentSchool != null && candidateSchool != null
+                    && ((StrUtil.isNotBlank(currentSchool.getSchoolCode())
+                    && currentSchool.getSchoolCode().equals(candidateSchool.getSchoolCode()))
+                    || (StrUtil.isNotBlank(currentSchool.getProviderUuid())
+                    && currentSchool.getProviderUuid().equals(candidateSchool.getProviderUuid()))));
+        }
+        String currentName = normalizeSchoolName(currentSchool == null ? current.getSchool() : currentSchool.getSchoolName());
+        String candidateName = normalizeSchoolName(candidateSchool == null ? candidate.getSchool() : candidateSchool.getSchoolName());
+        return !currentName.isEmpty() && currentName.equals(candidateName);
+    }
+
+    private String normalizeSchoolName(String name) {
+        return StrUtil.nullToEmpty(name).replaceAll("[\\s\\u3000]+", "");
+    }
+
+    private Map<String, SchoolDictionary> schoolsByCode(AppUser current, SearchValues values, List<AppUser> queried) {
+        boolean alumni = values.conditions().contains("M08-IDEAL-alumni");
+        if (!alumni && !values.conditions().contains("M08-IDEAL-school-tier")) {
             return Map.of();
         }
-        List<String> codes = queried.stream()
+        List<AppUser> users = new ArrayList<>(queried);
+        if (alumni) users.add(current);
+        List<String> codes = users.stream()
                 .map(AppUser::getSchoolCode)
                 .filter(StrUtil::isNotBlank)
                 .map(String::trim)
@@ -400,26 +427,28 @@ public class IdealServiceImpl implements IdealService {
         if (codes.isEmpty()) {
             return Map.of();
         }
-        List<SchoolDictionary> schools = schoolDictionaryDao.selectByCodes(codes);
-        Map<String, Boolean> tiers = new HashMap<>();
-        for (SchoolDictionary school : schools == null ? List.<SchoolDictionary>of() : schools) {
-            boolean selected = Boolean.TRUE.equals(school.getIs985()) || Boolean.TRUE.equals(school.getIs211());
-            if (StrUtil.isNotBlank(school.getSchoolCode())) {
-                tiers.put(school.getSchoolCode().trim(), selected);
-            }
-            if (StrUtil.isNotBlank(school.getProviderUuid())) {
-                tiers.put(school.getProviderUuid().trim(), selected);
+        Map<String, SchoolDictionary> schoolsByCode = new HashMap<>();
+        for (int offset = 0; offset < codes.size(); offset += LOOKUP_BATCH_SIZE) {
+            List<SchoolDictionary> schools = schoolDictionaryDao.selectByCodes(
+                    codes.subList(offset, Math.min(offset + LOOKUP_BATCH_SIZE, codes.size())));
+            for (SchoolDictionary school : schools == null ? List.<SchoolDictionary>of() : schools) {
+                if (StrUtil.isNotBlank(school.getSchoolCode())) {
+                    schoolsByCode.put(school.getSchoolCode().trim(), school);
+                }
+                if (StrUtil.isNotBlank(school.getProviderUuid())) {
+                    schoolsByCode.put(school.getProviderUuid().trim(), school);
+                }
             }
         }
-        return tiers;
+        return schoolsByCode;
     }
 
     private List<IdealConditionVO> conditionVOs(AppUser current, TagScopes scopes) {
         Set<String> currentTags = tags(current, scopes);
         return CONDITIONS.stream().map(definition -> {
             String reason = switch (definition.code()) {
-                case "M08-IDEAL-alumni" -> StrUtil.isNotBlank(current.getSchoolCode())
-                        ? null : "请先选择字典中的学校";
+                case "M08-IDEAL-alumni" -> StrUtil.isNotBlank(current.getSchoolCode()) || StrUtil.isNotBlank(current.getSchool())
+                        ? null : "请先完善学校资料";
                 case "M08-IDEAL-interest-similar" -> hasAny(currentTags, scopes.interest())
                         ? null : "请先完善兴趣标签";
                 case "M08-IDEAL-view-compatible" -> hasAny(currentTags, scopes.relationship())

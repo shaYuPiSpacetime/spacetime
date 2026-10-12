@@ -37,6 +37,15 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
+  const [selection, setSelection] = useState<{ snapshotNo: string; itemNos: string[] }>({ snapshotNo, itemNos: [] })
+  const selectedItemNos = selection.snapshotNo === snapshotNo ? selection.itemNos : []
+  const toggleSelection = (itemNo: string) => {
+    if (unlocking || loading || page?.snapshotNo !== snapshotNo) return
+    setSelection(current => {
+      const previous = current.snapshotNo === snapshotNo ? current.itemNos : []
+      return { snapshotNo, itemNos: previous.includes(itemNo) ? previous.filter(no => no !== itemNo) : [...previous, itemNo] }
+    })
+  }
   const pendingCheck = useRef(false)
   const loadInFlight = useRef(false)
   const showEmptyState = !resolvingSnapshot && !loading && !message && !resolutionError && items.length === 0
@@ -108,6 +117,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
     try {
       const result = await confirmIdealUnlock(quoteToken, requestId)
       Taro.removeStorageSync(PENDING_QUOTE_KEY)
+      setSelection({ snapshotNo, itemNos: [] })
       await Taro.showToast({ title: `成功解锁${result.unlockedItems.length}位`, icon: 'success' })
       await load()
     } catch (error) {
@@ -121,7 +131,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
     }
   }
   const handleQuote = async (quoteLoader: () => Promise<IdealUnlockQuoteVO>) => {
-    if (unlocking) return
+    if (unlocking || loading || page?.snapshotNo !== snapshotNo) return
     setUnlocking(true)
     try {
       const quote = await quoteLoader()
@@ -196,6 +206,8 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
               <IdealCandidateCard
                 key={item.itemNo}
                 item={item}
+                selected={selectedItemNos.includes(item.itemNo)}
+                onSelect={() => toggleSelection(item.itemNo)}
                 onUnlock={() => void handleQuote(() => quoteIdealUnlock(snapshotNo, [item.itemNo]))}
               />
             ))}
@@ -263,7 +275,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
             style={{
               position: 'absolute',
               right: '8rpx',
-              bottom: '108rpx',
+              bottom: '170rpx',
               width: '82rpx',
               height: '82rpx',
               borderRadius: '41rpx',
@@ -280,9 +292,16 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
               style={{ width: '62rpx', height: '62rpx' }}
             />
           </View>
+          <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '56rpx', padding: '0 12rpx', background: '#FFFFFF', color: '#0C285A', fontSize: '24rpx' }}>
+            <View>已选 {selectedItemNos.length} 人</View>
+            {selectedItemNos.length > 0 ? <View onClick={() => { if (!unlocking) setSelection({ snapshotNo, itemNos: [] }) }} style={{ padding: '12rpx', color: BLUE }}>取消选择</View> : <View>可勾选卡片后解锁</View>}
+          </View>
+          <View style={{ display: 'flex', gap: '16rpx' }}>
           <View
             onClick={() => void handleQuote(() => quoteAllIdealUnlock(snapshotNo))}
             style={{
+              flex: 1,
+              position: 'relative',
               height: '98rpx',
               borderRadius: '49rpx',
               background: BLUE,
@@ -292,14 +311,14 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontSize: '34rpx', fontWeight: 600 }}>
-              {unlocking ? '处理中…' : '解锁全部'}
-            </Text>
+            <View style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>
+              解锁全部
+            </View>
             {page.pricing.discountPercent > 0 ? (
               <View
                 style={{
                   position: 'absolute',
-                  right: '72rpx',
+                  right: '12rpx',
                   top: '-22rpx',
                   padding: '8rpx 16rpx',
                   borderRadius: '6rpx',
@@ -311,6 +330,13 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
                 </Text>
               </View>
             ) : null}
+          </View>
+          <View
+            onClick={() => { if (selectedItemNos.length) void handleQuote(() => quoteIdealUnlock(snapshotNo, selectedItemNos)) }}
+            style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: selectedItemNos.length ? BLUE : '#CCD5E2', opacity: unlocking ? 0.62 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <View style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>解锁选中{selectedItemNos.length ? `（${selectedItemNos.length}）` : ''}</View>
+          </View>
           </View>
         </View>
       ) : null}
@@ -469,7 +495,7 @@ function IdealResultsEmptyState() {
   )
 }
 
-function IdealCandidateCard({ item, onUnlock }: { item: IdealResultItemVO; onUnlock: () => void }) {
+function IdealCandidateCard({ item, onUnlock, selected, onSelect }: { item: IdealResultItemVO; onUnlock: () => void; selected: boolean; onSelect: () => void }) {
   const profile = item.profile
   const avatar = item.unlocked ? profile?.avatar : item.blurAvatarUrl
   const title = profile
@@ -484,7 +510,7 @@ function IdealCandidateCard({ item, onUnlock }: { item: IdealResultItemVO; onUnl
         marginBottom: '20rpx',
         padding: '30rpx 28rpx 28rpx',
         borderRadius: '20rpx',
-        background: '#F7F8FA',
+        background: selected ? '#EEF5FF' : '#F7F8FA',
         boxSizing: 'border-box',
       }}
     >
@@ -550,7 +576,12 @@ function IdealCandidateCard({ item, onUnlock }: { item: IdealResultItemVO; onUnl
           marginTop: '34rpx',
         }}
       >
-        <Text style={{ color: '#949BAA', fontSize: '23rpx' }}>笑起来眼里有光的理想嘉宾</Text>
+        {!item.unlocked ? (
+          <View onClick={onSelect} style={{ display: 'flex', alignItems: 'center', minHeight: '88rpx', minWidth: '180rpx', color: selected ? BLUE : '#949BAA', fontSize: '25rpx' }}>
+            <View style={{ width: '38rpx', height: '38rpx', marginRight: '14rpx', borderRadius: '19rpx', border: `2rpx solid ${selected ? BLUE : '#A2A8B4'}`, background: selected ? BLUE : '#FFFFFF', color: '#FFFFFF', textAlign: 'center', lineHeight: '38rpx' }}>{selected ? '✓' : ''}</View>
+            <View>{selected ? '已选中' : '选择此人'}</View>
+          </View>
+        ) : <View style={{ color: '#949BAA', fontSize: '23rpx' }}>资料已解锁</View>}
         <Text
           onClick={
             item.unlocked && profile

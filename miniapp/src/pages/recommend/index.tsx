@@ -293,6 +293,20 @@ export default function RecommendPage() {
     setPageVisible(false)
   })
 
+  useEffect(() => {
+    if (!pageVisible || !page?.nextResetAt) return
+    const resetAt = Date.parse(`${page.nextResetAt.replace(' ', 'T')}+08:00`)
+    if (!Number.isFinite(resetAt) || resetAt <= Date.now()) return
+    // 停留在推荐/等待面板跨零点时也主动换日，不要求用户退出重进。
+    const timer = setTimeout(() => {
+      if (!pageVisibleRef.current) return
+      Taro.removeStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY)
+      retryCandidateCursorRef.current = null
+      void loadCandidates()
+    }, Math.max(0, resetAt - Date.now()))
+    return () => clearTimeout(timer)
+  }, [page?.nextResetAt, pageVisible])
+
   usePullDownRefresh(() => {
     if (activeTabRef.current === 'ideal') {
       void loadIdealTab(true).finally(() => Taro.stopPullDownRefresh())

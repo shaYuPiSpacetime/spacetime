@@ -1,6 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { usePullDownRefresh } from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
+import { useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { getIdealUnlocks, type IdealUnlockRecordVO } from '@/services/ideal'
@@ -11,28 +11,37 @@ export default function IdealUnlocksPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [message, setMessage] = useState('')
+  const loadVersion = useRef(0)
 
   const load = async (cursor?: string, append = false) => {
+    const version = ++loadVersion.current
     if (append) setLoadingMore(true)
     else {
       setLoading(true)
       setMessage('')
+      setItems([])
     }
     try {
       const data = await getIdealUnlocks('all', cursor)
-      setItems(current => (append ? [...current, ...(data.items || [])] : data.items || []))
+      if (version !== loadVersion.current) return
+      const visibleItems = (data.items || []).filter(item => item.unavailableReason !== 'blocked')
+      setItems(current => (append ? [...current, ...visibleItems] : visibleItems))
       setNextCursor(data.nextCursor || null)
     } catch (error) {
+      if (version !== loadVersion.current) return
       setMessage(error instanceof Error ? error.message : '历史解锁加载失败')
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
+      if (version === loadVersion.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
   }
 
-  useEffect(() => {
+  // 从用户主页拉黑后返回，重新查询列表，不继续展示旧的历史解锁卡片。
+  useDidShow(() => {
     void load()
-  }, [])
+  })
   usePullDownRefresh(() => void load().finally(() => Taro.stopPullDownRefresh()))
 
   return (

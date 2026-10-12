@@ -130,7 +130,7 @@ class IdealHistoryServiceImplTest {
     }
 
     @Test
-    void blacklistedUnlockIsUnavailableWithoutMisrepresentingAccountOrLeakingProfile() {
+    void blacklistedUnlockIsHiddenEvenIfRelationshipChangesAfterPaging() {
         givenCurrentUserOpen();
         Page<UserUnlockRecord> page = new Page<>(1, 20, 1);
         page.setRecords(List.of(unlockRecord(LocalDateTime.now().plusDays(3), "active", 1)));
@@ -141,12 +141,8 @@ class IdealHistoryServiceImplTest {
         when(relationBlockDao.selectActive(7L, 8L, RelationBlockTypeEnum.BLACKLIST.getCode()))
                 .thenReturn(new AppUserRelationBlock());
 
-        assertThat(service.unlockRecords(7L, "all", null).getItems()).singleElement().satisfies(item -> {
-            assertThat(item.getStatus()).isEqualTo("active");
-            assertThat(item.getAvailable()).isFalse();
-            assertThat(item.getUnavailableReason()).isEqualTo("blocked");
-            assertThat(item.getProfile()).isNull();
-        });
+        assertThat(service.unlockRecords(7L, "all", null).getItems()).isEmpty();
+        verify(relationBlockDao).selectActiveInvolvingUser(7L, RelationBlockTypeEnum.BLACKLIST.getCode());
         verify(publicProfileService, never()).getPublicProfile(any(), any());
     }
 

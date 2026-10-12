@@ -22,7 +22,8 @@ export default function RecommendWaitingPage() {
   const metrics = getNativeNavigationMetrics()
   const [post, setPost] = useState<CommunityPostVO | null>(null)
   const [vipEffective, setVipEffective] = useState<boolean | null>(null)
-  const [, setNextResetAt] = useState<string | null>(null)
+  const [nextResetAt, setNextResetAt] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState('')
   const refreshGeneration = useRef(0)
@@ -68,11 +69,20 @@ export default function RecommendWaitingPage() {
     }
   }
   useDidShow(() => {
+    setVisible(true)
     void refreshRecommendation()
   })
   useDidHide(() => {
+    setVisible(false)
     refreshGeneration.current += 1
   })
+  useEffect(() => {
+    if (!visible || !nextResetAt) return
+    const resetAt = Date.parse(`${nextResetAt.replace(' ', 'T')}+08:00`)
+    if (!Number.isFinite(resetAt) || resetAt <= Date.now()) return
+    const timer = setTimeout(() => void refreshRecommendation(), Math.max(0, resetAt - Date.now()))
+    return () => clearTimeout(timer)
+  }, [visible, nextResetAt])
   const openIdeal = async () => {
     if (openingIdealRef.current) return
     openingIdealRef.current = true
@@ -119,7 +129,7 @@ export default function RecommendWaitingPage() {
               style={{ position: 'absolute', inset: 0, width: '700rpx', height: '225rpx' }}
             />
             <Text style={{ position: 'relative', zIndex: 1, color: '#0C285A', fontSize: '36rpx', fontWeight: 600 }}>
-              每日12点准时推荐
+              每日0点准时推荐
             </Text>
             <Text
               onClick={() => void navigateToOrRedirect('/pages/prd08/recommend/replay/index')}

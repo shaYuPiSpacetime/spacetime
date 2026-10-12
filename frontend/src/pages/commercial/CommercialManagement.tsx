@@ -813,7 +813,7 @@ function ConfigWorkspace() {
 
         <ConfigPanel active={activeTab === 'retention'} name="retention">
           <div className="config-grid">
-            <label className="config-item"><strong>理想型批量上限</strong><input type="number" min="1" value={config?.settings.idealBatchMax ?? ''} onChange={(event) => updateCommercialSettings({ idealBatchMax: Number(event.target.value) })} /><span>默认 5 个，保存后立即生效。</span></label>
+            <div className="config-item"><strong>理想型解锁人数</strong><span>不限制人数，支持解锁全部或勾选人员解锁；按服务端报价确认后扣币。</span></div>
             <label className="config-item"><strong>理想型解锁全部折扣比例</strong><input type="number" min="0" max="100" value={config?.settings.idealBatchDiscountPercent ?? ''} onChange={(event) => updateCommercialSettings({ idealBatchDiscountPercent: Number(event.target.value) })} /><span>填写 0–100，10 表示优惠 10%，实付金额由服务端向上取整。</span></label>
             <label className="config-item"><strong>理想型/合拍/知音保留天数</strong><input type="number" min="1" value={config?.settings.idealRetentionDays ?? ''} onChange={(event) => updateCommercialSettings({ idealRetentionDays: Number(event.target.value) })} /><span>默认 90 天，合拍的人与知音-觅知音复用。</span></label>
           </div>

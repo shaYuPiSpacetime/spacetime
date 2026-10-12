@@ -10,7 +10,8 @@ import lombok.Data;
  */
 @Data
 public class CommercialSettingsReq {
-    @NotNull @Min(1)
+    /** 兼容旧管理端，不再作为解锁限制；0 表示不限人数。 */
+    @Min(0)
     private Integer idealBatchMax;
     @NotNull @Min(0) @Max(100)
     private Integer idealBatchDiscountPercent;

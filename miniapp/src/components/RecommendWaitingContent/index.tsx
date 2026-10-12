@@ -65,7 +65,7 @@ export default function RecommendWaitingContent({ active, openIdeal, onRetry, re
               style={{ position: 'absolute', inset: 0, width: '700rpx', height: '225rpx' }}
             />
             <Text style={{ position: 'relative', zIndex: 1, color: '#0C285A', fontSize: '36rpx', fontWeight: 600 }}>
-              每日12点准时推荐
+              每日0点准时推荐
             </Text>
             <Text
               onClick={() => void navigateToOrRedirect('/pages/prd08/recommend/replay/index')}

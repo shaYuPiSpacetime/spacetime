@@ -463,7 +463,7 @@ public class RecommendServiceImpl implements RecommendService {
             return;
         }
         RecommendBrowseCycle cycle = RecommendBrowseCycle.current();
-        // 同一候选在本次中午至次日中午的周期内只扣一次浏览额度。
+        // 同一候选在北京时间当天零点至次日零点的周期内只扣一次浏览额度。
         if ("view".equals(action) && alreadyViewedInCycle(userId, candidateId, cycle)) {
             return;
         }

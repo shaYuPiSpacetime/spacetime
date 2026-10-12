@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public class IdealUnlockedItemVO {
     private String itemNo;
     private String candidateNo;
+    /** 单人解锁可直接返回资料；批量回执为空，由历史解锁页分页读取。 */
     private PublicProfileVO profile;
     private String communicationMode;
     private LocalDateTime unlockExpiresAt;

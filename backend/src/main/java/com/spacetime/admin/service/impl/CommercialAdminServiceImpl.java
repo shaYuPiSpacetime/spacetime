@@ -297,9 +297,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         if (settings == null) {
             return;
         }
-        if (settings.getIdealBatchMax() == null || settings.getIdealBatchMax() < 1
-                || settings.getIdealRetentionDays() == null || settings.getIdealRetentionDays() < 1) {
-            throw new BusinessException("解锁批量上限和保留天数必须大于 0");
+        if (settings.getIdealRetentionDays() == null || settings.getIdealRetentionDays() < 1) {
+            throw new BusinessException("解锁保留天数必须大于 0");
         }
         if (settings.getIdealBatchDiscountPercent() == null
                 || settings.getIdealBatchDiscountPercent() < 0
@@ -353,7 +352,8 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         Map<String, String> values = (configs == null ? List.<AppConfig>of() : configs).stream()
                 .collect(Collectors.toMap(AppConfig::getConfigKey, AppConfig::getConfigValue, (a, b) -> b));
         CommercialSettingsVO vo = new CommercialSettingsVO();
-        vo.setIdealBatchMax(intValue(values, CFG_IDEAL_BATCH_MAX, 5));
+        // 保留协议字段兼容旧管理端，0 表示不限制人数，旧配置不再生效。
+        vo.setIdealBatchMax(0);
         vo.setIdealBatchDiscountPercent(intValue(values, CFG_IDEAL_BATCH_DISCOUNT_PERCENT, 10));
         vo.setIdealRetentionDays(intValue(values, CFG_IDEAL_RETENTION_DAYS, 90));
         vo.setNormalViewQuota(intValue(values, CFG_NORMAL_VIEW_QUOTA, 10));
@@ -382,7 +382,6 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         if (settings == null) {
             return;
         }
-        upsertSetting(CFG_IDEAL_BATCH_MAX, settings.getIdealBatchMax(), ConfigTypeEnum.NUMBER, "理想型批量上限");
         upsertSetting(CFG_IDEAL_BATCH_DISCOUNT_PERCENT, settings.getIdealBatchDiscountPercent(),
                 ConfigTypeEnum.NUMBER, "理想型解锁全部折扣比例");
         upsertSetting(CFG_IDEAL_RETENTION_DAYS, settings.getIdealRetentionDays(), ConfigTypeEnum.NUMBER, "理想型保留天数");

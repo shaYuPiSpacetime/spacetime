@@ -42,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /** PRD-08 理想型历史和帮助接口实现。 */
 @Service
@@ -99,6 +100,14 @@ public class IdealHistoryServiceImpl implements IdealHistoryService {
         LambdaQueryWrapper<UserUnlockRecord> wrapper = new LambdaQueryWrapper<UserUnlockRecord>()
                 .eq(UserUnlockRecord::getUserId, userId)
                 .eq(UserUnlockRecord::getTargetBizType, "ideal");
+        // 在分页和总数统计前排除双向拉黑，不能只把卡片置灰或在分页后丢弃。
+        var blocks = relationBlockDao.selectActiveInvolvingUser(userId, RelationBlockTypeEnum.BLACKLIST.getCode());
+        List<Long> blockedIds = blocks == null ? List.of() : blocks.stream()
+                .flatMap(block -> Stream.of(block.getUserId(), block.getTargetUserId()))
+                .filter(Objects::nonNull).filter(id -> !id.equals(userId)).distinct().toList();
+        if (!blockedIds.isEmpty()) {
+            wrapper.notIn(UserUnlockRecord::getTargetUserId, blockedIds);
+        }
         if ("active".equals(normalizedStatus)) {
             wrapper.eq(UserUnlockRecord::getStatus, UnlockRecordStatusEnum.ACTIVE.getCode())
                     .eq(UserUnlockRecord::getActiveMarker, 1)
@@ -117,7 +126,8 @@ public class IdealHistoryServiceImpl implements IdealHistoryService {
         List<UserUnlockRecord> records = page == null || page.getRecords() == null
                 ? List.of() : page.getRecords();
         IdealUnlockRecordPageVO result = new IdealUnlockRecordPageVO();
-        result.setItems(records.stream().map(record -> unlockRecord(userId, record, now)).toList());
+        result.setItems(records.stream().map(record -> unlockRecord(userId, record, now))
+                .filter(item -> !"blocked".equals(item.getUnavailableReason())).toList());
         long total = page == null ? 0L : page.getTotal();
         int nextOffset = offset + records.size();
         result.setNextCursor(nextOffset < total ? encodeCursor("ideal-unlock:", nextOffset) : null);

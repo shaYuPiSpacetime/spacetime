@@ -23,6 +23,7 @@ import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.RelationAccessProjectionService;
 import com.spacetime.miniapp.dto.request.IdealUnlockAllQuoteReq;
 import com.spacetime.miniapp.dto.request.IdealUnlockConfirmReq;
+import com.spacetime.miniapp.dto.request.IdealUnlockQuoteReq;
 import com.spacetime.miniapp.dto.response.IdealUnlockConfirmVO;
 import com.spacetime.miniapp.dto.response.IdealUnlockQuoteVO;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
@@ -93,22 +94,46 @@ class IdealUnlockServiceImplTest {
     }
 
     @Test
-    void unlockAllRejectsInsteadOfSilentlyTruncatingWhenBatchLimitExceeded() {
-        givenOpenSnapshotWithCandidates(3);
-        when(appConfigDao.selectByKey("commercial.ideal.batch.max"))
-                .thenReturn(config("commercial.ideal.batch.max", "2"));
+    void unlockAllIncludesEveryCandidateBeyondLegacyBatchLimit() {
+        givenOpenSnapshotWithCandidates(120);
+        givenCommercialConfig(2, 10);
+        givenScene(7, 30);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset(1000));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
-        assertThatThrownBy(() -> service.quoteAll(7L, allReq()))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("最多解锁2人");
-        verify(redisTemplate, never()).opsForValue();
+        IdealUnlockQuoteVO result = service.quoteAll(7L, allReq());
+
+        assertThat(result.getCandidateCount()).isEqualTo(120);
+        assertThat(result.getBatchMax()).isZero();
+        assertThat(result.getOriginalCost()).isEqualTo(840);
+        assertThat(result.getPayableCost()).isEqualTo(756);
+    }
+
+    @Test
+    void selectedQuoteOnlyIncludesSelectedPeopleWithoutLegacyLimitOrAllDiscount() {
+        givenOpenSnapshotWithCandidates(8);
+        givenScene(7, 30);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset(1000));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        IdealUnlockQuoteReq req = new IdealUnlockQuoteReq();
+        req.setSnapshotNo("IDS-001");
+        req.setItemNos(List.of("IDI-001", "IDI-003", "IDI-004", "IDI-005", "IDI-006", "IDI-008"));
+
+        IdealUnlockQuoteVO result = service.quote(7L, req);
+
+        assertThat(result.getCandidateCount()).isEqualTo(6);
+        assertThat(result.getPayableCost()).isEqualTo(42);
+        assertThat(result.getDiscountPercent()).isZero();
+        ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
+        verify(valueOperations).set(anyString(), payload.capture(), eq(Duration.ofMinutes(5)));
+        assertThat(payload.getValue()).contains("IDI-008").doesNotContain("IDI-002", "IDI-007");
     }
 
     @Test
     void quoteExcludesTargetAlreadyUnlockedInAnotherSnapshot() {
         givenOpenSnapshotWithCandidates(2);
-        when(unlockRecordDao.selectActiveByTargetUser(7L, "ideal", 8L))
-                .thenReturn(confirmedRecord(900L, "OLD-ITEM", 8L, 7));
+        when(unlockRecordDao.selectList(any()))
+                .thenReturn(List.of(confirmedRecord(900L, "OLD-ITEM", 8L, 7)));
         givenCommercialConfig(5, 10);
         givenScene(7, 30);
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset(100));
@@ -147,11 +172,6 @@ class IdealUnlockServiceImplTest {
             record.setId(id.incrementAndGet());
             return null;
         }).when(unlockRecordDao).insert(any());
-        when(publicProfileService.getPublicProfile(eq(7L), any())).thenAnswer(invocation -> {
-            PublicProfileVO profile = new PublicProfileVO();
-            profile.setUserId(invocation.getArgument(1));
-            return profile;
-        });
 
         IdealUnlockQuoteVO quote = service.quoteAll(7L, allReq());
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
@@ -168,6 +188,7 @@ class IdealUnlockServiceImplTest {
         assertThat(result.getNewBalance()).isEqualTo(81);
         assertThat(result.getUnlockedItems()).hasSize(3)
                 .allSatisfy(item -> assertThat(item.getCommunicationMode()).isEqualTo("PRIVATE_MESSAGE"));
+        verify(publicProfileService, never()).getPublicProfile(any(), any());
         ArgumentCaptor<UserUnlockRecord> unlocks = ArgumentCaptor.forClass(UserUnlockRecord.class);
         verify(unlockRecordDao, org.mockito.Mockito.times(3)).insert(unlocks.capture());
         assertThat(unlocks.getAllValues()).extracting(UserUnlockRecord::getCoinCost)
@@ -189,12 +210,7 @@ class IdealUnlockServiceImplTest {
         UserUnlockRecord first = confirmedRecord(1001L, "IDI-001", 8L, 7);
         UserUnlockRecord second = confirmedRecord(1002L, "IDI-002", 9L, 6);
         when(unlockRecordDao.selectList(any())).thenReturn(List.of(first, second));
-        when(userAssetDao.selectByUserId(7L)).thenReturn(asset(87));
-        when(publicProfileService.getPublicProfile(eq(7L), any())).thenAnswer(invocation -> {
-            PublicProfileVO profile = new PublicProfileVO();
-            profile.setUserId(invocation.getArgument(1));
-            return profile;
-        });
+        when(userAssetDao.selectByUserIdForUpdate(7L)).thenReturn(asset(87));
         IdealUnlockConfirmReq req = new IdealUnlockConfirmReq();
         req.setRequestId("unlock-batch-001");
         req.setQuoteToken("iuq_same");
@@ -204,7 +220,7 @@ class IdealUnlockServiceImplTest {
         assertThat(result.getAlreadyConfirmed()).isTrue();
         assertThat(result.getPaidCost()).isEqualTo(13);
         assertThat(result.getUnlockedItems()).hasSize(2);
-        verify(userAssetDao, never()).selectByUserIdForUpdate(any());
+        verify(userAssetDao).selectByUserIdForUpdate(7L);
         verify(userAssetDao, never()).updateCoinBalance(any(), any());
         verify(coinLogDao, never()).insert(any());
     }
@@ -223,16 +239,23 @@ class IdealUnlockServiceImplTest {
         List<IdealSnapshotCandidate> candidates = java.util.stream.IntStream.range(0, count)
                 .mapToObj(index -> candidate(100L, "IDI-00" + (index + 1), 8L + index))
                 .toList();
-        when(candidateDao.selectBySnapshotId(100L)).thenReturn(candidates);
-        for (IdealSnapshotCandidate candidate : candidates) {
-            AppUser target = user(candidate.getCandidateUserId());
-            lenient().when(appUserDao.selectById(candidate.getCandidateUserId())).thenReturn(target);
-            lenient().when(accessProjectionService.project(target)).thenReturn("OPEN");
-        }
+        lenient().when(candidateDao.selectBySnapshotId(100L)).thenReturn(candidates);
+        lenient().when(candidateDao.selectByItemNos(eq(100L), any())).thenAnswer(invocation -> {
+            List<String> selected = invocation.getArgument(1);
+            return candidates.stream().filter(item -> selected.contains(item.getItemNo())).toList();
+        });
+        when(appUserDao.selectByIds(any())).thenAnswer(invocation -> {
+            java.util.Collection<Long> ids = invocation.getArgument(0);
+            return ids.stream().map(this::user).toList();
+        });
+        when(accessProjectionService.projectAll(any())).thenAnswer(invocation -> {
+            java.util.Collection<AppUser> users = invocation.getArgument(0);
+            return users.stream().collect(java.util.stream.Collectors.toMap(AppUser::getId, item -> "OPEN"));
+        });
     }
 
     private void givenCommercialConfig(int max, int discount) {
-        when(appConfigDao.selectByKey("commercial.ideal.batch.max"))
+        lenient().when(appConfigDao.selectByKey("commercial.ideal.batch.max"))
                 .thenReturn(config("commercial.ideal.batch.max", String.valueOf(max)));
         when(appConfigDao.selectByKey("commercial.ideal.batch.discount.percent"))
                 .thenReturn(config("commercial.ideal.batch.discount.percent", String.valueOf(discount)));

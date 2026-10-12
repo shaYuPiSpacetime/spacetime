@@ -68,10 +68,10 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
     private static final String QUOTE_KEY_PREFIX = "miniapp:ideal-unlock:quote:";
     private static final String UNIT_SCENE = "ideal_user_unlock";
     private static final String TARGET_BIZ_TYPE = "ideal";
-    private static final String BATCH_MAX_KEY = "commercial.ideal.batch.max";
     private static final String BATCH_DISCOUNT_KEY = "commercial.ideal.batch.discount.percent";
     private static final String RETENTION_DAYS_KEY = "commercial.ideal.retention.days";
-    private static final int DEFAULT_BATCH_MAX = 5;
+    /** 仅约束单次数据库查询大小，不限制一次解锁的人数。 */
+    private static final int LOOKUP_BATCH_SIZE = 500;
     private static final int DEFAULT_DISCOUNT = 10;
 
     private final IdealFilterSnapshotDao snapshotDao;
@@ -110,7 +110,7 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         IdealPricingVO result = new IdealPricingVO();
         result.setUnitPrice(scene.getUnitPrice());
         result.setRetentionDays(retentionDays(scene));
-        result.setBatchMax(intConfig(BATCH_MAX_KEY, DEFAULT_BATCH_MAX, 1, 100));
+        result.setBatchMax(0);
         result.setDiscountPercent(intConfig(BATCH_DISCOUNT_KEY, DEFAULT_DISCOUNT, 0, 100));
         return result;
     }
@@ -118,10 +118,12 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
     @Override
     @Transactional
     public IdealUnlockConfirmVO confirm(Long userId, IdealUnlockConfirmReq req) {
+        // 先锁资产，再建立事务内读取快照；并发请求会看到上一笔已提交的解锁及幂等回执。
+        UserAsset before = userAssetDao.selectByUserIdForUpdate(userId);
         List<UserUnlockRecord> confirmed = unlocksByRequest(userId, req.getRequestId());
         if (!confirmed.isEmpty()) {
             requireSameQuote(confirmed, req.getQuoteToken());
-            return confirmResult(confirmed, balance(userAssetDao.selectByUserId(userId)), true);
+            return confirmResult(confirmed, balance(before), true);
         }
 
         QuotePayload quote = readQuote(req.getQuoteToken());
@@ -138,7 +140,6 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
             throw new BusinessException(409, "解锁状态已变化，请刷新后重新报价");
         }
 
-        UserAsset before = userAssetDao.selectByUserIdForUpdate(userId);
         int beforeBalance = balance(before);
         if (beforeBalance < quote.getPayableCost()) {
             throw new BusinessException(5001, "千寻币余额不足");
@@ -178,13 +179,15 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         candidates = candidates.stream()
                 .filter(item -> !activeTargetUserIds.contains(item.getCandidateUserId()))
                 .toList();
+        if (unlockAll) {
+            // 全部按快照中当前可见、未解锁的人员报价；拉黑/注销不能阻断其他有效人员。
+            Set<Long> availableIds = availableCandidateIds(userId, candidates);
+            candidates = candidates.stream().filter(item -> availableIds.contains(item.getCandidateUserId())).toList();
+        } else {
+            requireCandidatesAvailable(userId, candidates);
+        }
         if (candidates.isEmpty()) {
             throw new BusinessException(409, "当前没有需要解锁的理想型用户");
-        }
-        requireCandidatesAvailable(userId, candidates);
-        int batchMax = intConfig(BATCH_MAX_KEY, DEFAULT_BATCH_MAX, 1, 100);
-        if (candidates.size() > batchMax) {
-            throw new BusinessException(400, "每次最多解锁" + batchMax + "人，请缩小筛选范围");
         }
         int discount = unlockAll ? intConfig(BATCH_DISCOUNT_KEY, DEFAULT_DISCOUNT, 0, 100) : 0;
         CoinSceneConfig scene = enabledUnitScene();
@@ -196,7 +199,7 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         String token = "iuq_" + IdUtil.fastSimpleUUID();
         QuotePayload payload = new QuotePayload(userId, snapshotNo,
                 candidates.stream().map(IdealSnapshotCandidate::getItemNo).toList(),
-                scene.getUnitPrice(), retentionDays, batchMax, discount,
+                scene.getUnitPrice(), retentionDays, 0, discount,
                 original, payable, unlockAll, expiresAt);
         try {
             redisTemplate.opsForValue().set(quoteKey(token), objectMapper.writeValueAsString(payload), QUOTE_TTL);
@@ -223,8 +226,11 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         if (normalized.isEmpty()) {
             throw new BusinessException(400, "请选择需要解锁的用户");
         }
-        List<IdealSnapshotCandidate> found = safeCandidates(
-                candidateDao.selectByItemNos(snapshot.getId(), normalized));
+        List<IdealSnapshotCandidate> found = new ArrayList<>();
+        for (int start = 0; start < normalized.size(); start += LOOKUP_BATCH_SIZE) {
+            found.addAll(safeCandidates(candidateDao.selectByItemNos(snapshot.getId(),
+                    normalized.subList(start, Math.min(start + LOOKUP_BATCH_SIZE, normalized.size())))));
+        }
         Map<String, IdealSnapshotCandidate> byNo = found.stream()
                 .collect(Collectors.toMap(IdealSnapshotCandidate::getItemNo, Function.identity(), (a, b) -> a));
         if (byNo.size() != normalized.size()) {
@@ -234,12 +240,39 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
     }
 
     private void requireCandidatesAvailable(Long userId, List<IdealSnapshotCandidate> candidates) {
-        for (IdealSnapshotCandidate candidate : candidates) {
-            AppUser target = requireOpenUser(candidate.getCandidateUserId(), "理想型用户当前不可解锁");
-            if (target == null || blocked(userId, candidate.getCandidateUserId())) {
-                throw new BusinessException(409, "理想型用户状态已变化，请刷新后重试");
+        Set<Long> availableIds = availableCandidateIds(userId, candidates);
+        if (candidates.stream().anyMatch(item -> !availableIds.contains(item.getCandidateUserId()))) {
+            throw new BusinessException(409, "理想型用户状态已变化，请刷新后重试");
+        }
+    }
+
+    /** 批量核对准入及双向拉黑，避免解锁全部逐人往返查询。 */
+    private Set<Long> availableCandidateIds(Long userId, List<IdealSnapshotCandidate> candidates) {
+        List<Long> targetIds = candidates.stream().map(IdealSnapshotCandidate::getCandidateUserId)
+                .filter(Objects::nonNull).distinct().toList();
+        Set<Long> result = new LinkedHashSet<>();
+        for (int start = 0; start < targetIds.size(); start += LOOKUP_BATCH_SIZE) {
+            List<Long> batch = targetIds.subList(start, Math.min(start + LOOKUP_BATCH_SIZE, targetIds.size()));
+            List<AppUser> users = appUserDao.selectByIds(batch);
+            Map<Long, String> access = accessProjectionService.projectAll(users == null ? List.of() : users);
+            Set<Long> blockedIds = new LinkedHashSet<>();
+            var blocks = relationBlockDao.selectActiveBetweenUserAndTargets(userId, batch,
+                    List.of(RelationBlockTypeEnum.BLACKLIST.getCode(), RelationBlockTypeEnum.NO_RECOMMEND.getCode()));
+            if (blocks != null) {
+                blocks.forEach(block -> {
+                    boolean outgoing = userId.equals(block.getUserId());
+                    if (outgoing || RelationBlockTypeEnum.BLACKLIST.getCode().equals(block.getBlockType())) {
+                        blockedIds.add(outgoing ? block.getTargetUserId() : block.getUserId());
+                    }
+                });
+            }
+            for (Long targetId : batch) {
+                if (!userId.equals(targetId) && "OPEN".equals(access.get(targetId)) && !blockedIds.contains(targetId)) {
+                    result.add(targetId);
+                }
             }
         }
+        return result;
     }
 
     private AppUser requireOpenUser(Long userId, String message) {
@@ -250,25 +283,28 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         return user;
     }
 
-    private boolean blocked(Long userId, Long targetUserId) {
-        return relationBlockDao.selectActive(userId, targetUserId,
-                RelationBlockTypeEnum.BLACKLIST.getCode()) != null
-                || relationBlockDao.selectActive(targetUserId, userId,
-                RelationBlockTypeEnum.BLACKLIST.getCode()) != null;
-    }
-
     private Set<Long> activeUnlockedTargetUserIds(Long userId,
                                                    List<IdealSnapshotCandidate> candidates) {
         if (candidates == null || candidates.isEmpty()) {
             return Set.of();
         }
-        return candidates.stream()
+        List<Long> targetIds = candidates.stream()
                 .map(IdealSnapshotCandidate::getCandidateUserId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .filter(targetUserId -> unlockRecordDao.selectActiveByTargetUser(
-                        userId, TARGET_BIZ_TYPE, targetUserId) != null)
-                .collect(Collectors.toSet());
+                .filter(Objects::nonNull).distinct().toList();
+        Set<Long> unlocked = new LinkedHashSet<>();
+        LocalDateTime now = LocalDateTime.now();
+        for (int start = 0; start < targetIds.size(); start += LOOKUP_BATCH_SIZE) {
+            List<Long> batch = targetIds.subList(start, Math.min(start + LOOKUP_BATCH_SIZE, targetIds.size()));
+            List<UserUnlockRecord> records = unlockRecordDao.selectList(new LambdaQueryWrapper<UserUnlockRecord>()
+                    .eq(UserUnlockRecord::getUserId, userId)
+                    .eq(UserUnlockRecord::getTargetBizType, TARGET_BIZ_TYPE)
+                    .in(UserUnlockRecord::getTargetUserId, batch)
+                    .eq(UserUnlockRecord::getStatus, UnlockRecordStatusEnum.ACTIVE.getCode())
+                    .eq(UserUnlockRecord::getActiveMarker, 1)
+                    .and(expiry -> expiry.isNull(UserUnlockRecord::getExpireTime).or().gt(UserUnlockRecord::getExpireTime, now)));
+            safeUnlocks(records).stream().map(UserUnlockRecord::getTargetUserId).filter(Objects::nonNull).forEach(unlocked::add);
+        }
+        return unlocked;
     }
 
     private List<UserUnlockRecord> unlocksByRequest(Long userId, String requestId) {
@@ -302,7 +338,6 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
 
     private void requireQuoteConfigUnchanged(QuotePayload quote) {
         CoinSceneConfig scene = enabledUnitScene();
-        int max = intConfig(BATCH_MAX_KEY, DEFAULT_BATCH_MAX, 1, 100);
         int discount = quote.isUnlockAll()
                 ? intConfig(BATCH_DISCOUNT_KEY, DEFAULT_DISCOUNT, 0, 100) : 0;
         int retentionDays = retentionDays(scene);
@@ -310,9 +345,8 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         int expectedPayable = ceilPercent(expectedOriginal, 100 - discount);
         if (!Objects.equals(scene.getUnitPrice(), quote.getUnitPrice())
                 || !Objects.equals(retentionDays, quote.getRetentionDays())
-                || max != quote.getBatchMax() || discount != quote.getDiscountPercent()
-                || expectedOriginal != quote.getOriginalCost() || expectedPayable != quote.getPayableCost()
-                || quote.getItemNos().size() > max) {
+                || discount != quote.getDiscountPercent()
+                || expectedOriginal != quote.getOriginalCost() || expectedPayable != quote.getPayableCost()) {
             throw new BusinessException(409, "理想型解锁配置已变化，请重新报价");
         }
     }
@@ -404,8 +438,9 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         ordered.sort(Comparator.comparing(UserUnlockRecord::getId,
                 Comparator.nullsLast(Comparator.naturalOrder())));
         List<IdealUnlockedItemVO> items = ordered.stream().map(record -> {
-            PublicProfileVO profile = publicProfileService.getPublicProfile(
-                    record.getUserId(), record.getTargetUserId());
+            // 批量确认仅返回权益回执，完整资料由历史解锁页按页加载，避免大批量确认超时。
+            PublicProfileVO profile = ordered.size() == 1 ? publicProfileService.getPublicProfile(
+                    record.getUserId(), record.getTargetUserId()) : null;
             IdealUnlockedItemVO item = new IdealUnlockedItemVO();
             item.setItemNo(record.getSnapshotItemNo());
             item.setCandidateNo(String.valueOf(record.getTargetUserId()));
@@ -438,7 +473,7 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         result.setCurrentBalance(balance);
         result.setBalanceEnough(balance >= payload.getPayableCost());
         result.setRetentionDays(payload.getRetentionDays());
-        result.setBatchMax(payload.getBatchMax());
+        result.setBatchMax(0);
         result.setUnlockAll(payload.isUnlockAll());
         return result;
     }
@@ -454,7 +489,7 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
     }
 
     private int ceilPercent(int original, int percent) {
-        return Math.floorDiv(Math.addExact(Math.multiplyExact(original, percent), 99), 100);
+        return Math.toIntExact(((long) original * percent + 99) / 100);
     }
 
     private int balance(UserAsset asset) {

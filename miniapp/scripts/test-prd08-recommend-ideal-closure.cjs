@@ -203,7 +203,7 @@ test('推荐等待聚合页使用蓝湖每日上限页原始切图', () => {
   ]) {
     assert.match(waiting, new RegExp(`miniappOssIcons\\.${key}`), `${key} 必须用于每日上限页`)
   }
-  assert.match(waiting, /每日12点准时推荐/, '主卡标题必须与蓝湖版本 3 一致')
+  assert.match(waiting, /每日0点准时推荐/, '等待页必须与北京时间零点重置规则一致')
   assert.match(waiting, /fontSize: '28rpx',[\s\S]{0,60}lineHeight: '48rpx'/, '千寻动态正文必须按设计放大')
   assert.match(
     waiting,
