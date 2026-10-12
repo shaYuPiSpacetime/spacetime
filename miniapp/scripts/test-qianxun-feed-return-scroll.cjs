@@ -240,7 +240,14 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     remount: () => act(async () => root.render(React.createElement(Component, { key: `rebuilt-${++instanceKey}`, snapshotNo: 'SNAPSHOT-1' }))),
     changeUser: value => { authUserId = value },
     rerender: () => act(async () => root.render(React.createElement(Component, { key: `rebuilt-${instanceKey}`, snapshotNo: 'SNAPSHOT-1' }))),
-    loadMore: () => act(async () => { feedScrollProps.onScrollToLower() }),
+    loadMore: () => act(async () => {
+      if (feedScrollProps.onScrollToLower) feedScrollProps.onScrollToLower()
+      else {
+        const nextPage = [...container.querySelectorAll('div')].find(node => node.textContent === '下一页')
+        assert.ok(nextPage, '分页组件必须提供真实下一页入口')
+        nextPage.click()
+      }
+    }),
     scroll: top => act(async () => { feedScrollProps.onScroll?.({ detail: { scrollTop: top } }) }),
     scrollTop: () => feedScrollProps.scrollTop,
     hide: () => run('hide'), show: () => run('show'),
@@ -351,7 +358,7 @@ for (const [name, file, label] of [
   ['理想型', 'components/IdealResultsContent/index.tsx', '城市'],
   ['私信', 'pages/message/private-list.tsx', '私信'],
 ]) {
-  test(`${name} 返回不丢第二页且下一次加载使用第三页游标`, async t => {
+  test(`${name} 返回保留第二页及滚动位置，下一次加载使用第三页游标`, async t => {
     const app = mount(t, 'HOT', file)
     await app.render()
     await app.show()
@@ -360,7 +367,14 @@ for (const [name, file, label] of [
     await app.hide()
     app.changeFirstPage()
     await app.show()
-    for (const id of [1, 2, 3, 4]) assert.ok(app.container.textContent.includes(`${label}${id}`))
+    // 理想型最新交互按页替换；私信仍是滚动追加，不混用两者的历史保留规则。
+    for (const id of name === '理想型' ? [3, 4] : [1, 2, 3, 4]) {
+      assert.ok(app.container.textContent.includes(`${label}${id}`))
+    }
+    if (name === '理想型') {
+      assert.ok(!app.container.textContent.includes('城市1'))
+      assert.ok(!app.container.textContent.includes('城市2'))
+    }
     assert.equal(app.scrollTop(), 800)
     await app.loadMore()
     assert.equal(app.requests.at(-1).cursor, 'next-3')
