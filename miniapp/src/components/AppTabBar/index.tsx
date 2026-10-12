@@ -21,6 +21,7 @@ import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { useAuthStore } from '@/stores/authStore'
 import { refreshRecommendBadge, useRecommendBadgeStore } from '@/stores/recommendBadgeStore'
 import { setActiveTabKey } from '@/custom-tab-bar/tabState'
+import { APP_TAB_BAR_HEIGHT_RPX, getTabBarBottom } from '@/constants/tabBarLayout'
 
 export type TabKey = 'kindred' | 'index' | 'community' | 'recommend' | 'chat' | 'profile'
 
@@ -184,13 +185,12 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
               left: `${index * 125}rpx`,
               top: '0',
               width: '125rpx',
-              height: '100rpx',
-              paddingTop: '18rpx',
+              height: `${APP_TAB_BAR_HEIGHT_RPX}rpx`,
               boxSizing: 'border-box',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'flex-start',
+              justifyContent: 'center',
             }}
             onClick={() => handlePress(tab)}
           >
@@ -264,7 +264,7 @@ function TabBarShell({ children }: { children: ReactNode }) {
         bottom: '0',
         zIndex: 9999,
         width: '750rpx',
-        height: 'calc(100rpx + env(safe-area-inset-bottom))',
+        height: getTabBarBottom(),
         overflow: 'visible',
       }}
     >

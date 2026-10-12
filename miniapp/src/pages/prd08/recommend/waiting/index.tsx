@@ -1,4 +1,5 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { getTabBarBottom } from '@/constants/tabBarLayout'
 import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
@@ -107,7 +108,7 @@ export default function RecommendWaitingPage() {
             width: '700rpx',
             margin: '0 auto',
             paddingTop: `${metrics.navigationHeight + 10}rpx`,
-            paddingBottom: '220rpx',
+            paddingBottom: getTabBarBottom(120),
           }}
         >
           <View

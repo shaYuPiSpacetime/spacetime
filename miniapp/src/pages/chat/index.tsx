@@ -1,5 +1,6 @@
 import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { getTabBarBottom } from '@/constants/tabBarLayout'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
@@ -177,7 +178,7 @@ export default function ChatPage() {
         style={{ width: Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? '750rpx' : '100%', height: '100vh' }}
         showScrollbar={false}
       >
-        <View style={{ minHeight: designRpx(1624), paddingBottom: designRpx(190), boxSizing: 'border-box' }}>
+        <View style={{ minHeight: designRpx(1624), paddingBottom: getTabBarBottom(90), boxSizing: 'border-box' }}>
           <HeartMessageHeader title="消息" underline />
           {!certified ? <CertificationBanner onVerify={() => void navigateToPendingVerification()} /> : null}
           {accessMode === 'restricted' ? (

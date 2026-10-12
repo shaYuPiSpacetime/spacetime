@@ -1,4 +1,5 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { getTabBarBottom } from '@/constants/tabBarLayout'
 import Taro from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
@@ -43,7 +44,7 @@ export default function RecommendWaitingContent({ active, openIdeal, onRetry, re
             width: '700rpx',
             margin: '0 auto',
             paddingTop: '10rpx',
-            paddingBottom: '220rpx',
+            paddingBottom: getTabBarBottom(120),
           }}
         >
           <View

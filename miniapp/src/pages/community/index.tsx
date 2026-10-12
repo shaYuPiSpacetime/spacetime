@@ -1,4 +1,5 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { getTabBarBottom } from '@/constants/tabBarLayout'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import HeartMessageHeader, { getLanhuNavigationMetrics } from '@/components/HeartMessageHeader'
@@ -399,7 +400,7 @@ export default function CommunityPage() {
   return (
     <View id="relation-feedback-page" style={{ height: '100vh', overflow: 'hidden', background, fontFamily: 'PingFang SC, sans-serif' }}>
       <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ width: '750rpx', height: '100vh' }} showScrollbar={false}>
-        <View id="relation-scroll-content" style={{ minHeight: '1624rpx', paddingBottom: showMembershipEntry ? '310rpx' : '180rpx', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+        <View id="relation-scroll-content" style={{ minHeight: '1624rpx', paddingBottom: getTabBarBottom(showMembershipEntry ? 210 : 80), boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
           <HeartTabsHeader
             active={activeTab}
             likesCount={likesBadgeCount}
@@ -438,7 +439,7 @@ export default function CommunityPage() {
         <View
           id="relation-membership-entry"
           onClick={() => Taro.navigateTo({ url: '/pages/heart/membership-unlock' })}
-          style={{ position: 'fixed', left: '25rpx', bottom: '184rpx', zIndex: 80, width: '700rpx', height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'fixed', left: '25rpx', bottom: getTabBarBottom(84), zIndex: 80, width: '700rpx', height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Text style={{ color: '#EAD8B6', fontSize: '28rpx', fontWeight: 500 }}>开通会员查看全部</Text>
         </View>
@@ -648,7 +649,7 @@ function UnlockSheet({ visible = true, stage, card, quote, result, submitting, s
         : '刚刚看过你的主页'
   return (
     <View id="relation-unlock-sheet" onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.42)', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
-      {visible ? <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: '166rpx', minHeight: '454rpx', overflow: 'hidden', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF' }}>
+      {visible ? <View onClick={event => event.stopPropagation()} style={{ position: 'absolute', left: 0, right: 0, bottom: getTabBarBottom(66), minHeight: '454rpx', overflow: 'hidden', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF' }}>
         <View style={{ position: 'relative', height: '170rpx', padding: '44rpx 28rpx 0', background: success ? 'linear-gradient(105deg,#FFF3F3,#FFE9F1)' : 'linear-gradient(105deg,#E7F5FF,#EDF4FF)', boxSizing: 'border-box' }}>
           <Text style={{ display: 'block', color: '#333333', fontSize: '32rpx', fontWeight: 600, lineHeight: '45rpx' }}>{title}</Text>
           <Text style={{ display: 'block', marginTop: '8rpx', color: '#7F8494', fontSize: '24rpx', lineHeight: '33rpx' }}>{subtitle}</Text>

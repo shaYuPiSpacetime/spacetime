@@ -1,4 +1,5 @@
 import { shareMessage } from '@/utils/shareMessage'
+import { getTabBarBottom } from '@/constants/tabBarLayout'
 import { postShare } from '@/domain/sharePresentation'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
@@ -443,7 +444,7 @@ export default function RecommendFamilyPage() {
           scrollIntoView={focusPostId}
           lowerThreshold={120}
           onScrollToLower={() => void loadScene(activeTab, true)}
-          style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: '146rpx' }}
+          style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: getTabBarBottom(46) }}
           showScrollbar={false}
         >
           <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>
@@ -468,7 +469,7 @@ export default function RecommendFamilyPage() {
             {visiblePosts.length && hasMoreByScene[activeTab] === false ? <Text style={{ display: 'block', color: '#B0B0B0', fontSize: '22rpx', lineHeight: '72rpx', textAlign: 'center' }}>— 到底啦 —</Text> : null}
           </View>
         </ScrollView>
-        <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
+        <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: getTabBarBottom(90), width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
       </> : <QianxunZhiyinTab onSharePostChange={setZhiyinSharePost} secondaryTop={headerMetrics.secondaryTop} contentTop={headerMetrics.contentTop} />}
 
       <CommunityPostActionSheet

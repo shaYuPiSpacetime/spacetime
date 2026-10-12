@@ -1,4 +1,5 @@
 import MatchPopupHost from '@/components/MatchPopupHost'
+import { getTabBarBottom } from '@/constants/tabBarLayout'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -849,7 +850,7 @@ function RecommendCandidateCard({
           width: '700rpx',
           minHeight: '1650rpx',
           margin: '0 auto',
-          paddingBottom: '330rpx',
+          paddingBottom: getTabBarBottom(230),
           boxSizing: 'border-box',
         }}
       >
@@ -1105,7 +1106,7 @@ function RecommendActions({
         position: 'fixed',
         left: '94rpx',
         width: '562rpx',
-        bottom: '132rpx',
+        bottom: getTabBarBottom(32),
         zIndex: 10000,
         height: '166rpx',
         display: 'flex',
@@ -1331,7 +1332,7 @@ function IdealLanding({ onTabChange, onHistory, onChoose }: { onTabChange: (tab:
           position: 'fixed',
           left: '44rpx',
           right: '44rpx',
-          bottom: 'calc(190rpx + env(safe-area-inset-bottom))',
+          bottom: getTabBarBottom(90),
           zIndex: 9998,
           height: '98rpx',
           borderRadius: '49rpx',

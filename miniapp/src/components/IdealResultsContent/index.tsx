@@ -1,4 +1,5 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { getTabBarBottom } from '@/constants/tabBarLayout'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
@@ -222,7 +223,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
             style={{
               width: '700rpx',
               margin: '0 auto',
-              paddingBottom: '360rpx',
+              paddingBottom: getTabBarBottom(260),
               position: 'relative',
             }}
           >
@@ -294,7 +295,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
             position: 'fixed',
             left: '44rpx',
             right: '44rpx',
-            bottom: '164rpx',
+            bottom: getTabBarBottom(64),
             zIndex: 10000,
           }}
         >
@@ -502,7 +503,7 @@ function IdealResultsEmptyState() {
         style={{
           position: 'absolute',
           right: '44rpx',
-          bottom: '210rpx',
+          bottom: getTabBarBottom(110),
           width: '112rpx',
           height: '112rpx',
           borderRadius: '56rpx',

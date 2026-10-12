@@ -46,6 +46,13 @@ function renderUnlockSheet(tab, balance = 8882, price = 8, quoteError = false, c
     exports: {},
     require: name => {
       if (name === 'react') return hooks
+      if (name === '@/constants/tabBarLayout') {
+        const layout = { exports: {} }
+        vm.runInNewContext(ts.transpileModule(read('src/constants/tabBarLayout.ts'), {
+          compilerOptions: { module: ts.ModuleKind.CommonJS },
+        }).outputText, layout)
+        return layout.exports
+      }
       if (name === '@/hooks/useRetainedScroll') return { useRetainedScroll: () => ({ scrollTop: 0, onScroll: () => {}, reset: () => {} }) }
       if (name === 'react/jsx-runtime') return { jsx: makeElement, jsxs: makeElement }
       if (name === '@tarojs/taro') return { ...taro, default: taro }

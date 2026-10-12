@@ -1,3 +1,4 @@
+import { getTabBarBottom } from '@/constants/tabBarLayout'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -253,7 +254,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   return (
     <>
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
-      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: '146rpx' }} showScrollbar={false}>
+      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: getTabBarBottom(46) }} showScrollbar={false}>
         {activeTab === 'YUEMU' ? (
           <ZhiyinPostContent
             contentId="qianxun-soulmate-content"
@@ -298,11 +299,11 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
       </ScrollView>
 
       {activeTab === 'YUEMU' ? (
-        <View id="qianxun-soulmate-publish" aria-label="发布心灵搭子" onClick={() => requireInteraction() && void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: QIANXUN_BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
+        <View id="qianxun-soulmate-publish" aria-label="发布心灵搭子" onClick={() => requireInteraction() && void Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: getTabBarBottom(90), width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: QIANXUN_BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
           <Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text>
         </View>
       ) : activeTab === 'SINCERE' && config?.stationPublishAllowed ? (
-        <View id="qianxun-sincere-publish" aria-label="发布时空站台" onClick={() => requireInteraction() && void Taro.navigateTo({ url: '/pages/qianxun/compose?postType=sincere_post' })} style={{ position: 'fixed', right: '30rpx', bottom: '190rpx', width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: QIANXUN_BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
+        <View id="qianxun-sincere-publish" aria-label="发布时空站台" onClick={() => requireInteraction() && void Taro.navigateTo({ url: '/pages/qianxun/compose?postType=sincere_post' })} style={{ position: 'fixed', right: '30rpx', bottom: getTabBarBottom(90), width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: QIANXUN_BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
           <Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text>
         </View>
       ) : null}
