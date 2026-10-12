@@ -18,5 +18,6 @@
 | IM-AUTH-P1-07 | P1 | 旧连接登录在切号后完成 | 旧事件、发送结果不进入新账号页面 |
 | IM-AUTH-P1-08 | P1 | 异步凭证返回期间切号 | 页面在初始化前后检查代次，拒绝旧请求 |
 | IM-AUTH-M-09 | P0 | 真机分别微信授权/验证码登录，双向连续发送、主页返回 | 双方正文一致，顺序稳定，返回位置保留 |
+| IM-AUTH-P1-10 | P1 | 同账号换 Token、checkLogin 恢复另一账号的本地登录态 | 旧连接立即失效，恢复的新账号使用对应 IM 身份 |
 
 派生脚本：`miniapp/scripts/test-message-auth-session.cjs`。既有门禁：`npm run validate:message-closure`。

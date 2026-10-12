@@ -22,4 +22,13 @@
 
 ## 3. 发布
 
-提交、远端复核、新源码生产构建、独立目录哈希和 preview/upload 分包比对完成后补录。无后端或管理端业务改动，不以小程序上传代替后端验证。
+本次交付已完成：
+
+- 业务修复提交 `145cfe3b`，发布门禁夹具兼容提交 `7b75d8bb9358ad711c323ee4f5914ac83dcc7610`，均已 Push 到 master。上传前 `git ls-remote` 核对远端与构建 SHA 完全一致。
+- 从 Git archive 干净源码构建，避免混入用户未提交文件和本机私有配置；741 个小程序源文件与 HEAD 一致（Windows 文本换行仅规范化比较）。唯一临时构建配置调整为串行 webpack/minifier，未进入业务提交。
+- 完整 `prebuild:weapp` 共 22 批、380 条测试，380 通过、0 失败；消息闭环 65 条全部通过。独立 Taro 生产编译退出 0，`postbuild:weapp` 的页面注册、真实登录/无开发 Token、包体门禁全部通过（87 页）。前置测试一次停留后终止并重新执行完整门禁，最终记录为 `prebuild.log`；没有绕过失败门禁。
+- 全新发布目录：`.runtime/weapp-release-message-auth-7b75d8bb-20261012-1138/project`，未复制 `project.private.config.json`。429 个产物文件 SHA-256 一致。
+- 体验版 `1.0.202610121140` 上传成功；preview/upload 全部 15 项包名及字节数一致，总包 2,862,599 bytes、主包 1,389,070 bytes、消息分包 441,353 bytes。证据为目录上级 `manifest.json`、`file-hashes.json`、`preview-info.json`、`upload-info.json`、`package-compare.json`。
+- 构建日志：`.runtime/weapp-release-auth-145cfe3b-20261012-1120/` 下 `prebuild.log`、`compile.log`、`typecheck.log`。全仓类型检查有既有错误，未声称通过。
+
+自动化及发布核验通过；真机两种登录入口切号、双向接收和前台渲染仍待独立复验。结论为有条件通过，上传成功不等于真机验收已通过。无后端或管理端业务改动，无相应自动部署项。此次未删除、改写、冒名补发历史错发消息。
