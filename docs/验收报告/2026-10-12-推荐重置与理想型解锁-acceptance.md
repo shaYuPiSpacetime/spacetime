@@ -26,4 +26,29 @@
 
 ## 发布记录
 
-待本次最终构建、master 推送、后端/管理后台自动部署及独立目录小程序上传回执补全。不得以本地修改代替线上生效。
+- 业务提交 `ed13b5e74bc0723603e198c872c5a381df6ac203` 已 Push 到 `master`；开始前实际拉取至 `c6f6b4f3`，上传前再次核对远端仍为本次业务提交。
+- [后端自动部署 38192724637](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38192724637) 和 [管理后台自动部署 38192724630](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38192724630) 均为 `success`，源码提交均为 `ed13b5e74bc0723603e198c872c5a381df6ac203`。
+- 后端容器于北京时间 2026-10-12 09:43:42 启动，管理后台容器于 09:41:45 启动，均为 `running`、重启次数 0；公网健康接口返回 `code=200/data=ok`，管理后台首页 HTTP 200。
+- 小程序版本 `1.0.20261012.0939` 从本次新建的 `.runtime/weapp-release-20261012-093948-ed13b5e7/project` 上传，工具返回 `✔ upload`、退出码 0；430 个源文件与独立目录复制品的 SHA-256 一致，上传后再次核对无变化。
+- `preview-info.json` 与 `upload-info.json` 中总包、主包及全部 13 个分包的字节数逐项完全一致。回执及文件哈希清单位于该发布目录，未将本机临时产物提交入库。
+- 本次完成代码部署和小程序上传，未提交微信正式审核或正式上架。校友修复需重新发起筛选，旧快照不被追溯改写；未代替真实用户扣币或操作关系。
+
+### 上传分包回执（预览与上传一致）
+
+| 包 | 字节数 |
+| --- | ---: |
+| TOTAL | 2856395 |
+| main | 1385725 |
+| /pages/assessment/ | 4199 |
+| /pages/coins/ | 45369 |
+| /pages/featured/ | 79801 |
+| /pages/heart/ | 55666 |
+| /pages/membership/ | 39115 |
+| /pages/message/ | 438737 |
+| /pages/prd08/ | 87034 |
+| /pages/profile-edit/ | 33454 |
+| /pages/promotion/ | 364357 |
+| /pages/qianxun/ | 135876 |
+| /pages/search/ | 19866 |
+| /pages/settings/ | 53691 |
+| /pages/verification/ | 113505 |
