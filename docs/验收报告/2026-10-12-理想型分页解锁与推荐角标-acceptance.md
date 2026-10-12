@@ -20,4 +20,26 @@
 
 ## 发布记录
 
-提交、后端部署以及本次独立目录上传回执待完成后补记。
+- 本次实际拉取并同步 `origin/master`，业务提交 `e795cf9b1411f7ed46fce59b601895582ee0adf9` 已 Push。上传前 `ls-remote` 再核对远端 SHA 与发布源码相同。
+- [后端自动部署 38196622100](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38196622100) 成功，源码 SHA 为 `e795cf9b1411f7ed46fce59b601895582ee0adf9`；生产容器北京时间 2026-10-12 10:42:32 启动，状态 `running`、重启次数 0，服务器及公网健康接口均返回 `code=200/data=ok`。
+- 小程序版本 `1.0.20261012.1039` 上传成功（`✔ upload`、退出码 0），本轮独立目录为 `.runtime/weapp-release-20261012-103916-e795cf9b/project`，没有复用开发目录或上一轮发布目录。
+- 430 个复制文件 SHA-256 与本次源码构建产物一致，上传后再次校验无变化。预览/上传总包、主包和全部 13 个分包字节数逐项完全一致，回执保存于本轮发布目录。
+- 本次未改管理后台，不触发管理后台部署；未提交微信正式审核或正式上架，未执行真机扣币。
+
+| 包 | 预览与上传字节数 |
+| --- | ---: |
+| TOTAL | 2858708 |
+| main | 1388038 |
+| /pages/assessment/ | 4199 |
+| /pages/coins/ | 45369 |
+| /pages/featured/ | 79801 |
+| /pages/heart/ | 55666 |
+| /pages/membership/ | 39115 |
+| /pages/message/ | 438737 |
+| /pages/prd08/ | 87034 |
+| /pages/profile-edit/ | 33454 |
+| /pages/promotion/ | 364357 |
+| /pages/qianxun/ | 135876 |
+| /pages/search/ | 19866 |
+| /pages/settings/ | 53691 |
+| /pages/verification/ | 113505 |
