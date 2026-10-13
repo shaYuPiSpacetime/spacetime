@@ -5,7 +5,7 @@
 
 ## 结论
 
-有条件通过：地区故障已完成代码回归和指定账号数据修复；本账号鉴权保存→下一步的真机流程仍需验收，不能用组件测试或上传成功替代。后端自动部署及小程序上传核对结果在交付后补充。
+有条件通过：地区故障已完成代码回归、指定账号数据修复、后端自动部署及新体验包上传；本账号鉴权保存→下一步的真机流程仍需验收，不能用组件测试或上传成功替代。
 
 ## 结果
 
@@ -57,4 +57,30 @@ node .runtime/profile-edit-flow-19900000002-20261013/typecheck-baseline.cjs
 ## 审查与交付
 
 只读独立审查无Critical；已整改直接/扁平同名候选歧义、补足effect覆盖，不改聊天或认证权限。
-交付核对待当次构建、提交、Push与独立目录上传后补充。
+
+- 代码提交并Push至master：`46acef03d86ec6bced3e89a1b97dd1e7bfd80702`。上传前实际`git ls-remote`确认远端与构建SHA一致；其他未提交文件未混入。
+- 新生产构建关闭固定登录/E2E；87个页面注册、开发Token和包体门禁通过。主包估算1.41MiB，总包估算2.84MiB；Webpack已有推荐阈值警告（common.js/private-chat.js）不记为已优化。
+- 上传版本：`2026.10.13.1638`；独立目录`.runtime/weapp-release-profile-region-20261013-163735-46acef03/project`，未复制private配置。
+- 432个复制文件逐一SHA256一致，preview/upload总包及全部分包字节数逐项完全一致。原始manifest/preview-info/upload-info/package-audit在对应独立发布目录。
+- [本次后端自动部署](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38370163599)：head_sha与代码提交一致，build/deploy均success，2026-10-13 16:37:56完成；16:39:34健康检查code200/data=ok。
+- 部署后只读复查U1010：现居310000/310100/310104、家乡420000/420100/420104、basic_profile_completed=0，符合不绕过真实保存流程的边界。
+
+| 包名 | preview与upload共同字节数 |
+| --- | ---: |
+| main | 1390141 |
+| /pages/assessment/ | 4199 |
+| /pages/coins/ | 44537 |
+| /pages/featured/ | 79801 |
+| /pages/heart/ | 55668 |
+| /pages/membership/ | 39115 |
+| /pages/message/ | 441317 |
+| /pages/prd08/ | 87671 |
+| /pages/profile-edit/ | 33454 |
+| /pages/promotion/ | 364357 |
+| /pages/qianxun/ | 135424 |
+| /pages/search/ | 19869 |
+| /pages/settings/ | 53699 |
+| /pages/verification/ | 126191 |
+| TOTAL | 2875443 |
+
+体验包上传与字节核验已完成，不等同于微信正式版已通过审核上线。
