@@ -12,7 +12,7 @@
 | L2/L3 后端 | 29/29，0失败/错误/跳过 | VerificationControllerTest 5、SchoolDictionaryServiceImplTest 7、VerificationServiceImplTest 17；新增3项重提契约 |
 | 应用类型增量比较 | 基线15，当前15，新增0 | 对当前HEAD同一tsconfig、skipLibCheck进行比较。完整tsc仍有原依赖声明及业务错误，不能称全仓类型通过 |
 | 独立审查 | 两项Important关闭，最终通过 | 收单后旧GET覆盖资格、旧GET失败覆盖新成功状态，均追加真实失败测试再整改 |
-| 生产构建 | 首轮成功53.10秒；最终包待重构 | 首轮后有异步整改且远端新增充值/动态改动，明确不上传首轮dist |
+| 生产构建 | 最终成功49.82秒，postbuild全部通过 | 从d02c6e0d新构建；87页面注册、关闭开发登录及包体门禁通过，未上传首轮dist |
 | 后台文案配置 | 16条就绪，线上API200 | 首次只改配置1行；重复执行0行，保留已存在值与启停状态 |
 
 ## 2. TDD 与审查证据
@@ -47,4 +47,28 @@
 
 ## 5. 交付记录
 
-已实际同步master两次：`fa3fbfd6`、随后`ae531434`；保留原工作区无关修改。提交、最终构建、独立发布目录哈希与preview/upload分包校验待本次流程补充，不使用旧构建包。
+已实际同步master：`fa3fbfd6`、随后`ae531434`，最终提交前再次fetch确认无更新；保留原工作区无关修改。本次只提交30个任务文件。
+
+- 代码提交并Push：`d02c6e0d4dfb74c335016439d1933bafb277b448`，上传前实际ls-remote确认origin/master相同。
+- 小程序新包上传成功：`2026.10.13.1049`。这是CLI上传结果，不代表已提交微信审核或正式上线，也不替代本人真机重提验收。
+- 全新独立目录：`.runtime/weapp-release-education-retry-20261013-d02c6e0d-20261013-104709/project`，只复制本次dist与公开project.config.json，无旧私有配置。432个复制文件SHA-256全部一致，preview后与upload后再次核对。
+- Node 24原生cpSync在本机出现访问拒绝/进程崩溃，未复用失败目录；改用PowerShell原生Copy-Item创建另一个新目录，逐文件核对后使用。没有删除旧目录。
+- preview/upload总量及各包逐项一致：总量2,874,197字节，主包1,390,141字节，认证包125,568字节。完整证据在独立目录的`copy-manifest.json`、`preview-info.json`、`upload-info.json`、`package-audit.json`。
+- 线上只读核验：10:47左右一次配置请求返回502；10:48:09健康接口恢复，10:48:47配置200、16条content启用非空、健康200/ok。未手动重启服务，不能仅凭短暂502推断Actions已完成；自动部署状态仍按缺鉴权项保留未确认。
+
+| 包名 | preview字节 | upload字节 |
+|------|------------:|-----------:|
+| main | 1390141 | 1390141 |
+| assessment | 4199 | 4199 |
+| coins | 44537 | 44537 |
+| featured | 79801 | 79801 |
+| heart | 55668 | 55668 |
+| membership | 39115 | 39115 |
+| message | 441317 | 441317 |
+| prd08 | 87048 | 87048 |
+| profile-edit | 33454 | 33454 |
+| promotion | 364357 | 364357 |
+| qianxun | 135424 | 135424 |
+| search | 19869 | 19869 |
+| settings | 53699 | 53699 |
+| verification | 125568 | 125568 |
