@@ -38,6 +38,8 @@ export default function MessageChannelPage() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const acknowledged = useRef(new Set<string>())
+  const loadingRef = useRef(false)
+  const [scrollTarget, setScrollTarget] = useState('')
 
   const acknowledgeRendered = async (
     nextItems: ChannelItem[],
@@ -74,7 +76,8 @@ export default function MessageChannelPage() {
   }
 
   const load = async (append = false) => {
-    if (loading) return
+    if (loadingRef.current) return
+    loadingRef.current = true
     setLoading(true)
     setErrorMessage('')
     try {
@@ -88,8 +91,10 @@ export default function MessageChannelPage() {
         setTimeout(() => void acknowledgeRendered(next), 0)
       } else {
         const page = await service.listSystemMessages(append ? cursor : undefined, 20)
-        const mapped: ChannelItem[] = page.list.map(value => ({ channel: 'system', value }))
-        const next = append ? [...items, ...mapped] : mapped
+        const mapped: ChannelItem[] = [...page.list].reverse().map(value => ({ channel: 'system', value }))
+        const next = append ? [...mapped, ...items] : mapped
+        const anchor = append ? items[0] : next[next.length - 1]
+        setScrollTarget(anchor?.channel === 'system' ? `notice-${anchor.value.noticeNo}` : '')
         setItems(next)
         setCursor(page.nextCursor || undefined)
         setHasMore(page.hasMore)
@@ -98,6 +103,7 @@ export default function MessageChannelPage() {
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '消息加载失败')
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
   }
@@ -128,13 +134,18 @@ export default function MessageChannelPage() {
   return (
     <View className="message-page message-page--gray channel-page">
       <MessageNav title={channel === 'assistant' ? '官方小助手' : '系统消息'} center />
-      <ScrollView scrollY className="channel-scroll" showScrollbar={false} onScrollToLower={() => { if (hasMore) void load(true) }}>
+      <ScrollView
+        scrollY className="channel-scroll" showScrollbar={false}
+        scrollIntoView={channel === 'system' ? scrollTarget : undefined}
+        onScrollToUpper={channel === 'system' ? () => { if (hasMore) void load(true) } : undefined}
+        onScrollToLower={channel === 'assistant' ? () => { if (hasMore) void load(true) } : undefined}
+      >
         <View className="channel-content">
           {items.map(item => {
             const no = item.channel === 'assistant' ? item.value.assistantMessageNo : item.value.noticeNo
             const actionType = item.channel === 'assistant' ? item.value.actionType : item.value.jumpType
             return (
-              <View key={no}>
+              <View key={no} id={`notice-${no}`}>
                 <Text className="channel-date">{formatDate(item.value.createdTime)}</Text>
                 <ChannelCard type={channel}>
                   <Text className="channel-card-title">{item.value.title}</Text>
