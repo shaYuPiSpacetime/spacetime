@@ -50,7 +50,8 @@ test('互动记录按真实互动日期稳定分组并显示蓝湖日期文本',
   assert.equal(shouldDisplayMyCommunityPost('published'), true)
   assert.equal(shouldDisplayMyCommunityPost('pending_manual'), true)
   assert.equal(shouldDisplayMyCommunityPost('deleted'), false)
-  assert.equal(shouldDisplayMyCommunityPost('BLOCKED'), false)
+  assert.equal(shouldDisplayMyCommunityPost('BLOCKED'), true)
+  assert.equal(shouldDisplayMyCommunityPost('rejected'), true)
 })
 
 test('互动页消费真实 viewed 互动接口并保留关联动态和互动时间', () => {
@@ -76,7 +77,7 @@ test('我的动态审核与失败状态按蓝湖统一展示并通过弹窗反�
 
   assert.match(
     communityService,
-    /if \(status === 'pending_manual'\) return '审核中'[\s\S]*if \(status === 'rejected'\) return '发布失败'[\s\S]*const serverLabel/,
+    /if \(status === 'pending_manual'\) return '审核中'[\s\S]*if \(isCommunityPostFailure\(status\)\) return '发布失败'[\s\S]*const serverLabel/,
     'pending_manual 必须优先覆盖服务端“待人工复核”文案',
   )
   assert.doesNotMatch(communityService, /return '待审核'/, '前端不得继续展示旧文案“待审核”')
@@ -93,7 +94,8 @@ test('我的动态审核与失败状态按蓝湖统一展示并通过弹窗反�
   assert.match(interactions, /data-role="qianxun-my-post-content-column"[\s\S]*data-role="qianxun-my-post-more"[\s\S]*<View style=\{\{ flex: 1 \}\} \/>/, '互动内三个点必须从正文左边缘开始，弹性占位只能放在其后')
   assert.match(myPosts, /data-role="qianxun-my-post-content-column"[\s\S]*data-role="qianxun-my-post-more"[\s\S]*<View style=\{\{ flex: 1 \}\} \/>/, '独立我的动态三个点必须从正文左边缘开始')
   const failureDialog = read('src/components/QianxunPublishFailureDialog.tsx')
-  assert.match(failureDialog, /width: '620rpx'[\s\S]*height: '538rpx'/, '发布失败弹窗尺寸必须按蓝湖画板还原')
+  assert.match(failureDialog, /width: '620rpx'[\s\S]*maxHeight: '80vh'/, '发布失败弹窗需要适配屏幕并保留完整原因')
+  assert.doesNotMatch(failureDialog, /WebkitLineClamp/, '拒绝原因不能只展示前两行')
   assert.match(failureDialog, /id="qianxun-publish-failure-reason"/, '发布失败弹窗必须展示服务端失败原因')
   assert.match(failureDialog, /miniappOssIcons\.qianxunPublishFailure/, '发布失败弹窗必须使用蓝湖书本失败插画')
   assert.doesNotMatch(failureDialog, /qianxunEmptyChart/, '发布失败弹窗禁止复用饼图空态素材')

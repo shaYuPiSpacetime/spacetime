@@ -59,6 +59,8 @@ public class CommunityServiceImpl implements CommunityService {
     private static final int DELETE_POST_CAS_ATTEMPTS = 3;
     /** 面向用户的统一机审驳回说明，禁止暴露命中的敏感词或供应商标签。 */
     private static final String SAFE_MACHINE_REJECTION_REASON = "内容未通过安全审核，请修改后重新提交";
+    /** 旧下架记录未填写说明时的本人端兜底，不冒用上一次审核通过的备注。 */
+    private static final String BLOCKED_POST_REASON_FALLBACK = "该动态未通过平台审核，暂不可对外展示。具体原因请联系客服。";
 
     /** 个人区实时聚合与数据库分页查询。 */
     private final CommunityPersonalQueryDao communityPersonalQueryDao;
@@ -435,6 +437,9 @@ public class CommunityServiceImpl implements CommunityService {
         }
         CommunityPostDetailVO vo = new CommunityPostDetailVO();
         fillPostDetail(vo, userId, post);
+        if (CommunityPostStatusEnum.BLOCKED.getCode().equals(post.getStatus())) {
+            vo.setAuditRemark(blockedPostReasons(List.of(post)).get(post.getId()));
+        }
         return vo;
     }
 
@@ -1036,6 +1041,9 @@ public class CommunityServiceImpl implements CommunityService {
     @Override
     public Page<CommunityPostCardVO> getUserPosts(Long currentUserId, String targetUserRef, boolean mine, int page, int size) {
         Long targetUserId = resolveUserRef(targetUserRef);
+        if (mine && (currentUserId == null || !Objects.equals(currentUserId, targetUserId))) {
+            throw error("content_unavailable");
+        }
         requireUser(targetUserId);
         if (!mine) {
             requireNotBlockedFromPosts(currentUserId, targetUserId);
@@ -1043,10 +1051,39 @@ public class CommunityServiceImpl implements CommunityService {
         LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
                 .eq(CommunityPost::getAuthorId, targetUserId)
                 .eq(!mine, CommunityPost::getStatus, CommunityPostStatusEnum.PUBLISHED.getCode())
-                .notIn(mine, CommunityPost::getStatus, List.of("deleted", "blocked"))
+                .ne(mine, CommunityPost::getStatus, CommunityPostStatusEnum.DELETED.getCode())
                 .orderByDesc(CommunityPost::getCreateTime, CommunityPost::getId);
         Page<CommunityPost> data = communityPostDao.selectPage(new Page<>(safePage(page), safeSize(size, 100)), wrapper);
-        return toPostCardPage(currentUserId, data);
+        Page<CommunityPostCardVO> result = toPostCardPage(currentUserId, data);
+        if (mine) {
+            Map<Long, String> reasons = blockedPostReasons(data.getRecords());
+            result.getRecords().forEach(item -> {
+                if (reasons.containsKey(item.getId())) item.setAuditRemark(reasons.get(item.getId()));
+            });
+        }
+        return result;
+    }
+
+    /** 批量读取最近一次下架说明，兼容过去只写审计记录的帖子，不逐条查询也不修改历史数据。 */
+    private Map<Long, String> blockedPostReasons(List<CommunityPost> posts) {
+        List<Long> postIds = posts.stream()
+                .filter(post -> CommunityPostStatusEnum.BLOCKED.getCode().equals(post.getStatus()))
+                .map(CommunityPost::getId).toList();
+        if (postIds.isEmpty()) return Map.of();
+        List<CommunityAuditRecord> audits = Optional.ofNullable(communityExtensionDao.selectAudits(
+                new LambdaQueryWrapper<CommunityAuditRecord>()
+                        .eq(CommunityAuditRecord::getBizType, "post")
+                        .in(CommunityAuditRecord::getBizId, postIds)
+                        .eq(CommunityAuditRecord::getAfterSnapshot, CommunityPostStatusEnum.BLOCKED.getCode())
+                        .orderByDesc(CommunityAuditRecord::getCreateTime, CommunityAuditRecord::getId)))
+                .orElseGet(List::of);
+        Map<Long, String> reasons = new LinkedHashMap<>();
+        for (CommunityAuditRecord audit : audits) {
+            reasons.putIfAbsent(audit.getBizId(), StrUtil.blankToDefault(
+                    StrUtil.trim(audit.getReason()), BLOCKED_POST_REASON_FALLBACK));
+        }
+        postIds.forEach(id -> reasons.putIfAbsent(id, BLOCKED_POST_REASON_FALLBACK));
+        return reasons;
     }
 
     /** 黑名单任一方都不能通过动态列表或详情读取对方动态。 */

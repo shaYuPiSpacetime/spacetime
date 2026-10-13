@@ -444,7 +444,7 @@ export default function RecommendFamilyPage() {
           scrollIntoView={focusPostId}
           lowerThreshold={120}
           onScrollToLower={() => void loadScene(activeTab, true)}
-          style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: getTabBarBottom(46) }}
+          style={{ position: 'absolute', left: 0, right: 0, top: `${headerMetrics.contentTop}rpx`, bottom: getTabBarBottom() }}
           showScrollbar={false}
         >
           <View style={{ width: '750rpx', padding: '20rpx 25rpx 120rpx', boxSizing: 'border-box' }}>

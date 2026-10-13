@@ -16,7 +16,7 @@ import {
   QIANXUN_BODY_PREVIEW_MAX_HEIGHT,
 } from '@/constants/qianxunTypography'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
-import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost } from '@/domain/qianxunInteractionPresentation'
+import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyCommunityPost, isCommunityPostFailure } from '@/domain/qianxunInteractionPresentation'
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { useCommunityPersonalSummary } from '@/hooks/useCommunityPersonalSummary'
 import { replaceResubmittedPost, subscribeCommunityPostResubmitted } from '@/domain/communityPostResubmitted'
@@ -540,6 +540,10 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage, onFailure 
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [commentsError, setCommentsError] = useState('')
   const open = () => {
+    if (isCommunityPostFailure(item.status)) {
+      onFailure()
+      return
+    }
     if (item.postId && item.status === 'published') {
       if (expanded) {
         setExpanded(false)

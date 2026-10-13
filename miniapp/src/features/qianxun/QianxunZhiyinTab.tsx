@@ -254,7 +254,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   return (
     <>
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
-      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: getTabBarBottom(46) }} showScrollbar={false}>
+      <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ position: 'absolute', left: 0, right: 0, top: `${contentTop}rpx`, bottom: getTabBarBottom() }} showScrollbar={false}>
         {activeTab === 'YUEMU' ? (
           <ZhiyinPostContent
             contentId="qianxun-soulmate-content"

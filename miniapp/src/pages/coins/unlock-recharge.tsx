@@ -5,14 +5,14 @@ import { miniappOssIcons } from '@/constants/ossIcons'
 import { useCoins, type CoinPayState } from '@/hooks/useCoins'
 import { LANHU_BLUE, LANHU_NAVY, LanhuNav } from '@/pages/lanhu/LanhuShell'
 import type { CoinPackage } from '@/types/coin'
+import CoinRechargePlans from '@/components/CoinRechargePlans'
+import './recharge.scss'
 
 const PAGE_BACKGROUND =
   'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.68) 49%, rgba(248,250,239,0.68) 100%)'
 const AGREEMENT_TITLE = '《时空邂逅充值协议》'
 const openCoinAgreement = () => void Taro.navigateTo({ url: '/pages/settings/content?contentCode=coin_recharge_agreement' })
-const PLAN_CARD_WIDTH_RPX = 242
-const PLAN_CARD_GAP_RPX = 6
-const PLAN_SELECTED_LEFT_RPX = 150
+
 
 const RECHARGE_NOTICE = [
   '1.微信支付显示成功后，若千寻币数量没有更新，可以退出该页面再重新进入。',
@@ -108,10 +108,10 @@ export default function UnlockRechargePage() {
     <View style={{ height: '100vh', overflow: 'hidden', background: PAGE_BACKGROUND, display: 'flex', flexDirection: 'column', fontFamily: 'PingFang SC, sans-serif' }}>
       <LanhuNav title="千寻币" showBack />
       <ScrollView scrollY enableFlex showScrollbar={false} style={{ flex: 1, height: 0, minHeight: 0 }}>
-        <View style={{ width: '750rpx', minHeight: '1170rpx', paddingBottom: '36rpx', boxSizing: 'border-box' }}>
+        <View className="coin-recharge-content coin-recharge-content--unlock">
           <UnlockSceneHero idealScene={idealScene} replayScene={replayScene} />
           <UnlockSummary balance={balance} cost={unlockCost} />
-          {displayPackages.length && activePackage ? <RechargePanel packages={displayPackages} activePackage={activePackage} onSelect={handleSelect} onNotice={() => setNoticeVisible(true)} /> : <View style={{ width: '700rpx', height: '220rpx', margin: '52rpx auto 0', borderRadius: '12rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '24rpx' }}>{packagesLoading ? '充值套餐加载中…' : '暂无可用充值套餐'}</Text></View>}
+          {displayPackages.length && activePackage ? <CoinRechargePlans packages={displayPackages} selected={activePackage} onSelect={handleSelect} onNotice={() => setNoticeVisible(true)} /> : <View style={{ width: '100%', height: '220rpx', margin: 0, borderRadius: '12rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '24rpx' }}>{packagesLoading ? '充值套餐加载中…' : '暂无可用充值套餐'}</Text></View>}
         </View>
       </ScrollView>
       <RechargePayBar
@@ -133,14 +133,16 @@ export default function UnlockRechargePage() {
 
 function UnlockSceneHero({ idealScene, replayScene }: { idealScene: boolean; replayScene: boolean }) {
   return (
-    <View style={{ position: 'relative', width: '700rpx', height: '420rpx', margin: '0 auto' }}>
-      <SceneAvatar left={122} top={90} size={120} />
-      <SceneAvatar left={458} top={90} size={120} />
-      <SceneAvatar left={250} top={50} size={200} featured />
-      <SceneBubble left={210} top={68} text={idealScene ? '理想型' : replayScene ? '三天回放' : '心动'} tail="right" />
-      <SceneBubble left={390} top={150} text={idealScene ? '已匹配' : '待解锁'} tail="left" />
-      <Text style={{ position: 'absolute', left: 0, top: '270rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>{idealScene ? '立即解锁理想型' : replayScene ? '查看三天回放用户主页' : 'Ta也喜欢了你!'}</Text>
-      <Text style={{ position: 'absolute', left: 0, top: '326rpx', width: '700rpx', color: LANHU_NAVY, fontSize: '34rpx', fontWeight: 500, lineHeight: '48rpx', textAlign: 'center' }}>{idealScene ? '只邂逅你想要的人' : replayScene ? '充值后返回回放列表确认解锁' : '解锁后立即和ta配对聊天'}</Text>
+    <View className="coin-recharge-hero">
+      <View className="coin-recharge-hero__art">
+        <SceneAvatar left={122} top={66} size={120} />
+        <SceneAvatar left={458} top={66} size={120} />
+        <SceneAvatar left={250} top={26} size={200} featured />
+        <SceneBubble left={210} top={44} text={idealScene ? '理想型' : replayScene ? '三天回放' : '心动'} tail="right" />
+        <SceneBubble left={390} top={126} text={idealScene ? '已匹配' : '待解锁'} tail="left" />
+      </View>
+      <View className="coin-recharge-hero__title">{idealScene ? '立即解锁理想型' : replayScene ? '查看三天回放用户主页' : 'Ta也喜欢了你!'}</View>
+      <View className="coin-recharge-hero__subtitle">{idealScene ? '只邂逅你想要的人' : replayScene ? '充值后返回回放列表确认解锁' : '解锁后立即和ta配对聊天'}</View>
     </View>
   )
 }
@@ -164,7 +166,7 @@ function SceneBubble({ left, top, text, tail }: { left: number; top: number; tex
 
 function UnlockSummary({ balance, cost }: { balance: number; cost: number }) {
   return (
-    <View style={{ width: '664rpx', height: '54rpx', margin: '24rpx auto 0', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+    <View style={{ width: '100%', minHeight: '54rpx', padding: '0 8rpx', boxSizing: 'border-box', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
       <SummaryAmount label="本次消耗" value={cost} />
       <SummaryAmount label="余额" value={balance} />
     </View>
@@ -181,92 +183,20 @@ function SummaryAmount({ label, value }: { label: string; value: number }) {
   )
 }
 
-function RechargePanel({
-  packages,
-  activePackage,
-  onSelect,
-  onNotice,
-}: {
-  packages: CoinPackage[]
-  activePackage: CoinPackage
-  onSelect: (pkg: CoinPackage) => void
-  onNotice: () => void
-}) {
-  const selectedIndex = Math.max(0, packages.findIndex(pkg => pkg.id === activePackage.id))
-  const targetScrollLeft = Math.max(
-    0,
-    selectedIndex * (PLAN_CARD_WIDTH_RPX + PLAN_CARD_GAP_RPX) - PLAN_SELECTED_LEFT_RPX,
-  ) * Taro.getWindowInfo().windowWidth / 750
-  const [railScrollLeft, setRailScrollLeft] = useState(0)
-  const railContentWidth = Math.max(
-    640,
-    packages.length * (PLAN_CARD_WIDTH_RPX + PLAN_CARD_GAP_RPX) - PLAN_CARD_GAP_RPX,
-  )
 
-  useEffect(() => {
-    setRailScrollLeft(targetScrollLeft)
-  }, [targetScrollLeft])
-
-  return (
-    <View style={{ width: '700rpx', height: '338rpx', margin: '52rpx auto 0', padding: '27rpx 30rpx 0', borderRadius: '12rpx', background: '#FFFFFF', overflow: 'hidden', boxSizing: 'border-box' }}>
-      <View style={{ height: '40rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ color: LANHU_NAVY, fontSize: '28rpx', fontWeight: 500, lineHeight: '40rpx' }}>充值千寻币</Text>
-        <View onClick={onNotice} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={{ color: '#9D9D9D', fontSize: '24rpx', lineHeight: '34rpx' }}>充值须知</Text>
-          <View style={{ width: '16rpx', height: '16rpx', marginLeft: '10rpx', borderTop: '3rpx solid #9D9D9D', borderRight: '3rpx solid #9D9D9D', transform: 'rotate(45deg)', boxSizing: 'border-box' }} />
-        </View>
-      </View>
-      <ScrollView scrollX scrollLeft={railScrollLeft} scrollWithAnimation={false} showScrollbar={false} style={{ width: '640rpx', marginTop: '25rpx' }}>
-        <View style={{ width: `${railContentWidth}rpx`, height: '198rpx', paddingTop: '15rpx', display: 'flex', flexDirection: 'row', boxSizing: 'border-box' }}>
-          {packages.map(pkg => <RechargePackageCard key={pkg.id} pkg={pkg} selected={pkg.id === activePackage.id} onClick={() => onSelect(pkg)} />)}
-        </View>
-      </ScrollView>
-    </View>
-  )
-}
-
-function RechargePackageCard({ pkg, selected, onClick }: { pkg: CoinPackage; selected: boolean; onClick: () => void }) {
-  return (
-    <View onClick={onClick} style={{ position: 'relative', flexShrink: 0, width: '242rpx', height: '183rpx', marginRight: '6rpx', padding: '33rpx 26rpx 29rpx', borderRadius: '12rpx', border: selected ? `4rpx solid ${LANHU_BLUE}` : '2rpx solid #CED4DF', background: selected ? '#E3F1FE' : '#F8FAFE', boxSizing: 'border-box' }}>
-      {pkg.tag ? (
-        <View style={{ position: 'absolute', left: '20rpx', top: '-15rpx', height: '36rpx', padding: '0 13rpx', borderRadius: '8rpx', background: '#F32B61', display: 'flex', alignItems: 'center' }}>
-          <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '22rpx' }}>{pkg.tag}</Text>
-        </View>
-      ) : null}
-      <View style={{ height: '37rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-        <Image src={miniappOssIcons.coinGold} mode="aspectFit" style={{ width: '19rpx', height: '19rpx', marginRight: '10rpx' }} />
-        <Text style={{ color: LANHU_NAVY, fontSize: '26rpx', fontWeight: 500, lineHeight: '37rpx' }}>{pkg.amount}</Text>
-      </View>
-      {pkg.originalPrice && pkg.discountLabel ? (
-        <View style={{ height: '28rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '2rpx' }}>
-          <Text style={{ color: '#9A9A9A', fontSize: '18rpx', lineHeight: '25rpx', textDecorationLine: 'line-through' }}>{pkg.originalPrice}</Text>
-          <View style={{ marginLeft: '8rpx', padding: '2rpx 9rpx 1rpx', borderRadius: '4rpx', background: '#FFD5E2' }}>
-            <Text style={{ color: '#F32B61', fontSize: '12rpx', lineHeight: '17rpx' }}>{pkg.discountLabel}</Text>
-          </View>
-        </View>
-      ) : (
-        <Text style={{ display: 'block', color: '#999999', fontSize: '18rpx', lineHeight: '25rpx', marginTop: '2rpx' }}>{pkg.label}</Text>
-      )}
-      <View style={{ width: '170rpx', height: '53rpx', display: 'flex', flexDirection: 'row', alignItems: 'flex-start' }}>
-        <Text style={{ color: selected ? LANHU_BLUE : LANHU_NAVY, fontSize: '28rpx', fontWeight: 500, lineHeight: '44rpx' }}>¥</Text>
-        <Text style={{ color: selected ? LANHU_BLUE : LANHU_NAVY, fontSize: '38rpx', fontWeight: 500, lineHeight: '44rpx' }}>{pkg.price.toFixed(2)}</Text>
-      </View>
-    </View>
-  )
-}
 
 function RechargePayBar({ checked, loading, onToggle, onOpenAgreement, onPay }: { checked: boolean; loading: boolean; onToggle: () => void; onOpenAgreement: () => void; onPay: () => void }) {
   return (
-    <View style={{ width: '750rpx', padding: '20rpx 44rpx max(30rpx, calc(env(safe-area-inset-bottom) - 24rpx))', background: 'rgba(255,255,255,0.96)', flexShrink: 0, boxSizing: 'border-box', zIndex: 20 }}>
-      <View onClick={onPay} style={{ width: '664rpx', height: '98rpx', borderRadius: '14rpx', background: LANHU_BLUE, opacity: loading ? 0.72 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: '750rpx', padding: '16rpx 32rpx max(16rpx, env(safe-area-inset-bottom))', background: 'rgba(255,255,255,0.96)', flexShrink: 0, boxSizing: 'border-box', zIndex: 20 }}>
+      <View onClick={onPay} style={{ width: '100%', height: '98rpx', borderRadius: '14rpx', background: LANHU_BLUE, opacity: loading ? 0.72 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 600, lineHeight: '50rpx' }}>立即充值</Text>
       </View>
-      <View onClick={onToggle} style={{ height: '62rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+      <View onClick={onToggle} style={{ minHeight: '64rpx', display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
         <View style={{ width: '32rpx', height: '32rpx', marginRight: '16rpx', borderRadius: '50%', border: `2rpx solid ${LANHU_BLUE}`, background: checked ? LANHU_BLUE : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
           {checked ? <Text style={{ color: '#FFFFFF', fontSize: '22rpx', fontWeight: 700, lineHeight: '26rpx' }}>✓</Text> : null}
         </View>
-        <Text style={{ color: '#333333', fontSize: '28rpx', lineHeight: '40rpx' }}>阅读并同意</Text>
-        <Text style={{ color: LANHU_BLUE, fontSize: '28rpx', lineHeight: '40rpx' }} onClick={event => { event.stopPropagation(); onOpenAgreement() }}>{AGREEMENT_TITLE}</Text>
+        <Text style={{ color: '#333333', fontSize: '24rpx', lineHeight: '40rpx' }}>阅读并同意</Text>
+        <Text style={{ color: LANHU_BLUE, fontSize: '24rpx', lineHeight: '40rpx' }} onClick={event => { event.stopPropagation(); onOpenAgreement() }}>{AGREEMENT_TITLE}</Text>
       </View>
     </View>
   )

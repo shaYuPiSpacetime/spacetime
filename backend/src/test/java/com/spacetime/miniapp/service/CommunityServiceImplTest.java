@@ -1336,15 +1336,27 @@ class CommunityServiceImplTest {
     }
 
     @Test
-    @DisplayName("我的动态-查询层排除已删除和已屏蔽内容")
-    void getUserPosts_mine_shouldExcludeDeletedAndBlocked() {
+    @DisplayName("我的动态-只排除已删除内容，下架记录保留给本人")
+    void getUserPosts_mine_shouldKeepBlockedAndExcludeDeleted() {
         when(appUserDao.selectById(1L)).thenReturn(user);
         when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(1, 10, 0));
 
         communityService.getUserPosts(1L, "1", true, 1, 10);
 
-        verify(communityPostDao).selectPage(any(), argThat(wrapper ->
-                wrapper.getExpression().getNormal().stream().anyMatch(segment -> segment == SqlKeyword.NOT_IN)));
+        verify(communityPostDao).selectPage(any(), argThat(wrapper -> {
+            wrapper.getSqlSegment();
+            return wrapper.getExpression().getNormal().stream().anyMatch(segment -> segment == SqlKeyword.NE)
+                    && wrapper.getParamNameValuePairs().containsValue("deleted")
+                    && !wrapper.getParamNameValuePairs().containsValue("blocked");
+        }));
+    }
+
+    @Test
+    @DisplayName("我的动态-不能通过本人标志读取他人的私有失败记录")
+    void getUserPosts_mine_shouldRequireOwner() {
+        assertThatThrownBy(() -> communityService.getUserPosts(2L, "1", true, 1, 10))
+                .isInstanceOf(BusinessException.class);
+        verify(communityPostDao, never()).selectPage(any(), any());
     }
 
     @Test

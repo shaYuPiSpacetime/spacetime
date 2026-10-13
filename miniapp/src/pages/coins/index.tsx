@@ -3,7 +3,8 @@ import { useState } from 'react'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useCoins, type CoinPayState } from '@/hooks/useCoins'
-import type { CoinPackage } from '@/types/coin'
+import CoinRechargePlans from '@/components/CoinRechargePlans'
+import './recharge.scss'
 import {
   LANHU_BLUE,
   LANHU_NAVY,
@@ -12,7 +13,7 @@ import {
 } from '@/pages/lanhu/LanhuShell'
 
 
-const COIN_PLAN_CARD_GAP_RPX = 8
+
 const COIN_AGREEMENT_TITLE = '《时空邂逅充值协议》'
 const openCoinAgreement = () => void Taro.navigateTo({ url: '/pages/settings/content?contentCode=coin_recharge_agreement' })
 const RECHARGE_NOTICE = {
@@ -107,9 +108,9 @@ export default function CoinsPage() {
         }}
         showScrollbar={false}
       >
-        <View style={{ width: '750rpx', padding: '6rpx 25rpx 48rpx', boxSizing: 'border-box' }}>
+        <View className="coin-recharge-content">
           <BalanceCard balance={balance} onDetail={goToDetail} />
-          <RechargeCard packages={packages} selected={selectedPackage} onSelect={selectPackage} onNotice={showRechargeNotice} />
+          <CoinRechargePlans packages={packages} selected={selectedPackage} onSelect={selectPackage} onNotice={showRechargeNotice} />
           <UsageCard usages={usages.filter((usage) => usage.code !== 'replay_profile_unlock_one').slice(0, 8)} />
         </View>
       </ScrollView>
@@ -148,34 +149,11 @@ export default function CoinsPage() {
 
 function BalanceCard({ balance, onDetail }: { balance: number; onDetail: () => void }) {
   return (
-    <View
-      style={{
-        position: 'relative',
-        width: '700rpx',
-        height: '188rpx',
-        borderRadius: '12rpx',
-        background: '#2F79FE',
-        overflow: 'hidden',
-      }}
-    >
-      <Image
-        src={miniappOssIcons.coinBalanceBackground}
-        mode="scaleToFill"
-        style={{ position: 'absolute', inset: 0, width: '700rpx', height: '188rpx', pointerEvents: 'none' }}
-      />
-      <Text style={{ position: 'absolute', left: '32rpx', top: '48rpx', color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>
-        千寻币余额
-      </Text>
-      <Text style={{ position: 'absolute', left: '32rpx', top: '91rpx', color: '#FFFFFF', fontSize: '48rpx', fontWeight: 700, lineHeight: '67rpx' }}>
-        {balance}
-      </Text>
-      <View
-        style={{ position: 'absolute', right: '28rpx', top: '82rpx', display: 'flex', flexDirection: 'row', alignItems: 'center' }}
-        onClick={onDetail}
-      >
-        <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 600 }}>明细</Text>
-        <CoinChevronIcon color="#FFFFFF" size="20rpx" marginLeft="6rpx" />
-      </View>
+    <View className="coin-recharge-balance">
+      <Image src={miniappOssIcons.coinBalanceBackground} mode="scaleToFill" className="coin-recharge-balance__background" />
+      <View className="coin-recharge-balance__label">千寻币余额</View>
+      <View className="coin-recharge-balance__value">{balance}</View>
+      <View className="coin-recharge-balance__detail" onClick={onDetail}>明细<CoinChevronIcon color="#FFFFFF" size="20rpx" marginLeft="6rpx" /></View>
     </View>
   )
 }
@@ -186,125 +164,7 @@ function resolveCoinPayState(value: unknown): CoinPayState {
   return 'idle'
 }
 
-function RechargeCard({
-  packages,
-  selected,
-  onSelect,
-  onNotice,
-}: {
-  packages: CoinPackage[]
-  selected: CoinPackage | null
-  onSelect: (pkg: CoinPackage) => void
-  onNotice: () => void
-}) {
-  const columns = Math.min(3, Math.max(1, packages.length))
-  const rows = Math.max(1, Math.ceil(packages.length / columns))
-  const cardWidth = (640 - COIN_PLAN_CARD_GAP_RPX * (columns - 1)) / columns
 
-  return (
-    <View
-      style={{
-        width: '700rpx',
-        minHeight: `${124 + rows * 198}rpx`,
-        borderRadius: '12rpx',
-        background: '#FFFFFF',
-        marginTop: '20rpx',
-        padding: '27rpx 30rpx 0',
-        boxSizing: 'border-box',
-        overflow: 'hidden',
-      }}
-    >
-      <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ color: LANHU_NAVY, fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>充值千寻币</Text>
-        <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }} onClick={onNotice}>
-          <Text style={{ color: '#9D9D9D', fontSize: '24rpx', lineHeight: '33rpx' }}>充值须知</Text>
-          <CoinChevronIcon color="#9D9D9D" size="18rpx" marginLeft="8rpx" />
-        </View>
-      </View>
-      <View style={{ width: '640rpx', marginTop: '25rpx' }}>
-        <View
-          style={{
-            display: 'flex',
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            width: '640rpx',
-            minHeight: `${rows * 198}rpx`,
-            paddingTop: '16rpx',
-            boxSizing: 'border-box',
-          }}
-        >
-          {packages.map((pkg, index) => {
-            const isSelected = selected?.id === pkg.id
-            return (
-              <View
-                key={pkg.id}
-                style={{
-                  position: 'relative',
-                  flexShrink: 0,
-                  width: `${cardWidth}rpx`,
-                  height: '184rpx',
-                  borderRadius: '12rpx',
-                  border: isSelected ? `4rpx solid ${LANHU_BLUE}` : '2rpx solid #CED2DA',
-                  background: isSelected ? '#E3F1FE' : '#F7F8FA',
-                  marginRight: (index + 1) % columns === 0 ? 0 : `${COIN_PLAN_CARD_GAP_RPX}rpx`,
-                  marginBottom: index < packages.length - columns ? '14rpx' : 0,
-                  padding: '33rpx 16rpx 29rpx',
-                  boxSizing: 'border-box',
-                }}
-                onClick={() => onSelect(pkg)}
-              >
-                {pkg.tag && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      left: '20rpx',
-                      top: '-15rpx',
-                      height: '36rpx',
-                      borderRadius: '8rpx',
-                      background: '#EE2559',
-                      padding: '0 13rpx',
-                      display: 'flex',
-                      alignItems: 'center',
-                      boxSizing: 'border-box',
-                    }}
-                  >
-                    <Text style={{ color: '#FFFFFF', fontSize: '16rpx', lineHeight: '22rpx' }}>{pkg.tag}</Text>
-                  </View>
-                )}
-                <CoinAmountLabel amount={pkg.amount} />
-                {pkg.originalPrice && pkg.discountLabel ? (
-                  <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '2rpx' }}>
-                    <Text style={{ color: '#999999', fontSize: '20rpx', lineHeight: '28rpx', textDecorationLine: 'line-through' }}>{pkg.originalPrice}</Text>
-                    <View
-                      style={{
-                        borderRadius: '4rpx',
-                        background: '#FEDEE4',
-                        padding: '2rpx 8rpx 1rpx',
-                        marginLeft: '8rpx',
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Text style={{ color: '#EE2559', fontSize: '18rpx', lineHeight: '24rpx' }}>{pkg.discountLabel}</Text>
-                    </View>
-                  </View>
-                ) : (
-                  <Text style={{ display: 'block', color: '#999999', fontSize: '18rpx', lineHeight: '25rpx', marginTop: '2rpx' }}>{pkg.label}</Text>
-                )}
-                <View style={{ display: 'flex', flexDirection: 'row', width: '142rpx', height: '53rpx' }}>
-                  <Text style={{ color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '28rpx', fontWeight: 600, lineHeight: '44rpx' }}>¥</Text>
-                  <Text style={{ color: isSelected ? LANHU_BLUE : LANHU_NAVY, fontSize: '40rpx', fontWeight: 600, lineHeight: '44rpx' }}>
-                    {Number(pkg.price).toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-            )
-          })}
-        </View>
-      </View>
-    </View>
-  )
-}
 
 function CoinChevronIcon({
   color,
@@ -334,61 +194,15 @@ function CoinChevronIcon({
   )
 }
 
-function CoinAmountLabel({ amount }: { amount: number }) {
-  return (
-    <View style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-      <Image src={miniappOssIcons.coinGold} mode="scaleToFill" style={{ width: '19rpx', height: '19rpx', marginRight: '10rpx' }} />
-      <Text style={{ color: LANHU_NAVY, fontSize: '30rpx', fontWeight: 500, lineHeight: '40rpx' }}>{amount}</Text>
-    </View>
-  )
-}
-
 function UsageCard({ usages }: { usages: Array<{ code: string; icon: string; label: string; price: number }> }) {
   return (
-    <View
-      style={{
-        width: '700rpx',
-        height: '478rpx',
-        borderRadius: '12rpx',
-        background: '#FFFFFF',
-        marginTop: '20rpx',
-        overflow: 'hidden',
-        boxSizing: 'border-box',
-        paddingTop: '30rpx',
-      }}
-    >
-      <Text style={{ display: 'block', marginLeft: '31rpx', color: LANHU_NAVY, fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx' }}>
-        千寻币用途
-      </Text>
-      <View
-        style={{
-          width: '720rpx',
-          marginLeft: '-10rpx',
-          marginTop: '25rpx',
-          display: 'flex',
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-        }}
-      >
-        {usages.map((usage) => (
-          <View
-            key={usage.code}
-            style={{
-              width: '180rpx',
-              height: '178rpx',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            {usage.icon ? (
-              <Image src={usage.icon} mode="scaleToFill" style={{ width: '99rpx', height: '99rpx' }} />
-            ) : (
-              <View style={{ width: '99rpx', height: '99rpx', borderRadius: '50%', background: '#E8F4FF' }} />
-            )}
-            <Text style={{ color: LANHU_NAVY, fontSize: '24rpx', lineHeight: '34rpx', marginTop: '16rpx', whiteSpace: 'nowrap' }}>
-              {usage.label}
-            </Text>
+    <View className="coin-recharge-usages">
+      <View className="coin-recharge-usages__title">千寻币用途</View>
+      <View className="coin-recharge-usages__grid">
+        {usages.map(usage => (
+          <View key={usage.code} className="coin-recharge-usages__item">
+            {usage.icon ? <Image src={usage.icon} mode="aspectFit" className="coin-recharge-usages__icon" /> : <View className="coin-recharge-usages__icon coin-recharge-usages__fallback" />}
+            <View className="coin-recharge-usages__label">{usage.label}</View>
           </View>
         ))}
       </View>
@@ -571,7 +385,7 @@ function PayBar({
         width: '750rpx',
         flexShrink: 0,
         background: '#FFFFFF',
-        padding: '20rpx 44rpx max(30rpx, env(safe-area-inset-bottom))',
+        padding: '16rpx 32rpx max(16rpx, env(safe-area-inset-bottom))',
         boxSizing: 'border-box',
         zIndex: 20,
       }}
@@ -591,7 +405,7 @@ function PayBar({
         <Text style={{ color: '#FFFFFF', fontSize: '36rpx', fontWeight: 700 }}>立即支付</Text>
       </View>
       <View
-        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '24rpx' }}
+        style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: '64rpx', flexWrap: 'wrap' }}
         onClick={onToggle}
       >
         <View
@@ -621,8 +435,8 @@ function PayBar({
             />
           )}
         </View>
-        <Text style={{ color: error ? '#B7B7B7' : '#333333', fontSize: '28rpx' }}>阅读并同意</Text>
-        <Text style={{ color: LANHU_BLUE, fontSize: '28rpx' }} onClick={event => { event.stopPropagation(); onOpenAgreement() }}>{agreementTitle}</Text>
+        <Text style={{ color: error ? '#B7B7B7' : '#333333', fontSize: '24rpx' }}>阅读并同意</Text>
+        <Text style={{ color: LANHU_BLUE, fontSize: '24rpx' }} onClick={event => { event.stopPropagation(); onOpenAgreement() }}>{agreementTitle}</Text>
       </View>
     </View>
   )

@@ -1,0 +1,59 @@
+/* 内容区优先占满可用高度；极小窗口或运营增加套餐时保留纵向访问兜底。 */
+.coin-recharge-content {
+  width: 100%;
+  min-height: 100%;
+  padding: 8rpx 25rpx 16rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.coin-recharge-content--unlock {
+  justify-content: space-evenly;
+  gap: 20rpx;
+}
+
+.coin-recharge-balance {
+  position: relative;
+  width: 100%;
+  height: 140rpx;
+  flex-shrink: 0;
+  border-radius: 12rpx;
+  background: #2f79fe;
+  overflow: hidden;
+  color: #fff;
+}
+
+.coin-recharge-balance__background { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.coin-recharge-balance__label { position: absolute; left: 28rpx; top: 20rpx; font-size: 26rpx; font-weight: 600; }
+.coin-recharge-balance__value { position: absolute; left: 28rpx; bottom: 12rpx; font-size: 42rpx; font-weight: 700; line-height: 60rpx; }
+.coin-recharge-balance__detail { position: absolute; right: 24rpx; top: 24rpx; min-height: 88rpx; display: flex; align-items: center; font-size: 26rpx; font-weight: 600; }
+
+.coin-recharge-usages {
+  width: 100%;
+  padding: 20rpx 12rpx 12rpx;
+  border-radius: 12rpx;
+  background: #fff;
+  box-sizing: border-box;
+}
+.coin-recharge-usages__title { padding-left: 8rpx; color: #0c285a; font-size: 28rpx; font-weight: 600; line-height: 40rpx; }
+.coin-recharge-usages__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14rpx 0; margin-top: 16rpx; }
+.coin-recharge-usages__item { min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.coin-recharge-usages__icon { width: 76rpx; height: 76rpx; flex-shrink: 0; }
+.coin-recharge-usages__fallback { border-radius: 50%; background: #e8f4ff; }
+.coin-recharge-usages__label { margin-top: 8rpx; color: #0c285a; font-size: 22rpx; line-height: 32rpx; text-align: center; }
+
+.coin-recharge-hero { width: 100%; padding: 8rpx 0; box-sizing: border-box; flex-shrink: 0; }
+.coin-recharge-hero__art { position: relative; width: 700rpx; height: 238rpx; margin: 0 auto; }
+.coin-recharge-hero__title, .coin-recharge-hero__subtitle { color: #0c285a; font-size: 30rpx; font-weight: 500; line-height: 44rpx; text-align: center; }
+.coin-recharge-hero__subtitle { margin-top: 8rpx; }
+
+/* 高屏沿用更舒展的图标尺寸，不放大整个可交互页面。 */
+@media (min-height: 740px) {
+  .coin-recharge-content { gap: 20rpx; }
+  .coin-recharge-balance { height: 168rpx; }
+  .coin-recharge-usages { padding-top: 24rpx; padding-bottom: 24rpx; }
+  .coin-recharge-usages__grid { gap: 24rpx 0; margin-top: 20rpx; }
+  .coin-recharge-usages__icon { width: 92rpx; height: 92rpx; }
+}

@@ -1,4 +1,5 @@
 import { Text, View } from '@tarojs/components'
+import { isCommunityPostFailure } from '@/domain/qianxunInteractionPresentation'
 import {
   resolveCommunityStatusLabel,
   type CommunityConfig,
@@ -20,16 +21,16 @@ export default function QianxunPostStatusBadge({
 }: QianxunPostStatusBadgeProps) {
   if (status === 'published') return null
 
-  const rejected = status === 'rejected'
+  const rejected = isCommunityPostFailure(status)
   return (
+    <View onClick={rejected && onFailure ? event => {
+      event.stopPropagation()
+      onFailure()
+    } : undefined}>
     <View
       className={`qianxun-my-post-status${rejected ? ' qianxun-my-post-status-rejected' : ''}`}
       data-role="qianxun-my-post-status"
       data-status={status}
-      onClick={rejected && onFailure ? event => {
-        event.stopPropagation()
-        onFailure()
-      } : undefined}
       style={{
         width: '88rpx',
         height: '48rpx',
@@ -52,6 +53,11 @@ export default function QianxunPostStatusBadge({
       >
         {resolveCommunityStatusLabel(config, status, statusName)}
       </Text>
+    </View>
+    {rejected ? <View style={{ marginTop: '12rpx', fontSize: '20rpx', lineHeight: '32rpx', color: '#8F8F8F' }}>
+      <View>仅自己可见</View>
+      <View style={{ color: '#2876FF', padding: '8rpx 0' }}>查看原因 ›</View>
+    </View> : null}
     </View>
   )
 }

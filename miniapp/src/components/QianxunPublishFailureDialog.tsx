@@ -1,4 +1,4 @@
-import { Image, Text, View } from '@tarojs/components'
+import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
   COMMUNITY_COPY_KEYS,
@@ -32,10 +32,10 @@ export default function QianxunPublishFailureDialog({
         inset: 0,
         zIndex: 101,
         boxSizing: 'border-box',
-        paddingTop: '386rpx',
+        padding: '32rpx',
         background: 'rgba(0,0,0,.25)',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'center',
       }}
     >
@@ -44,11 +44,13 @@ export default function QianxunPublishFailureDialog({
         onClick={event => event.stopPropagation()}
         style={{
           width: '620rpx',
-          height: '538rpx',
+          maxHeight: '80vh',
           borderRadius: '32rpx',
           background: '#FFFFFF',
-          padding: '79rpx 50rpx 28rpx',
+          padding: '48rpx 50rpx 28rpx',
           boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         <View style={{ position: 'relative', width: '520rpx', height: '126rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -57,23 +59,22 @@ export default function QianxunPublishFailureDialog({
         <Text style={{ display: 'block', height: '44rpx', color: '#333333', fontSize: '28rpx', lineHeight: '44rpx', fontWeight: 600, textAlign: 'center', marginTop: '30rpx' }}>
           {resolveCommunityCopy(config, COMMUNITY_COPY_KEYS.publishFailedTitle)}
         </Text>
+        <ScrollView scrollY style={{ maxHeight: '35vh', minHeight: 0, marginTop: '18rpx' }}>
         <Text
           id="qianxun-publish-failure-reason"
           style={{
-            display: '-webkit-box',
-            height: '78rpx',
+            display: 'block',
             color: '#999999',
             fontSize: '25rpx',
             lineHeight: '39rpx',
-            marginTop: '18rpx',
-            overflow: 'hidden',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
           }}
         >
           {resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.publishRejectedDefault, failureMessage)}
         </Text>
-        <View id="qianxun-publish-failure-confirm" onClick={onClose} style={{ width: '520rpx', height: '68rpx', borderRadius: '7rpx', background: '#2876FF', marginTop: '67rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        </ScrollView>
+        <View id="qianxun-publish-failure-confirm" onClick={onClose} style={{ width: '520rpx', height: '80rpx', flexShrink: 0, borderRadius: '7rpx', background: '#2876FF', marginTop: '32rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: '#FFFFFF', fontSize: '27rpx', lineHeight: '38rpx' }}>我知道了</Text>
         </View>
       </View>

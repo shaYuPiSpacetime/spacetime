@@ -151,6 +151,11 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         validateContentTransition(before, target, false, Objects.equals(entity.getDeletedByUser(), 1));
         entity.setStatus(target);
         applyAuditStatus(entity, target);
+        // 下架/拒绝原因始终保存，不能依赖是否勾选通知用户。
+        if (CommunityPostStatusEnum.BLOCKED.getCode().equals(target)
+                || CommunityPostStatusEnum.REJECTED.getCode().equals(target)) {
+            entity.setAuditRemark(StrUtil.blankToDefault(StrUtil.trim(req.getReason()), null));
+        }
         entity.setHandledAt(LocalDateTime.now());
         if (communityPostDao.updateCas(entity, req.getVersion()) != 1) throw versionConflict();
         writeAudit("post", entity.getPostNo(), entity.getId(), req.getAction(), before, entity.getStatus(), req.getReason());
@@ -680,7 +685,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         // 3. 执行处理动作：已解决且有处理动作时，对目标内容执行对应操作
         if (CommunityReportStatusEnum.VALID.equals(status)
                 && StrUtil.isNotBlank(req.getHandleAction())) {
-            applyHandleAction(report.getTargetType(), report.getTargetId(), req.getHandleAction());
+            applyHandleAction(report.getTargetType(), report.getTargetId(), req.getHandleAction(), req.getHandleRemark());
         }
 
         // 4. 更新举报单
@@ -772,7 +777,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
      * @param targetId 目标ID
      * @param actionCode 处理动作代码
      */
-    private void applyHandleAction(String targetType, String targetId, String actionCode) {
+    private void applyHandleAction(String targetType, String targetId, String actionCode, String reason) {
         CommunityReportHandleActionEnum action = CommunityReportHandleActionEnum.getByCode(actionCode);
         if (action == null) {
             throw error("unsupported_handle_action");
@@ -783,8 +788,13 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
                 throw error("report_target_not_post");
             }
             CommunityPost post = requirePostRef(targetId);
+            String before = post.getStatus();
             post.setStatus(CommunityPostStatusEnum.BLOCKED.getCode());
+            post.setAuditRemark(StrUtil.blankToDefault(StrUtil.trim(reason), null));
+            post.setHandledAt(LocalDateTime.now());
             communityPostDao.updateById(post);
+            writeAudit("post", post.getPostNo(), post.getId(), actionCode,
+                    before, post.getStatus(), reason);
             log.info("Community post blocked: postId={}", targetId);
             return;
         }
@@ -1005,7 +1015,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         CommunityReportHandleActionEnum action = CommunityReportHandleActionEnum.getByCode(req.getPunishAction());
         if (action == null) throw error("punish_action_required");
         if (action == CommunityReportHandleActionEnum.BLOCK_POST || action == CommunityReportHandleActionEnum.BLOCK_COMMENT) {
-            applyHandleAction(report.getTargetType(), report.getTargetId(), action.getCode());
+            applyHandleAction(report.getTargetType(), report.getTargetId(), action.getCode(), req.getHandleRemark());
             return;
         }
         if (action == CommunityReportHandleActionEnum.NONE) return;

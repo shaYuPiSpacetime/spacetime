@@ -42,5 +42,10 @@ export function groupCommunityInteractions<T extends InteractionDateRecord>(reco
 }
 
 export function shouldDisplayMyCommunityPost(status?: string) {
-  return !['deleted', 'blocked'].includes(String(status || '').trim().toLowerCase())
+  return String(status || '').trim().toLowerCase() !== 'deleted'
+}
+
+/** 审核拒绝和发布后下架均以失败回执呈现，仅用于本人动态列表。 */
+export function isCommunityPostFailure(status?: string) {
+  return ['rejected', 'blocked'].includes(String(status || '').trim().toLowerCase())
 }

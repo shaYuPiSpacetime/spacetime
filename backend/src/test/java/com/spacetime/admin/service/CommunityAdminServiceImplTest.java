@@ -852,6 +852,27 @@ class CommunityAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("下架说明保存到动态，未勾选通知也能供本人查询")
+    void updatePostStatus_block_shouldPersistReasonWithoutNotification() {
+        post.setPostNo("POST-100");
+        post.setStatus("published");
+        post.setVersion(1);
+        CommunityStatusCommandReq req = new CommunityStatusCommandReq();
+        req.setAction("blocked");
+        req.setVersion(1);
+        req.setReason("请移除违规广告");
+        req.setNotifyUser(false);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(communityPostDao.updateCas(any(), eq(1))).thenReturn(1);
+
+        communityAdminService.updatePostStatus(100L, req);
+
+        verify(communityPostDao).updateCas(argThat(item -> "blocked".equals(item.getStatus())
+                && "请移除违规广告".equals(item.getAuditRemark())), eq(1));
+        verify(communityExtensionDao, never()).insertOutbox(any());
+    }
+
+    @Test
     @DisplayName("动态禁言作者时落有效限制且不改变动态公开状态")
     void updatePostStatus_muteUser_shouldCreateActiveRestrictionAndKeepPostStatus() {
         post.setPostNo("POST-100");
