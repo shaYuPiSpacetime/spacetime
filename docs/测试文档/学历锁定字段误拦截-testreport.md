@@ -5,7 +5,7 @@
 
 ## 结论
 
-有条件通过：已通过代码业务回归、原生小程序构建前门禁与只读接口检查；本账号授权保存和真机下一步仍需复测，不把单元测试或上传成功当作真机验收。后端部署和小程序新体验包核验在当次发布后补录。
+有条件通过：已通过代码业务回归、原生小程序构建前门禁与只读接口检查，后端部署和新体验包上传已核验；本账号授权保存和真机下一步仍需复测，不把单元测试或上传成功当作真机验收。
 
 ## 执行结果
 
@@ -53,4 +53,27 @@ API_URL=<已验证部署地址> CURL_BIN=<Git自带curl> bash docs/测试文档/
 
 ## 交付记录
 
-等待当次提交/Push、新构建、独立目录哈希及preview/upload分包一致、后端对应提交部署及健康核验后补录。
+- 代码提交并Push至master：`836bff7b5a7516ae9370810ae309517644578888`，仅本次12个文件，其他未提交内容未混入。
+- 新生产构建关闭固定登录/E2E；postbuild注册87页、开发Token及包体门禁通过。Webpack已有common.js/private-chat.js推荐阈值警告未作为本次性能优化成果。
+- 独立目录：`.runtime/weapp-release-education-lock-20261013-173932-836bff7b/project`，未复制private配置。432个文件SHA256逐一一致。
+- 上传前实际`git ls-remote`核对远端master等于构建SHA，上传版本`2026.10.13.1741`。preview/upload总包及每个分包字节数完全一致；manifest、preview-info、upload-info和package-audit保存于独立发布目录。
+- [本次后端流水线](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38377610708)：对应上述head_sha，build/deploy均success，2026-10-13 17:40:44完成。部署后L1脚本再次健康HTTP200/code200、未登录HTTP401/code401，授权会话仍缺失明确跳过。
+- 本次未修改目标数据库用户资料或审核快照、状态；未来真实保存才由既有服务推进流程。体验包上传并不等同于微信正式版审核上线。
+
+| 包名 | preview与upload共同字节数 |
+| --- | ---: |
+| main | 1390158 |
+| /pages/assessment/ | 4199 |
+| /pages/coins/ | 44537 |
+| /pages/featured/ | 79801 |
+| /pages/heart/ | 55668 |
+| /pages/membership/ | 39115 |
+| /pages/message/ | 441317 |
+| /pages/prd08/ | 87671 |
+| /pages/profile-edit/ | 33454 |
+| /pages/promotion/ | 364357 |
+| /pages/qianxun/ | 135424 |
+| /pages/search/ | 19869 |
+| /pages/settings/ | 53699 |
+| /pages/verification/ | 126191 |
+| TOTAL | 2875460 |
