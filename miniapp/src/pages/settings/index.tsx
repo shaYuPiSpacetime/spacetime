@@ -96,28 +96,33 @@ export default function SettingsPage() {
       : copyConfig['settings.unbound_text'] || ''
 
   return (
-    <SettingsShell title="设置">
+    <SettingsShell
+      title="设置"
+      scroll
+      overlay={(
+        <SettingsDialog
+          open={logoutDialogOpen}
+          title={copyConfig['settings.logout_dialog_title'] || ''}
+          cancelText={copyConfig['settings.logout_cancel'] || ''}
+          confirmText={copyConfig['settings.logout_confirm'] || ''}
+          loading={loggingOut}
+          onCancel={() => setLogoutDialogOpen(false)}
+          onConfirm={() => void confirmLogout()}
+        >
+          <Text className="settings-logout-copy">{copyConfig['settings.logout_dialog_copy'] || ''}</Text>
+        </SettingsDialog>
+      )}
+    >
       <View className="settings-main-card">
         <SettingsRow label="手机号绑定" value={phoneValue} />
         <SettingsRow label="微信绑定" value={wechatValue} />
         <SettingsRow label="隐私设置" arrow onClick={() => void Taro.navigateTo({ url: '/pages/settings/privacy' })} />
+        <SettingsRow label="安全中心" arrow onClick={() => void Taro.navigateTo({ url: '/pages/settings/security-center' })} />
         <SettingsRow label="第三方信息共享清单" arrow onClick={() => openCompliance('third_party_list', '第三方信息共享清单')} />
         <SettingsRow label="个人信息收集清单" arrow onClick={() => openCompliance('personal_info_list', '个人信息收集清单')} />
         <SettingsRow label="关于我们" arrow onClick={() => void Taro.navigateTo({ url: '/pages/settings/about' })} />
         <SettingsRow label="退出登录" arrow divider={false} onClick={() => setLogoutDialogOpen(true)} />
       </View>
-
-      <SettingsDialog
-        open={logoutDialogOpen}
-        title={copyConfig['settings.logout_dialog_title'] || ''}
-        cancelText={copyConfig['settings.logout_cancel'] || ''}
-        confirmText={copyConfig['settings.logout_confirm'] || ''}
-        loading={loggingOut}
-        onCancel={() => setLogoutDialogOpen(false)}
-        onConfirm={() => void confirmLogout()}
-      >
-        <Text className="settings-logout-copy">{copyConfig['settings.logout_dialog_copy'] || ''}</Text>
-      </SettingsDialog>
     </SettingsShell>
   )
 }

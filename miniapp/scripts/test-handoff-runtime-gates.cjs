@@ -197,12 +197,12 @@ test('千寻币明细暂无数据使用蓝湖原始切图', () => {
   )
 })
 
-test('页面入口门禁精确读取 app.config 的 87 个路由并递归扫描依赖', () => {
+test('页面入口门禁精确读取 app.config 的 89 个路由并递归扫描依赖', () => {
   const gate = source('scripts/validate-page-entry-isolation.mjs')
   assert.match(gate, /app\.config\.ts/)
   assert.match(gate, /transpileModule/)
   assert.match(gate, /visit|traverse|walkImports/)
-  assert.match(gate, /87/)
+  assert.match(gate, /89/)
 })
 
 test('构建注册门禁从 dist app.json 校验 Page、App 唯一注册', () => {

@@ -84,7 +84,7 @@ export default {
     },
     {
       root: 'pages/settings',
-      pages: ['index', 'privacy', 'help', 'account-cancel', 'about', 'content', 'announcements'],
+      pages: ['index', 'privacy', 'security-center', 'anti-fraud-guide', 'help', 'account-cancel', 'about', 'content', 'announcements'],
     },
     {
       root: 'pages/search',

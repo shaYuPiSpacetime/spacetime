@@ -177,7 +177,49 @@ const ICON_ASSETS = Object.freeze({
   recommendLocationDark: '../docs/验收报告/截图证据/2026-08-05-PRD08推荐理想型-蓝湖还原/设计基线/切图原始/13-1EC0A5AC-4C65-4C88-9AA3-68957F9DEEB3.png',
   recommendLocationLight: '../docs/验收报告/截图证据/2026-08-05-PRD08推荐理想型-蓝湖还原/设计基线/切图原始/14-B8CC4D90-5F07-4CED-832C-7F15F89CB519.png',
   settingsAboutLogo: 'src/assets/lanhu/settings/about-logo.png',
+  settingsAntiFraudGuide: '../docs/素材/安全中心/anti-fraud-guide.jpg',
 })
+
+/** 定向上传避免读取、重传其他任务的资源；未知键在任何网络写入前拒绝。 */
+export function selectAssets(assets, args) {
+  const only = args.find(arg => arg.startsWith('--only='))
+  if (only === undefined) return Object.entries(assets)
+  const keys = [...new Set(only.slice('--only='.length).split(',').map(key => key.trim()))]
+  if (keys.some(key => !key)) throw new Error('--only 不能为空')
+  for (const key of keys) {
+    if (!Object.hasOwn(assets, key)) throw new Error(`未知资源：${key}`)
+  }
+  return keys.map(key => [key, assets[key]])
+}
+
+/** 局部更新清单时保留其他已发布资源的 URL 与顺序。 */
+export function mergeManifestEntries(existing, updates) {
+  const entries = new Map(existing.map(entry => [entry.key, entry]))
+  for (const entry of updates) entries.set(entry.key, entry)
+  return [...entries.values()]
+}
+
+/** 完整校验每个条目；局部格式异常时拒绝覆盖，不能默默丢掉未识别资源。 */
+export function parseManifestEntries(source) {
+  const body = source.match(/export const miniappOssIcons = Object\.freeze\(\{([\s\S]*?)\}\s+as const\)/)?.[1]
+  if (!body) throw new Error('客户端资源清单为空或格式不符，禁止覆盖')
+  const lines = body.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+  if (lines.length === 0) throw new Error('客户端资源清单为空，禁止覆盖')
+  const seen = new Set()
+  return lines.map(line => {
+    const entry = line.match(/^(\w+): '(https:\/\/[^']+)',$/)
+    if (!entry) throw new Error('客户端资源清单条目格式不符，禁止覆盖')
+    const [, key, url] = entry
+    if (seen.has(key)) throw new Error(`客户端资源清单存在重复键：${key}`)
+    seen.add(key)
+    return { key, url }
+  })
+}
+
+function readClientManifest() {
+  if (!fs.existsSync(clientManifestFile)) throw new Error('定向上传需要现有客户端资源清单')
+  return parseManifestEntries(fs.readFileSync(clientManifestFile, 'utf8'))
+}
 
 function readEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -304,17 +346,20 @@ function writeClientManifest(entries) {
 }
 
 async function main() {
+  const selected = selectAssets(ICON_ASSETS, process.argv.slice(2))
+  const partial = process.argv.some(arg => arg.startsWith('--only='))
+  const existing = partial ? readClientManifest() : []
   const dryRun = process.argv.includes('--dry-run')
   const env = readEnvFile(envFile)
-  const configuredEndpoint = requiredEnv(env, 'DEV_OSS_ENDPOINT', 'OSS_ENDPOINT')
-  const bucketName = requiredEnv(env, 'DEV_OSS_BUCKET_NAME', 'OSS_BUCKET_NAME')
-  const accessKeyId = requiredEnv(env, 'DEV_OSS_ACCESS_KEY_ID', 'OSS_ACCESS_KEY_ID')
-  const accessKeySecret = requiredEnv(env, 'DEV_OSS_ACCESS_KEY_SECRET', 'OSS_ACCESS_KEY_SECRET')
-  const cdnDomain = env.DEV_OSS_CDN_DOMAIN || env.OSS_CDN_DOMAIN || ''
+  const configuredEndpoint = requiredEnv(env, 'DEV_OSS_ENDPOINT')
+  const bucketName = requiredEnv(env, 'DEV_OSS_BUCKET_NAME')
+  const accessKeyId = requiredEnv(env, 'DEV_OSS_ACCESS_KEY_ID')
+  const accessKeySecret = requiredEnv(env, 'DEV_OSS_ACCESS_KEY_SECRET')
+  const cdnDomain = env.DEV_OSS_CDN_DOMAIN || ''
   const entries = []
   let endpoint = configuredEndpoint
 
-  for (const [key, relativePath] of Object.entries(ICON_ASSETS)) {
+  for (const [key, relativePath] of selected) {
     const filePath = path.join(miniappRoot, relativePath)
     if (!fs.existsSync(filePath)) throw new Error(`图标源文件不存在：${relativePath}`)
     const body = Buffer.from(fs.readFileSync(filePath))
@@ -337,7 +382,7 @@ async function main() {
     entries.push({ key, url: publicUrl(cdnDomain, bucketName, endpoint, objectKey) })
   }
 
-  if (!dryRun) writeClientManifest(entries)
+  if (!dryRun) writeClientManifest(partial ? mergeManifestEntries(existing, entries) : entries)
   console.log(
     dryRun
       ? `已校验 ${entries.length} 个非底部图标源文件。`

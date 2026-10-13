@@ -155,6 +155,7 @@ export const miniappOssIcons = Object.freeze({
   recommendLocationDark: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/efadc3e56955e709/13-1EC0A5AC-4C65-4C88-9AA3-68957F9DEEB3.png',
   recommendLocationLight: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/ded45afe9a0c17b8/14-B8CC4D90-5F07-4CED-832C-7F15F89CB519.png',
   settingsAboutLogo: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/97aa2887b36f19e4/about-logo.png',
+  settingsAntiFraudGuide: 'https://shikongxiehou.oss-cn-shanghai.aliyuncs.com/miniapp/ui-icons/5d9f7813e2b116f0/anti-fraud-guide.jpg',
 } as const)
 
 export type MiniappOssIconKey = keyof typeof miniappOssIcons

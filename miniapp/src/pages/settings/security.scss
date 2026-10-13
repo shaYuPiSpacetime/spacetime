@@ -1,0 +1,41 @@
+.anti-fraud-guide {
+  padding-bottom: calc(46rpx + env(safe-area-inset-bottom));
+}
+
+.anti-fraud-guide__hint {
+  margin-bottom: 24rpx;
+  color: #7b8496;
+  font-size: 24rpx;
+  line-height: 36rpx;
+  text-align: center;
+}
+
+.anti-fraud-guide__poster {
+  position: relative;
+  // 保留原图比例的空间，避免网络加载前后页面高度突变。
+  min-height: 1312rpx;
+  background: #fff;
+}
+
+.anti-fraud-guide__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.anti-fraud-guide__loading {
+  position: absolute;
+  top: 80rpx;
+  right: 0;
+  left: 0;
+  color: #a4a8b2;
+  font-size: 26rpx;
+  line-height: 40rpx;
+  text-align: center;
+}
+
+.anti-fraud-guide__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
