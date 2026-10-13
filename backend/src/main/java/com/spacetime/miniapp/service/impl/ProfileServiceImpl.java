@@ -248,7 +248,7 @@ public class ProfileServiceImpl implements ProfileService {
         List<BasicProfileFieldVO> settings = basicFieldsForAuditLocks(education, realNameCertified);
         validateMainlandRegion(req);
         validateRealNameMutation(req, user, realNameCertified);
-        validateEducationMutation(req, education);
+        validateEducationMutation(req, user, education);
         applyBasicProfileFields(user, req, settings);
         validateRequiredBasicFields(user, settings);
         user.setBasicProfileCompleted(1);
@@ -510,15 +510,15 @@ public class ProfileServiceImpl implements ProfileService {
         }
     }
 
-    private void validateEducationMutation(BasicProfileSaveReq req, AppUserAuditRecord education) {
+    /** 与反显使用同一份已投影资料，兼容旧审核快照缺少身份/学历但不允许篡改。 */
+    private void validateEducationMutation(BasicProfileSaveReq req, AppUser user, AppUserAuditRecord education) {
         if (education == null) {
             return;
         }
-        JsonNode material = educationMaterial(education);
-        boolean changed = differsWhenProvided(req.getSchool(), education.getSchoolName())
-                || differsWhenProvided(req.getSchoolCode(), education.getSchoolCode())
-                || differsWhenProvided(req.getEducationLevel(), jsonText(material, "educationLevel"))
-                || differsWhenProvided(req.getIdentity(), jsonText(material, "identity"));
+        boolean changed = differsWhenProvided(req.getSchool(), user.getSchool())
+                || differsWhenProvided(req.getSchoolCode(), user.getSchoolCode())
+                || differsWhenProvided(req.getEducationLevel(), user.getEducationLevel())
+                || differsWhenProvided(req.getIdentity(), user.getIdentity());
         if (changed) {
             throw new BusinessException("学历认证信息不可直接修改，请通过学历认证更新");
         }

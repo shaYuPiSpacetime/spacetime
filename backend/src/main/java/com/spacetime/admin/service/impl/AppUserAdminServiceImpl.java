@@ -1501,9 +1501,12 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         AppUserAuditRecord record = baseImportAudit(user, AppUserAuditTypeEnum.EDUCATION);
         record.setEducationMethod(value(rowData, "educationMethod"));
         record.setSchoolName(StrUtil.blankToDefault(value(rowData, "school"), user.getSchool()));
+        record.setSchoolCode(user.getSchoolCode());
         record.setMaterialJson("{\"materialUrls\":\"" + escapeJson(value(rowData, "educationMaterialUrls"))
                 + "\",\"diplomaNo\":\"" + escapeJson(value(rowData, "diplomaNo"))
-                + "\",\"chsiCode\":\"" + escapeJson(value(rowData, "chsiCode")) + "\"}");
+                + "\",\"chsiCode\":\"" + escapeJson(value(rowData, "chsiCode"))
+                + "\",\"identity\":\"" + escapeJson(user.getIdentity())
+                + "\",\"educationLevel\":\"" + escapeJson(user.getEducationLevel()) + "\"}");
         auditRecordDao.insert(record);
     }
 

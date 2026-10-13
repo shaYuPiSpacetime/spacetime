@@ -3,6 +3,7 @@ export type BasicProfileRegionRowId = 'location' | 'hometown'
 interface BasicProfileFieldLike {
   fieldId: string
   visible?: boolean
+  editable?: boolean
 }
 
 const RETIRED_DISTRICT_FIELD_IDS = new Set(['locationDistrict', 'hometownDistrict'])
@@ -30,14 +31,14 @@ export function normalizeTwoLevelRegionFieldSettings<T extends BasicProfileField
   return (settings || []).filter(setting => !RETIRED_DISTRICT_FIELD_IDS.has(setting.fieldId))
 }
 
-/** 按可见字段白名单生成保存请求，阻止两个历史区县重新提交。 */
+/** 只提交可见且可编辑字段；认证只读值及两个历史区县不得回传。 */
 export function buildBasicProfileSavePayload(
   settings: BasicProfileFieldLike[] | undefined,
   values: Record<string, unknown>
 ): Record<string, unknown> {
   const payload = Object.fromEntries(
     normalizeTwoLevelRegionFieldSettings(settings)
-      .filter(setting => setting.visible !== false)
+      .filter(setting => setting.visible !== false && setting.editable !== false)
       .map(setting => [setting.fieldId, values[setting.fieldId]])
   )
   if (Object.prototype.hasOwnProperty.call(payload, 'school')) payload.schoolCode = values.schoolCode

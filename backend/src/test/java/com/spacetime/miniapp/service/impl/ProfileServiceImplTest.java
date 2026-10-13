@@ -456,6 +456,156 @@ class ProfileServiceImplTest {
     }
 
     @Test
+    @DisplayName("历史学历快照缺身份学历时未修改的反显值允许正常保存")
+    void shouldSaveUnchangedEducationFromLegacySnapshot() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        AppUser user = legacyCertifiedUser();
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord approved = legacyEducationSnapshot();
+        when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(approved);
+        BasicProfileSaveReq req = validBasicProfileReq();
+        req.setEducationLevel("MASTER");
+        req.setSchool("华东师范大学");
+
+        BasicProfileVO result = org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> newService().saveBasicProfile(7L, req));
+
+        assertThat(result.getBasicProfileCompleted()).isTrue();
+        assertThat(result.getNextAction()).isEqualTo("ADD_AVATAR");
+        assertThat(result.getIdentity()).isEqualTo("WORKER");
+        assertThat(result.getEducationLevel()).isEqualTo("MASTER");
+        assertThat(user.getSchool()).isEqualTo("华东师范大学");
+        assertThat(approved.getStatus()).isEqualTo("APPROVED");
+        verify(appUserDao).updateById(user);
+    }
+
+    @Test
+    @DisplayName("省略锁定字段后仍用有效资料校验必填，不清空认证资料")
+    void shouldSaveWithoutResubmittingLockedEducationFields() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        AppUser user = legacyCertifiedUser();
+        user.setGender("FEMALE"); user.setBirthday(LocalDate.of(1997, 3, 6));
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        when(auditService.hasEffective(7L, AppUserAuditTypeEnum.REAL_NAME)).thenReturn(true);
+        when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.EDUCATION))
+                .thenReturn(legacyEducationSnapshot());
+        BasicProfileSaveReq req = validBasicProfileReq();
+        req.setGender(null); req.setBirthday(null);
+        req.setIdentity(null);
+        req.setEducationLevel(null);
+        req.setSchool(null);
+        req.setSchoolCode(null);
+
+        BasicProfileVO result = newService().saveBasicProfile(7L, req);
+
+        assertThat(result.getBasicProfileCompleted()).isTrue();
+        assertThat(result.getIdentity()).isEqualTo("WORKER");
+        assertThat(result.getEducationLevel()).isEqualTo("MASTER");
+        assertThat(result.getSchool()).isEqualTo("华东师范大学");
+        assertThat(user.getGender()).isEqualTo("FEMALE");
+        assertThat(user.getBirthday()).isEqualTo(LocalDate.of(1997, 3, 6));
+        verify(appUserDao).updateById(user);
+    }
+
+    @Test
+    @DisplayName("历史快照兼容不允许篡改任何认证锁定字段")
+    void shouldRejectLegacyCertifiedEducationChanges() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        when(appUserDao.selectById(7L)).thenAnswer(ignored -> legacyCertifiedUser());
+        when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.EDUCATION))
+                .thenReturn(legacyEducationSnapshot());
+        for (String field : List.of("identity", "educationLevel", "school", "schoolCode")) {
+            BasicProfileSaveReq req = validBasicProfileReq();
+            req.setEducationLevel("MASTER"); req.setSchool("华东师范大学");
+            switch (field) {
+                case "identity" -> req.setIdentity("STUDENT");
+                case "educationLevel" -> req.setEducationLevel("DOCTOR");
+                case "school" -> req.setSchool("另一所学校");
+                case "schoolCode" -> req.setSchoolCode("tampered-code");
+            }
+            assertThatThrownBy(() -> newService().saveBasicProfile(7L, req))
+                    .as(field).isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("学历认证信息不可直接修改");
+        }
+        verify(appUserDao, never()).updateById(any());
+    }
+
+    @Test
+    @DisplayName("完整学历快照优先于数据库旧值，未修改快照值可以保存")
+    void shouldSaveUnchangedEffectiveEducationOverStaleUserValues() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        AppUser user = legacyCertifiedUser();
+        user.setIdentity("STUDENT"); user.setEducationLevel("DOCTOR");
+        user.setSchool("数据库旧学校"); user.setSchoolCode("stale-code");
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord approved = legacyEducationSnapshot();
+        approved.setSchoolCode("approved-code");
+        approved.setMaterialJson("{\"identity\":\"WORKER\",\"educationLevel\":\"MASTER\"}");
+        when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(approved);
+        BasicProfileSaveReq req = validBasicProfileReq();
+        req.setEducationLevel("MASTER"); req.setSchool("华东师范大学"); req.setSchoolCode("approved-code");
+
+        BasicProfileVO result = newService().saveBasicProfile(7L, req);
+
+        assertThat(result.getIdentity()).isEqualTo("WORKER");
+        assertThat(result.getEducationLevel()).isEqualTo("MASTER");
+        assertThat(result.getSchool()).isEqualTo("华东师范大学");
+        assertThat(result.getSchoolCode()).isEqualTo("approved-code");
+        verify(appUserDao).updateById(user);
+    }
+
+    private AppUser legacyCertifiedUser() {
+        AppUser user = baseUser(null);
+        user.setFirstLoginCompleted(1); user.setIdentity("WORKER"); user.setEducationLevel("MASTER");
+        user.setSchool("华东师范大学"); user.setSchoolCode(null);
+        return user;
+    }
+
+    @Test
+    @DisplayName("部分缺项快照逐项投影且快照字段与兼容字段都保持锁定")
+    void shouldKeepPartialEducationSnapshotFieldsConsistentAndLocked() {
+        when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))
+                .thenReturn(List.of(config(basicProfileFields())));
+        int expectedUpdates = 0;
+        for (boolean hasIdentity : List.of(true, false)) {
+            AppUser user = legacyCertifiedUser();
+            when(appUserDao.selectById(7L)).thenReturn(user);
+            AppUserAuditRecord approved = legacyEducationSnapshot();
+            approved.setMaterialJson(hasIdentity ? "{\"identity\":\"STUDENT\"}" : "{\"educationLevel\":\"DOCTOR\"}");
+            when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(approved);
+            String identity = hasIdentity ? "STUDENT" : "WORKER";
+            String level = hasIdentity ? "MASTER" : "DOCTOR";
+            BasicProfileSaveReq req = validBasicProfileReq();
+            req.setSchool("华东师范大学"); req.setIdentity(identity); req.setEducationLevel(level);
+
+            BasicProfileVO result = newService().saveBasicProfile(7L, req);
+            expectedUpdates++;
+            assertThat(result.getIdentity()).isEqualTo(identity);
+            assertThat(result.getEducationLevel()).isEqualTo(level);
+
+            req.setIdentity(hasIdentity ? "WORKER" : "STUDENT");
+            assertThatThrownBy(() -> newService().saveBasicProfile(7L, req))
+                    .isInstanceOf(BusinessException.class).hasMessageContaining("学历认证信息不可直接修改");
+            req.setIdentity(identity); req.setEducationLevel("BACHELOR");
+            assertThatThrownBy(() -> newService().saveBasicProfile(7L, req))
+                    .isInstanceOf(BusinessException.class).hasMessageContaining("学历认证信息不可直接修改");
+            verify(appUserDao, org.mockito.Mockito.times(expectedUpdates)).updateById(any());
+        }
+    }
+
+    private AppUserAuditRecord legacyEducationSnapshot() {
+        AppUserAuditRecord approved = new AppUserAuditRecord();
+        approved.setUserId(7L); approved.setAuditType(AppUserAuditTypeEnum.EDUCATION.getCode());
+        approved.setStatus(AppUserAuditStatusEnum.APPROVED.getCode()); approved.setSchoolName("华东师范大学");
+        approved.setMaterialJson("{\"materialUrls\":\"fixture-material\",\"diplomaNo\":\"fixture-diploma\"}");
+        return approved;
+    }
+
+    @Test
     @DisplayName("基础资料所选城市没有区县节点时允许条件必填区县为空")
     void shouldAllowEmptyConditionalDistrictWhenCityHasNoDistricts() {
         when(appConfigDao.selectByGroup("PRD01_PROFILE_FIELD"))

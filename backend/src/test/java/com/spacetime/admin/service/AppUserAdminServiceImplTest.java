@@ -561,6 +561,29 @@ class AppUserAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("新导入学历审核快照保存规范身份学历且不绕过审核")
+    void importedEducationSnapshotShouldIncludeCanonicalLockedFields() {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        mockProfileDictLabels();
+        ImportBatchVO result = service.previewImport("education.csv", String.join("\n",
+                "phone,nickname,gender,identityType,educationLevel,schoolName,educationMethod,educationMaterialUrls,diplomaNo,chsiCode",
+                "13900001111,快照测试,女,职场人,本科,浙江大学,DIPLOMA_NO,https://img.test/education.jpg,fixture-diploma,fixture-chsi"));
+        assertThat(result.getImportedCount()).isEqualTo(1);
+        ArgumentCaptor<AppUserAuditRecord> captor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditRecordDao).insert(captor.capture());
+        AppUserAuditRecord snapshot = captor.getValue();
+        assertThat(snapshot.getAuditType()).isEqualTo("EDUCATION");
+        assertThat(snapshot.getStatus()).isEqualTo("PENDING");
+        assertThat(snapshot.getSchoolName()).isEqualTo("浙江大学");
+        var material = cn.hutool.json.JSONUtil.parseObj(snapshot.getMaterialJson());
+        assertThat(material.getStr("identity")).isEqualTo("WORKER");
+        assertThat(material.getStr("educationLevel")).isEqualTo("BACHELOR");
+        assertThat(material.getStr("materialUrls")).isEqualTo("https://img.test/education.jpg");
+        assertThat(material.getStr("diplomaNo")).isEqualTo("fixture-diploma");
+        assertThat(material.getStr("chsiCode")).isEqualTo("fixture-chsi");
+    }
+
+    @Test
     void regionImportMustResolveSameNameProvinceAndCityByHierarchy() {
         mockImportRegions();
         ImportBatchVO result = service.previewImport("regions.csv", String.join("\n",

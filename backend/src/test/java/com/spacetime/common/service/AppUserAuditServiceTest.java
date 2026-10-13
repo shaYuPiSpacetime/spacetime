@@ -2,8 +2,10 @@ package com.spacetime.common.service;
 
 import com.spacetime.common.dao.AppUserAuditHistoryDao;
 import com.spacetime.common.dao.AppUserAuditRecordDao;
+import com.spacetime.common.dao.AppUserDao;
 import com.spacetime.common.entity.AppUserAuditHistory;
 import com.spacetime.common.entity.AppUserAuditRecord;
+import com.spacetime.common.entity.AppUser;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.enums.AuditSourceEnum;
@@ -12,10 +14,10 @@ import com.spacetime.common.service.impl.AppUserAuditServiceImpl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -82,9 +84,16 @@ class AppUserAuditServiceTest {
     private AppUserAuditHistoryDao historyDao;
     @Mock
     private PromotionEventInboxService promotionEventInboxService;
+    @Mock
+    private AppUserDao appUserDao;
 
-    @InjectMocks
     private AppUserAuditServiceImpl auditService;
+
+    @BeforeEach
+    void setUpAuditService() {
+        auditService = new AppUserAuditServiceImpl(recordDao, historyDao, appUserDao,
+                promotionEventInboxService, new ObjectMapper());
+    }
 
     @Test
     @DisplayName("提交审核记录时补齐默认值并写入提交历史")
@@ -138,6 +147,9 @@ class AppUserAuditServiceTest {
     void shouldApproveAndAppendHistory() {
         AppUserAuditRecord current = record(2L, 10L, AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.PENDING);
         when(recordDao.selectById(2L)).thenReturn(current);
+        AppUser user = new AppUser();
+        user.setId(10L);
+        when(appUserDao.selectById(10L)).thenReturn(user);
 
         auditService.manualAudit(2L, "APPROVE", null, 99L, "admin");
 
@@ -145,6 +157,7 @@ class AppUserAuditServiceTest {
         assertThat(current.getAuditSource()).isEqualTo(AuditSourceEnum.MANUAL.getCode());
         assertThat(current.getAuditorId()).isEqualTo(99L);
         verify(recordDao).updateAuditResult(current);
+        verify(appUserDao).updateById(user);
 
         ArgumentCaptor<AppUserAuditHistory> historyCaptor = ArgumentCaptor.forClass(AppUserAuditHistory.class);
         verify(historyDao).insert(historyCaptor.capture());

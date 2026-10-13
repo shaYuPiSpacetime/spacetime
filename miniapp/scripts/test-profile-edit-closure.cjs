@@ -710,6 +710,38 @@ test('地区路径异常不得向用户暴露三级行政区技术文案', () =>
   assert.match(basic, /toTwoLevelRegionErrorMessage/, '基础资料页必须转换地区业务错误')
 })
 
+test('基础资料保存不得回传只读认证字段或孤立学校编码', () => {
+  const { buildBasicProfileSavePayload } = loadTypeScriptModule('src/domain/basicProfileRegion.ts')
+  const lockedFields = ['gender', 'birthday', 'identity', 'educationLevel', 'school']
+  const settings = [
+    ...lockedFields.map(fieldId => ({ fieldId, visible: true, editable: false })),
+    { fieldId: 'nickname', visible: true, editable: true },
+    { fieldId: 'locationProvince', visible: true, editable: true },
+    { fieldId: 'locationCity', visible: true, editable: true },
+    { fieldId: 'locationDistrict', visible: true, editable: true },
+    { fieldId: 'company', visible: false, editable: true },
+  ]
+  const values = { nickname: '昵称', gender: 'FEMALE', birthday: '2001-04-26',
+    identity: 'WORKER', educationLevel: 'MASTER', school: '华东师范大学', schoolCode: 'fixture-school',
+    locationProvince: '310000', locationCity: '310100', locationDistrict: '310104', company: '隐藏公司' }
+  assert.deepEqual(buildBasicProfileSavePayload(settings, values), {
+    nickname: '昵称', locationProvince: '310000', locationCity: '310100',
+  })
+})
+
+test('基础资料缺省editable兼容旧配置，学校编码只随可编辑学校提交', () => {
+  const { buildBasicProfileSavePayload } = loadTypeScriptModule('src/domain/basicProfileRegion.ts')
+  assert.deepEqual(buildBasicProfileSavePayload([
+    { fieldId: 'identity', visible: true }, { fieldId: 'school', visible: true },
+  ], { identity: 'WORKER', school: '华东师范大学', schoolCode: 'fixture-school' }), {
+    identity: 'WORKER', school: '华东师范大学', schoolCode: 'fixture-school',
+  })
+  assert.deepEqual(buildBasicProfileSavePayload([
+    { fieldId: 'school', visible: false, editable: true },
+    { fieldId: 'educationLevel', editable: false },
+  ], { school: '华东师范大学', schoolCode: 'fixture-school', educationLevel: 'MASTER' }), {})
+})
+
 test('主页预览移除语音播放入口并按蓝湖展示三重认证和单行副文案', () => {
   const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
   assert.doesNotMatch(preview, /createInnerAudioContext|▶/, '主页预览不得保留播放声音按钮或播放逻辑')
