@@ -105,7 +105,7 @@ assert.ok(verificationSubShellSource.includes('{bottomAction}'), '认证子页�
 const educationStudentSource = read('src/pages/verification/education-student.tsx')
 const educationSubmitSource = read('src/pages/verification/components/EducationSubmitPage.tsx')
 assert.ok(educationStudentSource.includes('EducationSubmitPage'), '学历认证学生页必须复用接口驱动提交页')
-assert.ok(educationSubmitSource.includes('getEducation'), '学历认证页必须从接口回显表单和审核状态')
+assert.ok(educationSubmitSource.includes('useEducationVerification') && read('src/hooks/useEducationVerification.ts').includes('getEducation'), '学历认证页必须经专用Hook从接口回显表单和审核状态')
 assert.ok(educationSubmitSource.includes('profileOptions?.educationLevel'), '学历枚举必须读取接口字典')
 assert.ok(educationSubmitSource.includes('LanhuOptionSheet'), '学历认证页需要使用自定义蓝湖弹窗')
 

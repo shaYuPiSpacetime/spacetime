@@ -22,7 +22,7 @@ public class EducationSubmitReq {
     @NotBlank(message = "学校名称不能为空")
     private String schoolName;
 
-    /** 学校字典稳定编码；港澳台、海外或手动填写时可不传。 */
+    /** 学校字典稳定编码，必须点选学校搜索候选并与名称匹配；首版不支持港澳台、海外或手填学校。 */
     private String schoolCode;
 
     /** 学历字典 code，必须命中 app_education_level。 */
@@ -35,10 +35,10 @@ public class EducationSubmitReq {
     /** 毕业证或学位证书编号，DIPLOMA_NO 方式必填。 */
     private String diplomaNo;
 
-    /** 证书姓名，证书编号或上传证书方式必填。 */
+    /** 证书姓名，仅 DIPLOMA_NO 方式必填（最多 50 字）；上传证书方式不要求填写。 */
     private String certificateName;
 
-    /** 学生证、在读证明、毕业证或学位证的公网 URL，最多 4 张。 */
+    /** 学历材料引用：历史 HTTP(S) URL 或上传后返回的 /miniapp/file/credential/ 受保护相对路径；最多 4 张且受后台上限约束。 */
     private List<String> materialUrls;
 
     /** 学历认证协议勾选，必须为 true。 */

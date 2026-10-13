@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const prodConfig = fs.readFileSync(path.join(root, 'backend/src/main/resources/application-prod.yml'), 'utf8')
-const deployScript = fs.readFileSync(path.join(root, 'deploy/scripts/deploy-prod-local.sh'), 'utf8')
+const deployScript = fs.readFileSync(path.join(root, 'deploy/scripts/deploy-prod-local.sh'), 'utf8').replace(/\r\n/g, '\n')
 const workflow = fs.readFileSync(path.join(root, '.github/workflows/deploy-backend-prod.yml'), 'utf8')
 const prodEnvExample = fs.readFileSync(path.join(root, 'deploy/server.prod.env.example'), 'utf8')
 

@@ -467,6 +467,103 @@ class VerificationServiceImplTest {
         assertThat(result.getCanSubmit()).isFalse();
     }
 
+    @Test
+    @DisplayName("学历驳回后重新提审创建新待审核记录并保留旧驳回快照")
+    void shouldCreateNewPendingEducationRecordAfterRejection() {
+        AppUserAuditRecord rejected = record(AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.REJECTED);
+        rejected.setId(3041L);
+        rejected.setUserId(7L);
+        rejected.setSchoolName("旧学校");
+        rejected.setSchoolCode(null);
+        rejected.setEducationMethod("DIPLOMA_NO");
+        rejected.setRejectReason("证书编号不清晰");
+        rejected.setAuditorId(88L);
+        rejected.setAuditTime(LocalDateTime.of(2026, 10, 12, 19, 59, 37));
+        rejected.setMaterialJson("{\"educationLevel\":\"BACHELOR\",\"diplomaNo\":\"OLD-001\"}");
+        String oldSnapshot = cn.hutool.json.JSONUtil.toJsonStr(rejected);
+        AppUserAuditRecord pending = record(AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.PENDING);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED));
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(rejected, pending);
+        EducationSubmitReq req = new EducationSubmitReq();
+        req.setEducationUserType("MAINLAND_GRADUATE");
+        req.setEducationMethod("DIPLOMA_NO");
+        req.setSchoolName("浙江大学");
+        req.setSchoolCode("U-ZJU");
+        req.setEducationLevel("BACHELOR");
+        req.setDiplomaNo("NEW-002");
+        req.setCertificateName("测试姓名");
+        req.setEducationAgreementChecked(true);
+
+        VerificationStatusVO result = service.submitEducation(7L, req);
+
+        ArgumentCaptor<AppUserAuditRecord> captor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditService).submit(captor.capture());
+        AppUserAuditRecord submitted = captor.getValue();
+        assertThat(submitted).isNotSameAs(rejected);
+        assertThat(submitted.getId()).isNull();
+        assertThat(submitted.getUserId()).isEqualTo(7L);
+        assertThat(submitted.getAuditType()).isEqualTo(AppUserAuditTypeEnum.EDUCATION.getCode());
+        assertThat(submitted.getStatus()).isEqualTo(AppUserAuditStatusEnum.PENDING.getCode());
+        assertThat(submitted.getAuditSource()).isEqualTo(AuditSourceEnum.MANUAL.getCode());
+        assertThat(submitted.getSchoolName()).isEqualTo("浙江大学");
+        assertThat(submitted.getSchoolCode()).isEqualTo("U-ZJU");
+        assertThat(submitted.getMaterialJson()).contains("NEW-002").doesNotContain("OLD-001");
+        assertThat(submitted.getRejectReason()).isNull();
+        assertThat(submitted.getAuditorId()).isNull();
+        assertThat(submitted.getAuditTime()).isNull();
+        assertThat(cn.hutool.json.JSONUtil.toJsonStr(rejected)).isEqualTo(oldSnapshot);
+        assertThat(result.getEducationStatus()).isEqualTo("PENDING");
+        assertThat(result.getEducationCanSubmit()).isFalse();
+        verifyNoInteractions(educationVerificationProvider);
+        verify(auditService, never()).machineApprove(any(), any(), any());
+        verify(auditService, never()).machineReject(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("驳回快照缺学校编码时必须重新点选学校且不创建提审记录")
+    void shouldRejectEducationResubmissionWithoutSchoolCode() {
+        // Use the real selection rule so the fixture cannot accidentally allow a null code.
+        var schoolDao = org.mockito.Mockito.mock(com.spacetime.common.dao.SchoolDictionaryDao.class);
+        var provider = org.mockito.Mockito.mock(com.spacetime.common.provider.CollegeSearchProvider.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "schoolDictionaryService",
+                new com.spacetime.miniapp.service.impl.SchoolDictionaryServiceImpl(schoolDao, provider));
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED));
+        AppUserAuditRecord rejected = record(AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.REJECTED);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(rejected);
+        EducationSubmitReq req = studentEducationReq("/miniapp/file/credential/user-7/proof.jpg");
+        req.setSchoolCode(null);
+
+        assertThatThrownBy(() -> service.submitEducation(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("请从搜索结果中选择学校");
+
+        verify(auditService, never()).submit(any());
+        assertThat(rejected.getStatus()).isEqualTo("REJECTED");
+        verifyNoInteractions(schoolDao, provider, educationVerificationProvider);
+    }
+
+    @Test
+    @DisplayName("学历已待审核时拒绝重复提交且不调用提交和学校选择")
+    void shouldRejectEducationResubmissionWhilePending() {
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.REAL_NAME))
+                .thenReturn(record(AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED));
+        AppUserAuditRecord pending = record(AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.PENDING);
+        pending.setId(3042L);
+        when(auditService.latestRecord(7L, AppUserAuditTypeEnum.EDUCATION)).thenReturn(pending);
+        EducationSubmitReq req = studentEducationReq("/miniapp/file/credential/user-7/proof.jpg");
+
+        assertThatThrownBy(() -> service.submitEducation(7L, req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("学历认证审核中，请耐心等待");
+
+        verify(auditService, never()).submit(any());
+        assertThat(pending.getId()).isEqualTo(3042L);
+        assertThat(pending.getStatus()).isEqualTo("PENDING");
+        verifyNoInteractions(schoolDictionaryService, profileDictionaryService, educationVerificationProvider);
+    }
+
     private AppUserAuditRecord record(AppUserAuditTypeEnum type, AppUserAuditStatusEnum status) {
         AppUserAuditRecord record = new AppUserAuditRecord();
         record.setAuditType(type.getCode());

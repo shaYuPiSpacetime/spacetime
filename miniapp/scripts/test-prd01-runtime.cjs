@@ -545,14 +545,16 @@ test('学历认证页面从字典取人群、方式和学历 code，并先上传
     path.join(miniappRoot, 'src/pages/verification/components/EducationSubmitPage.tsx'),
     'utf8'
   )
+  const hook = fs.readFileSync(path.join(miniappRoot, 'src/hooks/useEducationVerification.ts'), 'utf8')
+  const rules = fs.readFileSync(path.join(miniappRoot, 'src/domain/educationVerification.ts'), 'utf8')
   assert.equal(component.includes('EDUCATION_LEVELS'), false)
   assert.equal(component.includes('DEFAULT_'), false)
   assert.match(component, /profileOptions\?\.educationMethod/)
-  assert.match(component, /profileOptions\?\.educationUserType/)
+  assert.match(rules, /options\?\.educationUserType/)
   assert.match(component, /option\.code/)
-  assert.match(component, /prd01Api\.uploadEducation/)
-  assert.match(component, /buildEducationRequest/)
-  assert.match(component, /prd01Api\.submitEducation/)
+  assert.match(hook, /prd01Api\.uploadEducation/)
+  assert.match(hook, /buildEducationRequest/)
+  assert.match(hook, /prd01Api\.submitEducation/)
 })
 
 test('头像认证从头像来源字典选择，并按上传 URL 提交审核', () => {

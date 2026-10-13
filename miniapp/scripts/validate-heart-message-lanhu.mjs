@@ -21,6 +21,7 @@ const user = read('src/pages/heart/user.tsx')
 const heartHeader = read('src/components/HeartMessageHeader.tsx')
 const heartMembership = readOptional('src/pages/heart/membership-unlock.tsx')
 const heartCoinRecharge = readOptional('src/pages/coins/unlock-recharge.tsx')
+const coinRechargePlans = read('src/components/CoinRechargePlans/index.tsx')
 const appConfig = read('src/app.config.ts')
 const runtime = `${chat}\n${heart}\n${mutual}\n${user}\n${heartMembership}\n${heartCoinRecharge}`
 
@@ -107,7 +108,9 @@ assert.doesNotMatch(
 assert.match(heartCoinRecharge, /Ta也喜欢了你!/, '专属充值页必须还原关系情境标题')
 assert.match(heartCoinRecharge, /解锁后立即和ta配对聊天/, '专属充值页必须还原解锁结果文案')
 assert.match(heartCoinRecharge, /本次消耗/, '专属充值页必须展示本次消耗')
-assert.match(heartCoinRecharge, /充值千寻币/, '专属充值页必须展示独立充值卡')
+assert.match(heartCoinRecharge, /<CoinRechargePlans packages=\{displayPackages\}/, '专属充值页必须展示可选择的套餐组件')
+assert.match(coinRechargePlans, /充值千寻币/, '套餐组件必须展示充值标题')
+assert.match(coinRechargePlans, /onClick=\{\(\) => onSelect\(pkg\)\}/, '套餐组件必须绑定真实选择事件')
 assert.match(heartCoinRecharge, /《时空邂逅充值协议》/, '专属充值页协议名称必须与蓝湖一致')
 assert.match(heartCoinRecharge, /activePackage\.id <= 0/, '蓝湖兜底千寻币套餐不得创建真实支付订单')
 assert.doesNotMatch(

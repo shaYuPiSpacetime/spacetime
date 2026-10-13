@@ -10,6 +10,7 @@ interface VerificationSubShellProps {
   bottomAction?: ReactNode
   contentHeight?: string
   scroll?: boolean
+  scrollIntoView?: string
   onBack?: () => void
 }
 
@@ -19,6 +20,7 @@ export default function VerificationSubShell({
   bottomAction,
   contentHeight = '1678rpx',
   scroll = false,
+  scrollIntoView,
   onBack,
 }: VerificationSubShellProps) {
   const handleBack = () => {
@@ -40,7 +42,7 @@ export default function VerificationSubShell({
     <View style={{ minHeight: '100vh', background: '#F3F7FB', position: 'relative', overflow: 'hidden' }}>
       <Image src={bg} mode="widthFix" style={{ position: 'fixed', left: '0', top: '0', width: '750rpx' }} />
       {scroll ? (
-        <ScrollView scrollY style={{ height: '100vh', position: 'relative', zIndex: 1 }} showScrollbar={false}>
+        <ScrollView scrollY scrollIntoView={scrollIntoView} style={{ height: '100vh', position: 'relative', zIndex: 1 }} showScrollbar={false}>
           {content}
         </ScrollView>
       ) : (

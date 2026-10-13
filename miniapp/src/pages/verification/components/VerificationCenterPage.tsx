@@ -1,5 +1,5 @@
 import { Image, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { prd01Api } from '@/services/prd01'
@@ -23,7 +23,20 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
   const optionLabel = usePrd01Store(state => state.optionLabel)
   const [status, setStatus] = useState<VerificationStatus>()
   const completionHandledRef = useRef(false)
+  const loadGeneration = useRef(0)
+  const hasLoaded = useRef(false)
   const tripleComplete = isTripleVerificationComplete(status)
+
+  const loadStatus = async () => {
+    const generation = ++loadGeneration.current
+    const value = await prd01Api.getVerificationStatus()
+    if (generation !== loadGeneration.current) return
+    setStatus(value)
+    hasLoaded.current = true
+    return value
+  }
+  useEffect(() => () => { loadGeneration.current++ }, [])
+  useDidShow(() => { if (hasLoaded.current) void loadStatus().catch(error => showError(error, copy('common_load_failed_message'))) })
 
   const completeOnboarding = async () => {
     try {
@@ -41,16 +54,21 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
   }, [onboarding, tripleComplete])
 
   const enterCertification = async (item: (typeof CERT_ITEMS)[number]) => {
-    const auditStatus = status?.[item.statusKey]
-    const canSubmit = status?.[item.canSubmitKey] !== false
-    const blockedReason = item.key === 'education' ? status?.educationBlockedReason : undefined
+    let currentStatus = status
+    if (item.key === 'education') {
+      try { currentStatus = await loadStatus() } catch (error) { await showError(error, copy('common_load_failed_message')); return }
+      if (!currentStatus) return
+    }
+    const auditStatus = currentStatus?.[item.statusKey]
+    const canSubmit = currentStatus?.[item.canSubmitKey] === true
+    const blockedReason = item.key === 'education' ? currentStatus?.educationBlockedReason : undefined
     if (auditStatus === 'APPROVED') {
       // 已通过的认证项点击给出明确反馈，避免"点不动"的观感。
       await Taro.showToast({ title: '该认证已通过', icon: 'none' })
       return
     }
     if (!canSubmit) {
-      await Taro.showToast({ title: blockedReason || status?.[item.reasonKey] || optionLabel('auditStatus', auditStatus), icon: 'none' })
+      await Taro.showToast({ title: blockedReason || currentStatus?.[item.reasonKey] || optionLabel('auditStatus', auditStatus), icon: 'none' })
       return
     }
     if (item.key !== 'education') {
@@ -80,7 +98,7 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
   )
 
   return (
-    <VerificationRuntimeBoundary loadData={async () => setStatus(await prd01Api.getVerificationStatus())}>
+    <VerificationRuntimeBoundary loadData={async () => { await loadStatus() }}>
       {onboarding ? (
         <VerificationShell stage="triple" onBack={() => navigateBackOrRedirect('/pages/index/index')}>
           {content}
@@ -126,7 +144,7 @@ function VerificationCenterContent({
               <RoundCheck />
             ) : (
               <View style={{ position: 'absolute', right: '28rpx', top: '50rpx', minWidth: '138rpx', height: '68rpx', borderRadius: '8rpx', background: canSubmit ? '#2876FF' : '#D8E8FF', padding: '0 18rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
-                <Text style={{ color: canSubmit ? '#FFFFFF' : '#FFFFFF', fontSize: '24rpx', fontWeight: 700 }}>{statusLabel || copy('verification_enter_action')}</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: '24rpx', fontWeight: 700 }}>{item.key === 'education' && canSubmit && (auditStatus === 'REJECTED' || auditStatus === 'EXPIRED') ? copy('education_resubmit_action') : statusLabel || copy('verification_enter_action')}</Text>
               </View>
             )}
             {reason ? <Text style={{ position: 'absolute', left: '146rpx', bottom: '8rpx', color: '#E36A6A', fontSize: '20rpx', lineHeight: '28rpx' }}>{reason}</Text> : null}

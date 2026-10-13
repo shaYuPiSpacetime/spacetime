@@ -96,7 +96,12 @@ const SOURCE_EVIDENCE = [
   {
     label: '上传证书切图入口',
     file: 'src/pages/verification/components/EducationSubmitPage.tsx',
-    snippets: ['UploadProofBox', 'materialPreviewUrls', 'verificationUploadCamera', 'prd01Api.uploadEducation'],
+    snippets: ['UploadProofBox', 'item.previewUrl', 'verificationUploadCamera', 'onUpload'],
+  },
+  {
+    label: '学历材料上传与受保护预览闭环',
+    file: 'src/hooks/useEducationVerification.ts',
+    snippets: ['prd01Api.uploadEducation', 'resolveProtectedFilePreview', 'serverUrl', "previewStatus: 'error'"],
   },
   {
     label: '会员中心状态和支付闭环',
@@ -119,12 +124,17 @@ const SOURCE_EVIDENCE = [
     label: '千寻币协议和支付闭环',
     route: '/pages/coins/index',
     snippets: [
-      'miniappOssIcons.coinGold',
+      '<CoinRechargePlans packages={packages}',
       'agreementChecked',
       'agreementError',
       "purchase('coins')",
       "payState === 'paying'",
     ],
+  },
+  {
+    label: '千寻币套餐组件切图与选择',
+    file: 'src/components/CoinRechargePlans/index.tsx',
+    snippets: ['miniappOssIcons.coinGold', 'packages.map', 'onSelect(pkg)'],
   },
   {
     label: '千寻币明细空态',

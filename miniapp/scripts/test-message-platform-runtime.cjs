@@ -21,7 +21,7 @@ require.extensions['.ts'] = (module, filename) => {
 
 const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))
 
-test('前台轮询未读、后台停止且慢请求不会重入', async () => {
+test('前台轮询未读、后台停止且慢请求不会重入', async t => {
   let unreadCalls = 0
   let concurrentUnreadCalls = 0
   let maxConcurrentUnreadCalls = 0
@@ -68,8 +68,11 @@ test('前台轮询未读、后台停止且慢请求不会重入', async () => {
   }
 
   const runtime = new MessagePlatformRuntime(5)
+  t.after(() => runtime.stop())
   await runtime.onForeground()
-  await wait(38)
+  // 并行测试时事件循环可能延迟；等待真实轮询结果而不是假定 38ms 内必达两次。
+  const pollingDeadline = Date.now() + 1000
+  while ((unreadCalls < 2 || appliedUnread.length < 1) && Date.now() < pollingDeadline) await wait(10)
   assert.ok(unreadCalls >= 2, '前台应持续刷新未读汇总')
   assert.equal(maxConcurrentUnreadCalls, 1, '轮询不得并发重入')
   assert.ok(appliedUnread.length >= 1)
@@ -82,6 +85,7 @@ test('前台轮询未读、后台停止且慢请求不会重入', async () => {
   runtime.stop()
 
   const stoppedRuntime = new MessagePlatformRuntime(5)
+  t.after(() => stoppedRuntime.stop())
   await stoppedRuntime.onForeground()
   await wait(7)
   stoppedRuntime.stop()

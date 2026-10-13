@@ -2,12 +2,14 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { MiniappBackIcon, getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
+import { usePrd01Store } from '@/stores/prd01Store'
 
 const REQUESTED_PRIMARY_TAB_KEY = 'qianxun_requested_primary_tab'
 const REQUESTED_SCENE_KEY = 'qianxun_requested_scene'
 
 export default function EducationSubmitSuccessPage() {
   const { menuTop, menuHeight, titleTop } = getNativeNavigationMetrics()
+  const copy = usePrd01Store(state => state.copy)
 
   const goToQianxunCity = async () => {
     Taro.setStorageSync(REQUESTED_PRIMARY_TAB_KEY, 'FAMILY')
@@ -38,7 +40,7 @@ export default function EducationSubmitSuccessPage() {
         提交成功
       </Text>
       <Text style={{ position: 'absolute', left: 0, top: '590rpx', width: '750rpx', color: '#333333', fontSize: '26rpx', fontWeight: 400, lineHeight: '37rpx', textAlign: 'center' }}>
-        你的头像正在审核，请耐心等待
+        {copy('education_submit_success_notice')}
       </Text>
       <View
         id="education-submit-success-city-button"

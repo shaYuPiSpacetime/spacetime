@@ -149,9 +149,11 @@ test('学历受保护材料通过带 token 的 downloadFile 生成临时预览�
   assert.match(protectedFile, /\/miniapp\/file\/credential\//)
 
   const education = source('src/pages/verification/components/EducationSubmitPage.tsx')
-  assert.match(education, /resolveProtectedFilePreviews/)
-  assert.match(education, /materialPreviewUrls/)
-  assert.match(education, /materialUrls/)
+  const educationHook = source('src/hooks/useEducationVerification.ts')
+  assert.match(educationHook, /resolveProtectedFilePreview/)
+  assert.match(educationHook, /previewStatus:\s*'error'/)
+  assert.match(education, /item\.previewUrl/)
+  assert.match(educationHook, /materialUrls/)
   assert.equal(education.includes('API_BASE_URL + url'), false)
 })
 

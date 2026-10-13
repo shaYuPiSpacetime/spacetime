@@ -136,14 +136,15 @@ export function FormRow({ label, children, top = '0' }: { label: string; childre
   )
 }
 
-export function SubmitButton({ id, top, active, submitting, text, submittingText, onClick }: { id?: string; top: string; active: boolean; submitting?: boolean; text: string; submittingText: string; onClick: () => void }) {
+export function SubmitButton({ id, top, flow = false, disabled = false, active, submitting, text, submittingText, onClick }: { id?: string; top?: string; flow?: boolean; disabled?: boolean; active: boolean; submitting?: boolean; text: string; submittingText: string; onClick: () => void }) {
   return (
     <View
       id={id}
       style={{
-        position: 'absolute',
-        left: '25rpx',
+        position: flow ? 'relative' : 'absolute',
+        left: flow ? 0 : '25rpx',
         top,
+        marginTop: flow ? '32rpx' : undefined,
         width: '700rpx',
         height: '98rpx',
         borderRadius: '20rpx',
@@ -152,7 +153,7 @@ export function SubmitButton({ id, top, active, submitting, text, submittingText
         alignItems: 'center',
         justifyContent: 'center',
       }}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
     >
       <Text style={{ color: '#FAFBFC', fontSize: '36rpx', fontWeight: 500, lineHeight: '50rpx' }}>{submitting ? submittingText : text}</Text>
     </View>
@@ -162,6 +163,7 @@ export function SubmitButton({ id, top, active, submitting, text, submittingText
 export function AgreementRow({
   id,
   top,
+  flow = false,
   checked,
   onToggle,
   prefix,
@@ -169,7 +171,8 @@ export function AgreementRow({
   agreementCode,
 }: {
   id?: string
-  top: string
+  top?: string
+  flow?: boolean
   checked: boolean
   onToggle: () => void
   prefix: string
@@ -180,10 +183,13 @@ export function AgreementRow({
     <View
       id={id}
       style={{
-        position: 'absolute',
-        left: '32rpx',
+        position: flow ? 'relative' : 'absolute',
+        left: flow ? '7rpx' : '32rpx',
         top,
-        height: '48rpx',
+        height: flow ? undefined : '48rpx',
+        minHeight: flow ? '48rpx' : undefined,
+        marginTop: flow ? '24rpx' : undefined,
+        flexWrap: flow ? 'wrap' : undefined,
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
@@ -230,16 +236,17 @@ export function AgreementRow({
   )
 }
 
-export function CustomerServiceLink({ id, top, text }: { id?: string; top: string; text: string }) {
+export function CustomerServiceLink({ id, top, flow = false, text }: { id?: string; top?: string; flow?: boolean; text: string }) {
   return (
     <Button
       id={id}
       openType="contact"
       style={{
-        position: 'absolute',
+        position: flow ? 'relative' : 'absolute',
         left: '0',
         top,
-        width: '750rpx',
+        width: flow ? '700rpx' : '750rpx',
+        marginTop: flow ? '40rpx' : undefined,
         height: '48rpx',
         display: 'flex',
         flexDirection: 'row',

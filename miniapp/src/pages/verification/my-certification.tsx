@@ -72,7 +72,7 @@ export default function MyCertificationPage() {
                       [copy('verification_detail_school_label'), education?.schoolName || ''],
                       [copy('verification_detail_degree_label'), education?.educationLevelLabel || optionLabel('educationLevel', education?.educationLevel)],
                     ] : []}
-                    actionText={item.key === 'education' && approved ? copy('verification_detail_update_action') : !approved ? copy('verification_enter_action') : ''}
+                    actionText={item.key === 'education' && approved ? copy('verification_detail_update_action') : item.key === 'education' && (auditStatus === 'REJECTED' || auditStatus === 'EXPIRED') ? copy('education_resubmit_action') : !approved ? copy('verification_enter_action') : ''}
                     onClick={() => void enter(item.key, item.route)}
                   />
                 )

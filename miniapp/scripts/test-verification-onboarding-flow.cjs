@@ -274,23 +274,23 @@ test('在校学生学历认证严格保持资料卡、提交、协议、客服�
     educationSubmit.indexOf('<SubmitButton') < educationSubmit.indexOf('<AgreementRow'),
     '提交按钮必须渲染在协议上方'
   )
-  assert.match(educationSubmit, /STUDENT_CARD:\s*'1278rpx'/, '在校学生提交按钮纵坐标必须对齐蓝湖')
-  assert.match(educationSubmit, /STUDENT_CARD:\s*'1402rpx'/, '在校学生协议纵坐标必须对齐蓝湖')
-  assert.match(educationSubmit, /methodCode === 'STUDENT_CARD' \? '520rpx'/, '在校学生表单必须与身份切换卡保持蓝湖间距')
+  assert.match(educationSubmit, /<SubmitButton[^>]*\bflow\b/, '提交区必须随表单高度向下排布')
+  assert.match(educationSubmit, /<AgreementRow[^>]*\bflow\b/, '协议区必须随提交区向下排布')
+  assert.match(educationSubmit, /methodCode === 'STUDENT_CARD' \? '344rpx'/, '在校表单与176rpx导航共同保持520rpx的起始基线')
   assert.match(educationShared, /height:\s*'120rpx'[\s\S]{0,80}borderRadius:\s*'18rpx'/, '学历身份切换必须为独立圆角卡片')
   assert.match(educationShared, /fontSize:\s*'28rpx'[\s\S]{0,100}textShadow:/, '学历身份切换字号和选中阴影必须对齐蓝湖')
-  assert.match(educationShared, /position:\s*'absolute'/, '学历提交按钮必须跟随页面内容定位')
+  assert.match(educationShared, /position:\s*flow \? 'relative' : 'absolute'/, '学历可使用顺序布局，其他认证页保留原定位')
   assert.doesNotMatch(
     educationShared,
     /position:\s*'fixed'[\s\S]{0,180}safe-area-inset-bottom/,
     '学历提交按钮不得固定覆盖协议和客服区'
   )
   assert.match(
-    studentForm,
-    /isStudent\s*\|\|\s*methodCode === 'MATERIAL_UPLOAD'[\s\S]{0,800}<MaterialUploadArea/,
+    educationSubmit,
+    /methodCode === 'STUDENT_CARD'\s*\|\|\s*methodCode === 'MATERIAL_UPLOAD'[\s\S]{0,300}<MaterialUploadArea/,
     '在校学生无材料时必须使用蓝湖大尺寸上传区'
   )
-  assert.match(studentForm, /materialUrls\.length === 0[\s\S]{0,160}<UploadProofBox/)
+  assert.match(studentForm, /materials\.length === 0[\s\S]{0,160}<UploadProofBox/)
   assert.match(
     studentForm,
     /minHeight:\s*isStudent\s*\?\s*'725rpx'/,
@@ -300,11 +300,14 @@ test('在校学生学历认证严格保持资料卡、提交、协议、客服�
 
 test('学历证明材料在所有页面都严格限制为最多四张', () => {
   const educationSubmit = read('src/pages/verification/components/EducationSubmitPage.tsx')
+  const hook = read('src/hooks/useEducationVerification.ts')
+  const rules = read('src/domain/educationVerification.ts')
 
-  assert.match(educationSubmit, /const EDUCATION_MATERIAL_MAX_COUNT = 4/)
-  assert.match(educationSubmit, /Math\.min\(\s*EDUCATION_MATERIAL_MAX_COUNT/)
-  assert.match(educationSubmit, /result\.tempFilePaths\.slice\(0, remaining\)/)
-  assert.match(educationSubmit, /materialUrls:\s*materialUrls\.slice\(0, maxMaterialCount\)/)
+  assert.match(hook, /const EDUCATION_MATERIAL_MAX_COUNT = 4/)
+  assert.match(hook, /Math\.min\(\s*EDUCATION_MATERIAL_MAX_COUNT/)
+  assert.match(hook, /result\.tempFilePaths\.slice\(0, remaining\)/)
+  assert.match(rules, /Math\.min\(maxCount, 4\)/)
+  assert.match(rules, /count > limit/)
   assert.match(educationSubmit, /function MaterialUploadArea/)
   assert.match(educationSubmit, /education-certificate-material-grid/)
   assert.match(educationSubmit, /methodCode === 'MATERIAL_UPLOAD'[\s\S]{0,120}\? '上传证书'/)
@@ -317,7 +320,7 @@ test('学历提交后进入蓝湖成功页并可直达千寻成家同城', () =>
   const icons = read('src/constants/ossIcons.ts')
 
   assert.match(appConfig, /'education-submit-success'/)
-  assert.match(educationSubmit, /redirectTo\(\{ url: '\/pages\/verification\/education-submit-success' \}\)/)
+  assert.match(read('src/hooks/useEducationVerification.ts'), /redirectTo\(\{ url: '\/pages\/verification\/education-submit-success' \}\)/)
   assert.match(successPage, /miniappOssIcons\.verificationEducationSubmitSuccess/)
   assert.match(successPage, /Taro\.setStorageSync\(REQUESTED_PRIMARY_TAB_KEY, 'FAMILY'\)/)
   assert.match(successPage, /Taro\.setStorageSync\(REQUESTED_SCENE_KEY, 'CITY'\)/)
