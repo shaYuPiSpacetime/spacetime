@@ -33,4 +33,4 @@
 - [x] 上传器增加 `selectAssets(assets,args)`、`mergeManifestEntries(existing,updates)`；无 --only 保持旧行为，有 --only 时保留已生成清单其他条目，只上传选定原图。执行 `npm run assets:upload-icons -- --only=settingsAntiFraudGuide`。
 - [x] 运行上述测试及 `node --test miniapp/scripts/test-settings-lanhu-flow.cjs`，校验远端原图长度与 SHA256 等于源文件。
 - [x] 运行一次 `npm run prebuild:weapp`，记录结果；提交前只复核任务 diff/远端，不重复全量测试。首次因旧页面数期望失败，更新门禁后395项通过；scoped最终16项通过。
-- [ ] scoped commit/push master；本次源码构建、postbuild、全新目录复制哈希审计、CLI preview、核对远端 SHA、upload 同一目录并逐分包比较。更新独立测试报告，真机未实测时不宣称真机验收通过。
+- [x] scoped commit/push master；本次源码构建、postbuild、全新目录复制哈希审计、CLI preview、核对远端 SHA、upload 同一目录并逐分包比较。更新独立测试报告，真机未实测时不宣称真机验收通过。体验版2026.10.13.1854；440文件哈希一致、主包及13分包字节一致。
