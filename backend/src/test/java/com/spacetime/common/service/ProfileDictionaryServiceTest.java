@@ -197,6 +197,70 @@ class ProfileDictionaryServiceTest {
         return data;
     }
 
+    @Test
+    void importResolverRejectsDisabledAmbiguousAndMissingParentOptions() {
+        SysDictData province = region(1L, 0L, "310000");
+        province.setDictLabel("上海市");
+        SysDictData city = region(2L, 1L, "310100");
+        city.setDictLabel("上海市");
+        SysDictData duplicate = region(3L, 1L, "310200");
+        duplicate.setDictLabel("上海市");
+        SysDictData disabled = region(4L, 1L, "310300");
+        disabled.setStatus("DISABLED");
+        SysDictData deleted = region(5L, 1L, "310400");
+        deleted.setDeleted(1);
+        when(dictDataDao.selectByDictType("china_region")).thenReturn(List.of(province, city, duplicate, disabled, deleted));
+        var resolver = new ProfileDictionaryService(dictDataDao).regionImportResolver();
+        assertThatThrownBy(() -> resolver.normalize("上海市", "上海市", "", "现居地"))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> resolver.normalize("310000", "310300", "", "现居地"))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> resolver.normalize("310000", "310400", "", "现居地"))
+                .isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> resolver.normalize("", "310100", "", "现居地"))
+                .isInstanceOf(BusinessException.class);
+        assertThat(resolver.normalize("上海市", "310100", "", "现居地").provinceCode()).isEqualTo("310000");
+        assertThat(resolver.normalize("上海市", "", "", "现居地").cityCode()).isEmpty();
+        assertThat(resolver.normalize("", "", "", "现居地").provinceCode()).isEmpty();
+    }
+
+    @Test
+    void importResolverPreservesMunicipalityAndDirectAdminFlattenedPaths() {
+        SysDictData municipality = region(1L, 0L, "500000");
+        SysDictData virtualCity = region(2L, 1L, "500200");
+        virtualCity.setDictLabel("县");
+        SysDictData district = region(3L, 2L, "500233");
+        SysDictData province = region(4L, 0L, "420000");
+        SysDictData directAdmin = region(5L, 4L, "429000");
+        SysDictData realCity = region(6L, 5L, "429004");
+        when(dictDataDao.selectByDictType("china_region"))
+                .thenReturn(List.of(municipality, virtualCity, district, province, directAdmin, realCity));
+        var resolver = new ProfileDictionaryService(dictDataDao).regionImportResolver();
+        assertThat(resolver.normalize("500000", "500233", "", "现居地").cityCode()).isEqualTo("500233");
+        assertThat(resolver.normalize("420000", "429004", "", "家乡").cityCode()).isEqualTo("429004");
+        assertThat(resolver.normalize("500000", "500200", "500233", "现居地").districtCode()).isEqualTo("500233");
+        assertThatThrownBy(() -> resolver.normalize("500000", "500233", "500233", "现居地"))
+                .isInstanceOf(BusinessException.class);
+        org.mockito.Mockito.verify(dictDataDao, org.mockito.Mockito.times(1)).selectByDictType("china_region");
+    }
+
+    @Test
+    void importResolverRejectsAmbiguityBetweenDirectAndFlattenedCitySlots() {
+        SysDictData province = region(1L, 0L, "420000");
+        SysDictData directCity = region(2L, 1L, "420100");
+        directCity.setDictLabel("同名城市");
+        SysDictData virtualCity = region(3L, 1L, "429000");
+        SysDictData flattenedCity = region(4L, 3L, "429004");
+        flattenedCity.setDictLabel("同名城市");
+        when(dictDataDao.selectByDictType("china_region"))
+                .thenReturn(List.of(province, directCity, virtualCity, flattenedCity));
+        var resolver = new ProfileDictionaryService(dictDataDao).regionImportResolver();
+        assertThatThrownBy(() -> resolver.normalize("420000", "同名城市", "", "现居地"))
+                .isInstanceOf(BusinessException.class);
+        assertThat(resolver.normalize("420000", "420100", "", "现居地").cityCode()).isEqualTo("420100");
+        assertThat(resolver.normalize("420000", "429004", "", "现居地").cityCode()).isEqualTo("429004");
+    }
+
     private SysDictData region(Long id, Long parentId, String code) {
         SysDictData data = dict("china_region", code, code);
         data.setId(id);

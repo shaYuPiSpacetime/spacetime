@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -140,13 +142,101 @@ public class ProfileDictionaryService {
             return false;
         }
         SysDictData virtualCity = dictDataDao.selectById(district.getParentId());
+        return isFlattenedVirtualCityChild(province, virtualCity);
+    }
+
+    /** 保存与导入共用虚拟行政层的父级判定，避免导入放宽地区规则。 */
+    private static boolean isFlattenedVirtualCityChild(SysDictData province, SysDictData virtualCity) {
         return virtualCity != null
                 && CHINA_REGION_DICT_TYPE.equals(virtualCity.getDictType())
                 && CommonStatusEnum.ENABLED.getCode().equals(virtualCity.getStatus())
-                && ((MUNICIPALITY_CODES.contains(provinceCode)
+                && ((MUNICIPALITY_CODES.contains(province.getDictValue())
                         && VIRTUAL_CITY_LABELS.contains(virtualCity.getDictLabel()))
                         || DIRECT_ADMIN_VIRTUAL_CITY_CODES.contains(virtualCity.getDictValue()))
                 && Objects.equals(province.getId(), virtualCity.getParentId());
+    }
+
+    /** 每个导入批次只加载一次启用地区树，不依赖全局 code-label 的顺序。 */
+    public RegionImportResolver regionImportResolver() {
+        return new RegionImportResolver(options(CHINA_REGION_DICT_TYPE));
+    }
+
+    /** 归一化后的地区编码，不改变资料保存的两级/三级口径。 */
+    public record RegionPath(String provinceCode, String cityCode, String districtCode) {}
+
+    /** 批次内按父级限定选项的解析器；同级歧义和错误编码均失败关闭。 */
+    public static final class RegionImportResolver {
+        private final Map<Long, SysDictData> byId = new HashMap<>();
+        private final Map<Long, List<SysDictData>> byParent = new HashMap<>();
+
+        private RegionImportResolver(List<SysDictData> options) {
+            for (SysDictData item : options == null ? List.<SysDictData>of() : options) {
+                if (!CHINA_REGION_DICT_TYPE.equals(item.getDictType())
+                        || !CommonStatusEnum.ENABLED.getCode().equals(item.getStatus())
+                        || Integer.valueOf(1).equals(item.getDeleted())
+                        || item.getId() == null || item.getParentId() == null) {
+                    continue;
+                }
+                byId.put(item.getId(), item);
+                byParent.computeIfAbsent(item.getParentId(), ignored -> new ArrayList<>()).add(item);
+            }
+        }
+
+        /** 只在该省/市的有效后代中解析 code、原始名称或客户端展示名称。 */
+        public RegionPath normalize(String provinceValue, String cityValue, String districtValue, String fieldLabel) {
+            if (StrUtil.isAllBlank(provinceValue, cityValue, districtValue)) {
+                return new RegionPath("", "", "");
+            }
+            SysDictData province = requireMatch(children(0L), provinceValue, fieldLabel + "省份");
+            if (StrUtil.isBlank(cityValue)) {
+                if (StrUtil.isNotBlank(districtValue)) throw invalid(fieldLabel + "城市");
+                return new RegionPath(province.getDictValue(), "", "");
+            }
+            List<SysDictData> cityMatches = matches(children(province.getId()), cityValue);
+            // 同名直接城市和合法扁平城市也须共同消歧，不能偏向字典层级顺序。
+            List<SysDictData> cityCandidates = new ArrayList<>(cityMatches);
+            for (SysDictData virtualCity : children(province.getId())) {
+                if (isFlattenedVirtualCityChild(province, virtualCity)) {
+                    cityCandidates.addAll(matches(children(virtualCity.getId()), cityValue));
+                }
+            }
+            if (cityCandidates.size() != 1) throw invalid(fieldLabel + "城市");
+            SysDictData city = cityCandidates.getFirst();
+            boolean flattened = !Objects.equals(province.getId(), city.getParentId());
+            if (StrUtil.isBlank(districtValue)) {
+                return new RegionPath(province.getDictValue(), city.getDictValue(), "");
+            }
+            if (flattened) throw invalid(fieldLabel + "区县");
+            SysDictData district = requireMatch(children(city.getId()), districtValue, fieldLabel + "区县");
+            return new RegionPath(province.getDictValue(), city.getDictValue(), district.getDictValue());
+        }
+
+        private List<SysDictData> children(Long parentId) {
+            // Disabled/deleted intermediary nodes are not traversable.
+            return parentId == 0L || byId.containsKey(parentId)
+                    ? byParent.getOrDefault(parentId, List.of()) : List.of();
+        }
+
+        private SysDictData requireMatch(List<SysDictData> candidates, String value, String fieldLabel) {
+            List<SysDictData> matched = matches(candidates, value);
+            if (matched.size() != 1) throw invalid(fieldLabel);
+            return matched.getFirst();
+        }
+
+        private List<SysDictData> matches(List<SysDictData> candidates, String value) {
+            String normalized = StrUtil.trim(value);
+            if (StrUtil.isBlank(normalized)) return List.of();
+            // Numeric codes must match a code at this level, never a misleading display label.
+            boolean code = normalized.matches("\\d{6}");
+            return candidates.stream().filter(item -> normalized.equals(item.getDictValue())
+                    || (!code && (normalized.equals(item.getDictLabel())
+                    || normalized.equals(MunicipalityLocationCodes.displayName(item.getDictValue(), item.getDictLabel())))))
+                    .toList();
+        }
+
+        private BusinessException invalid(String fieldLabel) {
+            return new BusinessException(fieldLabel + "不存在、已停用、层级不匹配或名称有歧义，请使用有效地区编码");
+        }
     }
 
     /** 判断指定省市节点是否存在启用的下一级行政区，供区县条件必填规则使用。 */

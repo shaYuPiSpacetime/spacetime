@@ -959,3 +959,5 @@ test('语音录制完成后支持真实试听、确认上传、删除与退出�
     '重新录音过短时必须恢复服务端已有语音的完成态'
   )
 })
+// Province/city recovery runs with the existing profile prebuild regression gate.
+require('./test-profile-region-picker.cjs')

@@ -147,18 +147,26 @@ export function LanhuRegionSheet({
   onConfirm,
   onClose,
 }: LanhuRegionSheetProps) {
-  const initialProvinceIndex = clampRegionIndex(
-    regions.findIndex(item => item.code === provinceCode),
-    regions.length
-  )
+  const storedProvinceIndex = regions.findIndex(item => item.code === provinceCode)
+  // Only recover a missing legacy province when the saved city has exactly one owner.
+  // A valid but mismatched province is not silently replaced with another province.
+  const cityOwners = cityCode
+    ? regions.map((item, index) => ({ item, index }))
+      .filter(({ item }) => item.children.some(city => city.code === cityCode))
+    : []
+  const resolvedProvinceIndex = storedProvinceIndex >= 0
+    ? storedProvinceIndex
+    : cityOwners.length === 1 ? cityOwners[0].index : -1
+  const initialProvinceIndex = clampRegionIndex(resolvedProvinceIndex, regions.length)
   const initialProvince = regions[initialProvinceIndex]
   const initialCityIndex = clampRegionIndex(
     initialProvince?.children.findIndex(item => item.code === cityCode) ?? 0,
     initialProvince?.children.length || 0
   )
-  const staleCitySelection = Boolean(cityCode)
-    && !initialProvince?.children.some(item => item.code === cityCode)
+  const staleCitySelection = (Boolean(provinceCode) && resolvedProvinceIndex < 0)
+    || (Boolean(cityCode) && !initialProvince?.children.some(item => item.code === cityCode))
   const citySelectedByUser = useRef(false)
+  const provinceScrollTouched = useRef(false)
   const cityScrollTouched = useRef(false)
   const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
   const [cityIndex, setCityIndex] = useState(initialCityIndex)
@@ -235,17 +243,27 @@ export function LanhuRegionSheet({
       })
   }, [selectedCity?.code, cityCode, districtCode, includeDistrict, loadDistricts])
 
+  const resetDistrictsForCity = (nextCityCode: string | undefined) => {
+    if (nextCityCode === selectedCity?.code) return
+    districtRequestRef.current += 1
+    setDistricts([])
+    setDistrictIndex(0)
+    setDistrictLoading(includeDistrict && Boolean(nextCityCode))
+    setDistrictError(false)
+    setDistrictScrollTop(regionScrollTop(0))
+  }
+
   const selectProvince = (nextIndex: number) => {
     const normalized = clampRegionIndex(nextIndex, regions.length)
     setProvinceIndex(normalized)
     setCityIndex(0)
-    citySelectedByUser.current = false
+    // An explicit province choice also chooses its displayed, valid default city.
+    citySelectedByUser.current = true
+    provinceScrollTouched.current = false
     cityScrollTouched.current = false
-    setDistricts([])
-    setDistrictIndex(0)
+    resetDistrictsForCity(regions[normalized]?.children[0]?.code)
     setProvinceScrollTop(regionScrollTop(normalized))
     setCityScrollTop(regionScrollTop(0))
-    setDistrictScrollTop(regionScrollTop(0))
     releaseControlledScroll()
   }
 
@@ -253,10 +271,8 @@ export function LanhuRegionSheet({
     const normalized = clampRegionIndex(nextIndex, cities.length)
     setCityIndex(normalized)
     citySelectedByUser.current = true
-    setDistricts([])
-    setDistrictIndex(0)
+    resetDistrictsForCity(cities[normalized]?.code)
     setCityScrollTop(regionScrollTop(normalized))
-    setDistrictScrollTop(regionScrollTop(0))
     releaseControlledScroll()
   }
 
@@ -272,7 +288,7 @@ export function LanhuRegionSheet({
       title={title}
       onConfirm={() => {
         if (staleCitySelection && !citySelectedByUser.current) {
-          void Taro.showToast({ title: '地区选项已更新，请重新选择区县', icon: 'none' })
+          void Taro.showToast({ title: '地区选项已更新，请重新选择省市', icon: 'none' })
           return
         }
         if (includeDistrict && districtLoading) {
@@ -344,17 +360,17 @@ export function LanhuRegionSheet({
           scrollWithAnimation
           enhanced
           showScrollbar={false}
+          onTouchStart={() => { provinceScrollTouched.current = true }}
           onScroll={event => {
+            if (!provinceScrollTouched.current) return
             const nextIndex = regionIndexFromScrollTop(event.detail.scrollTop, regions.length)
             if (nextIndex !== provinceIndex) {
               setProvinceIndex(nextIndex)
               setCityIndex(0)
-              citySelectedByUser.current = false
+              citySelectedByUser.current = true
               cityScrollTouched.current = false
-              setDistricts([])
-              setDistrictIndex(0)
+              resetDistrictsForCity(regions[nextIndex]?.children[0]?.code)
               setCityScrollTop(regionScrollTop(0))
-              setDistrictScrollTop(regionScrollTop(0))
               releaseControlledScroll()
             }
           }}
@@ -408,6 +424,7 @@ export function LanhuRegionSheet({
           onTouchStart={() => { cityScrollTouched.current = true }}
           onScroll={event => {
             const nextIndex = regionIndexFromScrollTop(event.detail.scrollTop, cities.length)
+            if (nextIndex !== cityIndex) resetDistrictsForCity(cities[nextIndex]?.code)
             if (cityScrollTouched.current && nextIndex !== cityIndex) {
               citySelectedByUser.current = true
             }

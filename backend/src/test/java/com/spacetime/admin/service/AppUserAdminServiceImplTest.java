@@ -28,6 +28,7 @@ import com.spacetime.common.entity.AppUserExportTask;
 import com.spacetime.common.entity.AppUserImportBatch;
 import com.spacetime.common.entity.AppUserImportRow;
 import com.spacetime.common.entity.UserAsset;
+import com.spacetime.common.entity.SysDictData;
 import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.service.AppUserAuditContentService;
@@ -49,6 +50,7 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -559,6 +561,70 @@ class AppUserAdminServiceImplTest {
     }
 
     @Test
+    void regionImportMustResolveSameNameProvinceAndCityByHierarchy() {
+        mockImportRegions();
+        ImportBatchVO result = service.previewImport("regions.csv", String.join("\n",
+                "phone,nickname,locationProvince,locationCity,hometownProvince,hometownCity,hometownDistrict",
+                "13900002222,地区测试,上海市,上海市,浙江省,杭州市,西湖区"));
+        assertThat(result.getImportedCount()).isEqualTo(1);
+        ArgumentCaptor<AppUser> captor = ArgumentCaptor.forClass(AppUser.class);
+        verify(appUserDao).insert(captor.capture());
+        assertThat(captor.getValue().getLocationProvince()).isEqualTo("310000");
+        assertThat(captor.getValue().getLocationCity()).isEqualTo("310100");
+        assertThat(captor.getValue().getHometownDistrict()).isEqualTo("330106");
+    }
+
+    @Test
+    void regionImportMustRejectWrongLevelAndCrossParentRows() {
+        mockImportRegions();
+        ImportBatchVO result = service.previewImport("regions.csv", String.join("\n",
+                "phone,nickname,locationProvince,locationCity,locationDistrict",
+                "13900002221,错误省码,310100,310100,",
+                "13900002222,跨省城市,310000,330100,",
+                "13900002223,跨市区县,310000,310100,330106",
+                "13900002224,缺少省份,,310100,",
+                "13900002225,缺少城市,310000,,310104"));
+        assertThat(result.getImportedCount()).isZero();
+        assertThat(result.getFailCount()).isEqualTo(5);
+        verify(appUserDao, never()).insert(any());
+    }
+
+    @Test
+    void regionImportLoadsDictionaryOnceForMultipleRows() {
+        mockImportRegions();
+        ImportBatchVO result = service.previewImport("regions.csv", String.join("\n",
+                "phone,nickname,locationProvince,locationCity,locationDistrict",
+                "13900002221,上海三级,310000,310100,310104",
+                "13900002222,浙江两级,330000,330100,",
+                "13900002223,省级,330000,,",
+                "13900002224,无地区,,,"));
+        assertThat(result.getImportedCount()).isEqualTo(4);
+        verify(profileDictionaryService, times(1)).options(ProfileDictType.CHINA_REGION);
+    }
+
+    private void mockImportRegions() {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        LinkedHashMap<String, String> labels = new LinkedHashMap<>();
+        // Deliberately put the city first: insertion order must not determine province resolution.
+        labels.put("310100", "上海市"); labels.put("310000", "上海市");
+        labels.put("310104", "徐汇区"); labels.put("330000", "浙江省");
+        labels.put("330100", "杭州市"); labels.put("330106", "西湖区");
+        lenient().when(profileDictionaryService.labels(ProfileDictType.CHINA_REGION)).thenReturn(labels);
+        lenient().when(profileDictionaryService.options(ProfileDictType.CHINA_REGION)).thenReturn(List.of(
+                importRegion(2L, 1L, "310100", "上海市"), importRegion(1L, 0L, "310000", "上海市"),
+                importRegion(3L, 2L, "310104", "徐汇区"), importRegion(4L, 0L, "330000", "浙江省"),
+                importRegion(5L, 4L, "330100", "杭州市"), importRegion(6L, 5L, "330106", "西湖区")));
+        when(profileDictionaryService.regionImportResolver()).thenCallRealMethod();
+    }
+
+    private SysDictData importRegion(Long id, Long parentId, String code, String label) {
+        SysDictData item = new SysDictData();
+        item.setId(id); item.setParentId(parentId); item.setDictType(ProfileDictType.CHINA_REGION);
+        item.setDictValue(code); item.setDictLabel(label); item.setStatus("ENABLED");
+        return item;
+    }
+
+    @Test
     @DisplayName("导入模板中文列头应能映射到配置必填字段")
     void shouldImportChineseTemplateHeadersForConfiguredRequiredFields() {
         mockImportRequiredFields(List.of(
@@ -735,6 +801,9 @@ class AppUserAdminServiceImplTest {
     }
 
     private void mockProfileDictLabels() {
+        lenient().when(profileDictionaryService.regionImportResolver()).thenCallRealMethod();
+        lenient().when(profileDictionaryService.options(ProfileDictType.CHINA_REGION)).thenReturn(List.of(
+                importRegion(1L, 0L, "330000", "浙江省"), importRegion(2L, 1L, "330100", "杭州市")));
         lenient().when(profileDictionaryService.labels(ProfileDictType.GENDER)).thenReturn(Map.of("FEMALE", "女", "MALE", "男"));
         lenient().when(profileDictionaryService.labels(ProfileDictType.IDENTITY)).thenReturn(Map.of("WORKER", "职场人", "STUDENT", "在校生"));
         lenient().when(profileDictionaryService.labels(ProfileDictType.EDUCATION_LEVEL)).thenReturn(Map.of("BACHELOR", "本科"));

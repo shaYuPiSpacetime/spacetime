@@ -1140,6 +1140,9 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                 .map(this::canonicalImportField)
                 .toList();
         Map<String, String> requiredFields = importRequiredFields();
+        ProfileDictionaryService.RegionImportResolver regionResolver = headers.stream()
+                .anyMatch(field -> ProfileDictType.CHINA_REGION.equals(IMPORT_DICT_FIELDS.get(field)))
+                ? profileDictionaryService.regionImportResolver() : null;
         Set<String> phones = new HashSet<>();
         List<String> errors = new ArrayList<>();
         List<ImportRowResult> rows = new ArrayList<>();
@@ -1148,7 +1151,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         for (int index = 1; index < lines.size(); index++) {
             int rowNo = index + 1;
             Map<String, String> rowData = importRowData(headers, parseCsvLine(lines.get(index)));
-            String error = normalizeImportRowValues(rowData);
+            String error = normalizeImportRowValues(rowData, regionResolver);
             String phone = rowData.getOrDefault("phone", "");
             if (error == null) {
                 error = validateImportRequired(rowData, requiredFields);
@@ -1248,8 +1251,10 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         }
     }
 
-    private String normalizeImportRowValues(Map<String, String> rowData) {
+    private String normalizeImportRowValues(Map<String, String> rowData,
+            ProfileDictionaryService.RegionImportResolver regionResolver) {
         for (Map.Entry<String, String> entry : IMPORT_DICT_FIELDS.entrySet()) {
+            if (ProfileDictType.CHINA_REGION.equals(entry.getValue())) continue;
             String field = entry.getKey();
             String value = rowData.get(field);
             if (StrUtil.isBlank(value)) {
@@ -1260,6 +1265,23 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                 return importFieldLabel(field) + "选项不存在：" + value;
             }
             rowData.put(field, normalized);
+        }
+        if (regionResolver != null) {
+            for (String prefix : List.of("location", "hometown")) {
+                String province = rowData.get(prefix + "Province");
+                String city = rowData.get(prefix + "City");
+                String district = rowData.get(prefix + "District");
+                if (StrUtil.isAllBlank(province, city, district)) continue;
+                try {
+                    ProfileDictionaryService.RegionPath region = regionResolver.normalize(
+                            province, city, district, "location".equals(prefix) ? "现居地" : "家乡");
+                    rowData.put(prefix + "Province", region.provinceCode());
+                    rowData.put(prefix + "City", region.cityCode());
+                    rowData.put(prefix + "District", region.districtCode());
+                } catch (BusinessException exception) {
+                    return exception.getMessage();
+                }
+            }
         }
         String tags = rowData.get("tags");
         if (StrUtil.isNotBlank(tags)) {
