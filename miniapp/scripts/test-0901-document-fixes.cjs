@@ -262,8 +262,11 @@ test('悄悄话每次重新发起时清空旧输入，充值返回时保留当�
   const recharge = compose.slice(rechargeStart, submitStart)
   const submit = compose.slice(submitStart, renderStart)
 
-  assert.match(targetEffect, /if \(!target\) return[\s\S]*setContent\(''\)/, '打开新的悄悄话会话时必须清空上次草稿')
-  assert.match(targetEffect, /idempotencyCache\.clear\(\)/, '打开新的悄悄话会话时必须清空上次幂等键')
+  assert.match(targetEffect, /if \(!target \|\| !visible\)[\s\S]*preparedTargetKey\.current = ''/, '显式关闭后必须标记下次为新的悄悄话会话')
+  assert.match(targetEffect, /preparedTargetKey\.current !== targetKey[\s\S]*setContent\(''\)[\s\S]*idempotencyCache\.clear\(\)/,
+    '仅打开新目标或显式关闭后重新发起时清空旧草稿和幂等键')
+  assert.doesNotMatch(targetEffect, /if \(!pageActive\.current\) return[\s\S]{0,120}setContent\(''\)/,
+    '同一目标从后台恢复时不得清空当前草稿')
   assert.doesNotMatch(recharge, /setContent\(/, '跳转充值页时不得清空当前尚未发送的输入')
   assert.match(submit, /await createWhisper\([\s\S]*setContent\(''\)[\s\S]*onClose\(\)/, '发送成功后必须清空已发送内容再关闭弹层')
   assert.match(compose, /<CommunityWhisperSheet[\s\S]*visible=\{visible && target != null\}/, '修复草稿状态时不得破坏常驻弹层方案')
