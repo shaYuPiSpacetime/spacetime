@@ -987,6 +987,36 @@ class RecommendServiceImplTest {
     }
 
     @Test
+    @DisplayName("跨日推荐排除历史左滑和最近二十四小时浏览，额度仍按自然日计算")
+    void getCandidatesExcludesHistoricalSkipsAndUsesRollingDay() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), RecommendViewLog.class);
+        AppUser current = openUser(7L, 30, "320100");
+        AppUser skipped = openUser(8L, 28, "320100"); skipped.setGender("FEMALE");
+        AppUser fresh = openUser(9L, 28, "320100"); fresh.setGender("FEMALE");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(preferenceDao.selectByUserId(7L)).thenReturn(basicPreference(7L, 2));
+        when(appUserDao.selectList(any())).thenReturn(List.of(skipped, fresh));
+        when(accessProjectionService.projectAll(any())).thenReturn(Map.of(8L, "OPEN", 9L, "OPEN"));
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of());
+        LocalDateTime before = LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")).minusHours(24);
+        when(viewLogDao.selectList(any())).thenAnswer(invocation -> {
+            LambdaQueryWrapper<RecommendViewLog> query = invocation.getArgument(0);
+            String sql = query.getSqlSegment();
+            var params = query.getParamNameValuePairs().values();
+            if (!params.contains("skip")) return List.of();
+            assertThat(sql).contains(" OR ", "viewed_at >=");
+            assertThat(params).contains("view", 7L);
+            assertThat(params.stream().filter(LocalDateTime.class::isInstance).map(LocalDateTime.class::cast).toList())
+                    .anySatisfy(cutoff -> assertThat(cutoff).isBetween(before, before.plusSeconds(10)));
+            return List.of(viewLog(7L, 8L, "skip", before.minusDays(5)));
+        });
+        RecommendCandidatePageVO result = service.getCandidates(7L, null);
+        assertThat(result.getItems()).extracting(RecommendCandidateVO::getUserId).containsExactly(9L);
+        assertThat(result.getRemainingBrowseCount()).isEqualTo(result.getBrowseQuota());
+    }
+
+    @Test
     @DisplayName("不再推荐应写入可被后续查询命中的启用关系和来源场景")
     void recordNeverShouldCreateEnabledNoRecommendBlock() {
         AppUser current = openUser(7L, 30, "320100");

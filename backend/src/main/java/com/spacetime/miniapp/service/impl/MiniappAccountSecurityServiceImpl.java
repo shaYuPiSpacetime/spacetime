@@ -325,8 +325,14 @@ public class MiniappAccountSecurityServiceImpl extends UserSecurityBaseSupport
         }
         List<String> allowed = cancellationReasons();
         String normalized = reason.trim();
-        boolean valid = allowed.contains(normalized)
-                || (allowed.contains("其他") && normalized.startsWith("其他："));
+        String configuredOther = configOrNull("account_cancel.other_reason_value");
+        boolean valid = allowed.stream().anyMatch(option -> {
+            boolean other = "其他".equals(option) || "其他原因".equals(option)
+                    || option.equals(configuredOther);
+            return other ? normalized.startsWith(option + "：")
+                    && StringUtils.hasText(normalized.substring(option.length() + 1))
+                    : option.equals(normalized);
+        });
         if (!valid) {
             throw new BusinessException(requiredConfig("account_cancel.reason_required"));
         }

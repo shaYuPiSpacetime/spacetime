@@ -1,4 +1,5 @@
 import { del, get, post } from './request'
+import { withCommunityPersonalRefresh } from '@/domain/communityPersonalEvents'
 import type { PageVO } from '@/types/api'
 import type {
   AccountCancelCheck,
@@ -38,9 +39,9 @@ export const settingsApi = {
     sourceScene: SearchSourceScene = 'global',
   ) => get<SearchResultPage>('/miniapp/search/results', { keyword, type, page, size, sourceScene }),
   addBlacklist: (targetUserId: number, sourceScene: string) =>
-    post<number>('/miniapp/settings/blocks/blacklist', { targetUserId, sourceScene }),
+    withCommunityPersonalRefresh(post<number>('/miniapp/settings/blocks/blacklist', { targetUserId, sourceScene }), { kind: 'block', authorId: targetUserId }),
   blacklist: (page = 1, size = 20) =>
     get<PageVO<BlockedUserVO>>('/miniapp/settings/blocks/blacklist', { page, size }),
   removeBlacklist: (id: number) =>
-    del<void>(`/miniapp/settings/blocks/blacklist/${id}`),
+    withCommunityPersonalRefresh(del<void>(`/miniapp/settings/blocks/blacklist/${id}`)),
 }

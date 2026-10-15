@@ -12,13 +12,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** 验证真实 MyBatis 动态分支与分页 COUNT 解析，不依赖生产会话或业务数据。 */
 class CommunityPersonalQueryMapperTest {
     @Test
+    void commentsAreOnePostPerPageAndAllFeedHistoryExcludesBlockedAuthors() {
+        var config = new MybatisConfiguration(); config.addMapper(CommunityPersonalQueryMapper.class);
+        var statement = config.getMappedStatement(CommunityPersonalQueryMapper.class.getName() + ".selectInteractions");
+        for (String type : new String[]{"commented", "liked", "viewed"}) {
+            String sql = statement.getBoundSql(Map.of("userId", 1L, "type", type)).getSql();
+            assertThat(sql).contains("app_user_relation_block", "BLACKLIST", "NOT EXISTS");
+            if ("commented".equals(type)) assertThat(sql).contains("PARTITION BY i.post_id", "r.rn=1");
+        }
+    }
+
+    @Test
     void everyInteractionBranchFiltersBeforePagingAndHasStableOrder() {
         var config = new MybatisConfiguration();
         config.addMapper(CommunityPersonalQueryMapper.class);
         for (String type : new String[]{"commented", "liked", "viewed", "unlocked"}) {
             var statement = config.getMappedStatement(CommunityPersonalQueryMapper.class.getName() + ".selectInteractions");
             String sql = statement.getBoundSql(Map.of("userId", 1L, "type", type)).getSql();
-            assertThat(sql).contains("i.deleted=0", "i.id DESC");
+            assertThat(sql).contains("i.deleted=0");
+            assertThat(sql).contains("ORDER BY", "id DESC");
             if (!"unlocked".equals(type)) assertThat(sql).contains("p.deleted=0", "p.status='published'");
             Page<?> page = new Page<>(2,50); page.setOptimizeJoinOfCountSql(false);
             String countSql = new PaginationInnerInterceptor().autoCountSql(page, sql);

@@ -42,7 +42,8 @@ class WechatContentSecurityTokenRetryTest {
 
         var result = adapter.checkAudio("test-openid", "https://static.example.com/voice.mp3", "profile");
         assertThat(result.providerCode()).isEqualTo("media_async:test-trace");
-        verify(redis).delete("wechat:miniapp:access_token:wx-test");
+        verify(redis).execute(any(org.springframework.data.redis.core.script.RedisScript.class), eq(java.util.List.of("wechat:miniapp:access_token:wx-test")), eq("old-test-token"));
+        verify(redis, never()).delete(anyString());
         verify(client, times(3)).send(any(), any(HttpResponse.BodyHandler.class));
     }
 
@@ -65,6 +66,6 @@ class WechatContentSecurityTokenRetryTest {
         var result = adapter.checkAudio("test-openid", "https://static.example.com/voice.mp3", "profile");
         assertThat(result.providerCode()).isNull();
         verify(client, times(2)).send(any(), any(HttpResponse.BodyHandler.class));
-        verify(redis, times(1)).delete("wechat:miniapp:access_token:wx-test");
+        verify(redis, times(1)).execute(any(org.springframework.data.redis.core.script.RedisScript.class), eq(java.util.List.of("wechat:miniapp:access_token:wx-test")), eq("cached-test-token"));
     }
 }

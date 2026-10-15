@@ -41,6 +41,7 @@ function App({ children }: PropsWithChildren<object>) {
   const { setLogin, checkLogin } = useAuthStore()
   const bootstrapPrd01 = usePrd01Store(state => state.bootstrap)
   const loginRedirectingRef = useRef(false)
+  const legacyShareRedirectingRef = useRef(false)
 
   useLaunch((options) => {
     captureEntryPromotionSource(options.query)
@@ -90,17 +91,25 @@ function App({ children }: PropsWithChildren<object>) {
       loginRedirectingRef.current = false
       checkLogin()
       void messagePlatformRuntime.onForeground()
+      const legacyTarget = String(options?.path || '').replace(/^\//, '').split('?')[0] === 'pages/index/index'
+        ? resolvePendingShareRoute(options?.path, options?.query) : null
+      if (legacyTarget && !legacyShareRedirectingRef.current) {
+        legacyShareRedirectingRef.current = true
+        // 旧卡片可能唤醒已缓存的首页，统一从应用入口导航到该动态详情。
+        setTimeout(() => {
+          void Taro.reLaunch({ url: legacyTarget }).catch(() => { void Taro.showToast({ title: '动态打开失败，请重新打开分享卡片', icon: 'none' }) }).finally(() => { legacyShareRedirectingRef.current = false })
+        }, 0)
+      }
       return
     }
 
     const pages = Taro.getCurrentPages()
     const currentPage = pages[pages.length - 1]
     const currentRoute = currentPage?.route || ''
-    rememberPendingShareRoute(options?.path, options?.query)
-    rememberPendingShareRoute(currentRoute, currentPage?.options)
-    const sharedProfile = currentRoute
-      ? resolvePendingShareRoute(currentRoute, currentPage?.options)
-      : resolvePendingShareRoute(options?.path, options?.query)
+    const entryTarget = resolvePendingShareRoute(options?.path, options?.query)
+    if (entryTarget) rememberPendingShareRoute(options?.path, options?.query)
+    else rememberPendingShareRoute(currentRoute, currentPage?.options)
+    const sharedProfile = entryTarget || resolvePendingShareRoute(currentRoute, currentPage?.options)
     if (sharedProfile?.startsWith('/pages/heart/user?')) {
       checkLogin()
       loginRedirectingRef.current = false

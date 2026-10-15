@@ -73,7 +73,12 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
       setMessage('')
       setPage(data)
       setItems(data.items || [])
-      setSelection({ snapshotNo, itemNos: [] })
+      // 分页只更新当前页可选项，保留同一快照中其他页的勾选。
+      setSelection(current => {
+        if (current.snapshotNo !== snapshotNo) return { snapshotNo, itemNos: [] }
+        const noLongerSelectable = new Set((data.items || []).filter(item => item.unlocked).map(item => item.itemNo))
+        return { snapshotNo, itemNos: current.itemNos.filter(no => !noLongerSelectable.has(no)) }
+      })
       pageCursors.current = [...pageCursors.current.slice(0, targetPage - 1), cursor]
       currentPageNumber.current = targetPage
       setPageNumber(targetPage)
@@ -129,6 +134,7 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
     setPage(null)
     setItems([])
     setMessage('')
+    setSelection({ snapshotNo, itemNos: [] })
     loadInFlight.current = false
     refreshResults()
     return () => { requestGeneration.current += 1 }

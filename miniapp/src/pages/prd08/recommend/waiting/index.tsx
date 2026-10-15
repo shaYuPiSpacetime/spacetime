@@ -180,7 +180,10 @@ export default function RecommendWaitingPage() {
               subtitle="附近有谁在活跃"
               backgroundImage={miniappOssIcons.recommendDailyLimitCityCard}
               textColor="#B56B13"
-              onClick={() => void Taro.switchTab({ url: '/pages/index/index' })}
+              onClick={() => {
+                Taro.setStorageSync('qianxun_requested_scene', 'CITY')
+                void Taro.switchTab({ url: '/pages/index/index' })
+              }}
             />
           </View>
           {vipEffective === false ? (

@@ -1,3 +1,4 @@
+import { communityAvatarUrl } from '@/domain/communityAvatar'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
@@ -33,6 +34,8 @@ import {
 import { usePrd01Store } from '@/stores/prd01Store'
 import { useAuthStore } from '@/stores/authStore'
 import { findConversationByPeerUserId } from '@/services/message'
+import { subscribeCommunityPersonalChanged } from '@/domain/communityPersonalEvents'
+import { getApiErrorCode } from '@/services/request'
 import { QIANXUN_BLUE } from './QianxunHeader'
 
 type ZhiyinTab = 'YUEMU' | 'SINCERE'
@@ -57,6 +60,9 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   const [sheet, setSheet] = useState<Sheet>(null)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const resumedRef = useRef(false)
+  const dirtyTabsRef = useRef(new Set<ZhiyinTab>())
+  const sequenceRef = useRef({ YUEMU: 0, SINCERE: 0 })
+  const loadedAtRef = useRef({ YUEMU: 0, SINCERE: 0 })
   const returnFromPostDetailRef = useRef<number>()
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
@@ -66,30 +72,40 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   }, [onSharePostChange, selectedPost, sheet])
 
   const loadSoulmate = async () => {
+    const sequence = ++sequenceRef.current.YUEMU
     setLoading(state => ({ ...state, YUEMU: true }))
     setError(state => ({ ...state, YUEMU: '' }))
     try {
       const page = await getSoulmatePosts(1, 20)
+      if (sequence !== sequenceRef.current.YUEMU) return
+      dirtyTabsRef.current.delete('YUEMU')
+      loadedAtRef.current.YUEMU = Date.now()
       setSoulmatePosts(page.records || [])
     } catch (loadError) {
+      if (sequence !== sequenceRef.current.YUEMU) return
       setError(state => ({ ...state, YUEMU: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, loadError) }))
       setSoulmatePosts([])
     } finally {
-      setLoading(state => ({ ...state, YUEMU: false }))
+      if (sequence === sequenceRef.current.YUEMU) setLoading(state => ({ ...state, YUEMU: false }))
     }
   }
 
   const loadSincere = async () => {
+    const sequence = ++sequenceRef.current.SINCERE
     setLoading(state => ({ ...state, SINCERE: true }))
     setError(state => ({ ...state, SINCERE: '' }))
     try {
       const page = await getSincerePosts(1, 20)
+      if (sequence !== sequenceRef.current.SINCERE) return
+      dirtyTabsRef.current.delete('SINCERE')
+      loadedAtRef.current.SINCERE = Date.now()
       setSincerePosts(page.records || [])
     } catch (loadError) {
+      if (sequence !== sequenceRef.current.SINCERE) return
       setError(state => ({ ...state, SINCERE: resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, loadError) }))
       setSincerePosts([])
     } finally {
-      setLoading(state => ({ ...state, SINCERE: false }))
+      if (sequence === sequenceRef.current.SINCERE) setLoading(state => ({ ...state, SINCERE: false }))
     }
   }
 
@@ -105,15 +121,41 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
           : item.authorId === current.authorId ? { ...item, followingAuthor: current.followingAuthor } : item)
       setSoulmatePosts(update)
       setSincerePosts(update)
-    } catch {
-      // 详情同步失败时保留原列表快照及滚动位置。
+    } catch (error) {
+      const code = getApiErrorCode(error)
+      if (code !== 505020 && code !== 505021) return
+      const authorId = [...(soulmatePosts || []), ...(sincerePosts || [])].find(post => post.id === postId)?.authorId
+      const remove = (items?: CommunityPostVO[]) => items?.filter(post =>
+        code === 505021 && authorId ? post.authorId !== authorId : post.id !== postId)
+      setSoulmatePosts(remove)
+      setSincerePosts(remove)
     }
   }
 
   useEffect(() => {
+    sequenceRef.current.YUEMU++
+    sequenceRef.current.SINCERE++
+    setSoulmatePosts(undefined)
+    setSincerePosts(undefined)
+    setSelectedPost(undefined)
+    setWhisperTarget(null)
+    setSheet(null)
     void getCommunityMeta().then(setConfig).catch(() => undefined)
-    void loadSoulmate()
-  }, [])
+    void refreshActive()
+    return () => { sequenceRef.current.YUEMU++; sequenceRef.current.SINCERE++ }
+  }, [currentUserId])
+
+  useEffect(() => subscribeCommunityPersonalChanged(change => {
+    if (change.kind === 'interaction') return
+    dirtyTabsRef.current = new Set(['YUEMU', 'SINCERE'])
+    sequenceRef.current.YUEMU++
+    sequenceRef.current.SINCERE++
+    setLoading({})
+    const keep = (post: CommunityPostVO) => !(change.kind === 'block' && post.authorId === change.authorId)
+      && !(change.kind === 'delete' && post.id === change.postId)
+    setSoulmatePosts(items => items?.filter(keep))
+    setSincerePosts(items => items?.filter(keep))
+  }), [])
 
   useDidHide(() => {
     resumedRef.current = true
@@ -122,6 +164,11 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   useDidShow(() => {
     if (!resumedRef.current) return
     resumedRef.current = false
+    if (dirtyTabsRef.current.has(activeTab)) {
+      returnFromPostDetailRef.current = undefined
+      void refreshActive()
+      return
+    }
     const returnFromPostDetail = returnFromPostDetailRef.current
     if (returnFromPostDetail) {
       // 详情返回时保留动态顺序，避免同一滚动偏移显示另一条动态。
@@ -129,7 +176,10 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
       void refreshReturnedPost(returnFromPostDetail)
       return
     }
-    // 普通页面返回保留已加载列表，主动重试和分类首次进入仍可加载。
+    if (Date.now() - loadedAtRef.current[activeTab] > 60_000) {
+      scroll.reset()
+      void refreshActive()
+    }
   })
 
   const openPostDetail = async (postId: number, focusComments = false) => {
@@ -145,8 +195,8 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   const changeTab = (tab: ZhiyinTab) => {
     if (tab === activeTab) return
     setActiveTab(tab)
-    if (tab === 'YUEMU' && soulmatePosts === undefined) void loadSoulmate()
-    if (tab === 'SINCERE' && sincerePosts === undefined) void loadSincere()
+    if (tab === 'YUEMU' && (soulmatePosts === undefined || dirtyTabsRef.current.has(tab) || Date.now() - loadedAtRef.current[tab] > 60_000)) void loadSoulmate()
+    if (tab === 'SINCERE' && (sincerePosts === undefined || dirtyTabsRef.current.has(tab) || Date.now() - loadedAtRef.current[tab] > 60_000)) void loadSincere()
   }
 
   const openPostAuthor = async (post: CommunityPostVO) => {
@@ -377,7 +427,7 @@ function ZhiyinPostCard({ post, optionLabel, onAuthor, onOpen, onTopic, onCommen
   const canExpand = post.content.length > 78
   const meta = formatPostAuthorMeta(post, optionLabel)
   return <View className="qianxun-zhiyin-post-card qianxun-sincere-card" data-post-id={post.id} style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '28rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
-    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} /><View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: QIANXUN_BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '8rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text></View><View className="qianxun-sincere-follow" onClick={onFollow} style={{ width: '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : QIANXUN_BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post.followingAuthor ? '#999999' : QIANXUN_BLUE, fontSize: '24rpx' }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View><View onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '38rpx' }}>⋮</Text></View></View>
+    <View style={{ display: 'flex', alignItems: 'center' }}><Image onClick={onAuthor} src={communityAvatarUrl(post.authorAvatar || defaultAvatar)} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} /><View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View><Text style={{ display: 'block', color: QIANXUN_BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '8rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text></View><View className="qianxun-sincere-follow" onClick={onFollow} style={{ width: '118rpx', height: '48rpx', borderRadius: '24rpx', border: `1rpx solid ${post.followingAuthor ? '#999999' : QIANXUN_BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: post.followingAuthor ? '#999999' : QIANXUN_BLUE, fontSize: '24rpx' }}>{post.followingAuthor ? '已关注' : '+ 关注'}</Text></View><View onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '72rpx', height: '72rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#999999', fontSize: '38rpx' }}>⋮</Text></View></View>
     <View onClick={onOpen} style={{ position: 'relative', marginTop: '26rpx' }}><Text className="qianxun-body-text qianxun-zhiyin-body" style={{ display: 'block', color: '#333333', fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT, maxHeight: canExpand ? QIANXUN_BODY_PREVIEW_MAX_HEIGHT : 'none', overflow: 'hidden' }}>{post.content}</Text>{canExpand ? <View onClick={event => { event.stopPropagation(); onOpen() }} style={{ position: 'absolute', right: 0, bottom: 0, height: QIANXUN_BODY_LINE_HEIGHT, paddingLeft: '18rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center' }}><Text style={{ color: QIANXUN_BLUE, fontSize: '26rpx', lineHeight: QIANXUN_BODY_LINE_HEIGHT }}>查看全部</Text></View> : null}<PostImages images={post.imageUrls || []} /></View>
     <Text style={{ display: 'block', color: '#999999', fontSize: '26rpx', lineHeight: '37rpx', marginTop: '26rpx' }}>{post.activityText || `${relativeTime(post.createTime)}活跃`}</Text>
     {post.topicName ? <View onClick={onTopic} style={{ display: 'inline-flex', maxWidth: '300rpx', height: '48rpx', borderRadius: '24rpx', background: '#F4F5F7', padding: '0 18rpx', marginTop: '20rpx', alignItems: 'center' }}><Text style={{ color: '#666666', fontSize: '25rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><Text style={{ color: QIANXUN_BLUE }}># </Text>{post.topicName}</Text></View> : null}

@@ -57,7 +57,10 @@ export default function MutualLikesPage() {
       <ScrollView scrollY style={{ height: 'calc(100vh - 176rpx)' }}>
         <View style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto' }}>
           {state === 'loading' ? <MutualState id="mutual-loading-state" text="正在加载相互喜欢" /> : null}
-          {state === 'empty' ? <MutualState id="mutual-empty-state" text="还没有相互喜欢的人" action="去发现心动" onAction={() => Taro.switchTab({ url: '/pages/recommend/index' })} /> : null}
+          {state === 'empty' ? <MutualState id="mutual-empty-state" text="还没有相互喜欢的人" action="去发现心动" onAction={() => {
+            Taro.setStorageSync('prd08RecommendTab', 'recommend')
+            void Taro.switchTab({ url: '/pages/recommend/index' })
+          }} /> : null}
           {state === 'error' ? <MutualState id="mutual-error-state" text={error} action="重新加载" onAction={() => void load(1)} /> : null}
           {records.map((person, index) => (
             <View key={person.matchNo} style={{ width: '700rpx', height: '160rpx', borderTop: index ? '1rpx solid #EFF4FC' : 0, display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>

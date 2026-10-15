@@ -1,7 +1,7 @@
 import { Text, Textarea, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
-import { canRevokeCancellation, isCoolingOff, resolveCancelSubmitState } from '@/domain/settingsFlow'
+import { canRevokeCancellation, isCoolingOff, isOtherCancelReason, resolveCancelSubmitState } from '@/domain/settingsFlow'
 import { settingsApi } from '@/services/settings'
 import type { AccountCancelCheck, AccountCancelStatus } from '@/types/settings'
 import { navigateBackOrRedirect } from '@/utils/navigation'
@@ -58,12 +58,12 @@ export default function AccountCancelPage() {
   }, [])
 
   const reasons = check.reasons || []
-  const submitState = useMemo(() => resolveCancelSubmitState({ selected, detail }), [detail, selected])
+  const otherReason = copyConfig['account_cancel.other_reason_value'] || ''
+  const submitState = useMemo(() => resolveCancelSubmitState({ selected, detail, otherReason }), [detail, selected, otherReason])
   const cooling = isCoolingOff(status)
   const hardBlocks = check.hardBlocks || []
   const risks = check.risks || []
   const canOpenDialog = submitState.enabled && !cooling
-  const otherReason = copyConfig['account_cancel.other_reason_value'] || ''
 
   function copy(key: string) {
     return copyConfig[key] || ''
@@ -94,7 +94,7 @@ export default function AccountCancelPage() {
 
   function toggleReason(reason: string) {
     setSelected(current => current.includes(reason) ? [] : [reason])
-    if (reason !== otherReason) setDetail('')
+    if (!isOtherCancelReason(reason, otherReason)) setDetail('')
   }
 
   async function openCancelDialog() {
@@ -212,7 +212,7 @@ export default function AccountCancelPage() {
           <Textarea
             className="cancel-detail"
             value={detail}
-            disabled={!otherReason || !selected.includes(otherReason)}
+            disabled={!selected.some(reason => isOtherCancelReason(reason, otherReason))}
             maxlength={120}
             placeholder={copy('account_cancel.other_placeholder')}
             onInput={event => setDetail(event.detail.value)}

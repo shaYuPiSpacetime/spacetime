@@ -14,11 +14,14 @@ export default function CoinsDetailPage() {
     transactions,
     transactionsLoading,
     fetchTransactions,
+    transactionsHasMore,
+    transactionsError,
+    loadMoreTransactions,
   } = useCoins()
   const [active, setActive] = useState<(typeof TABS)[number]>('全部')
 
   useDidShow(() => {
-    void fetchTransactions().catch(() => undefined)
+    void fetchTransactions(active === '获取' ? 'income' : active === '消耗' ? 'expense' : undefined).catch(showLoadError)
   })
 
   const sourceTransactions = router.params.variant === 'empty' ? [] : transactions
@@ -55,7 +58,11 @@ export default function CoinsDetailPage() {
                 position: 'relative',
                 marginRight: '4rpx',
               }}
-              onClick={() => setActive(tab)}
+              onClick={() => {
+                if (tab === active) return
+                setActive(tab)
+                void fetchTransactions(tab === '获取' ? 'income' : tab === '消耗' ? 'expense' : undefined).catch(showLoadError)
+              }}
             >
               <Text style={{ color: isActive ? LANHU_BLUE : '#999999', fontSize: '30rpx', fontWeight: isActive ? 700 : 400 }}>
                 {tab}
@@ -82,19 +89,30 @@ export default function CoinsDetailPage() {
         <Text style={{ display: 'block', textAlign: 'center', color: '#999999', marginTop: '160rpx' }}>
           加载中...
         </Text>
+      ) : transactionsError && filtered.length === 0 ? (
+        <Text onClick={() => void fetchTransactions(active === '获取' ? 'income' : active === '消耗' ? 'expense' : undefined).catch(showLoadError)} style={{ display: 'block', textAlign: 'center', color: LANHU_BLUE, marginTop: '160rpx' }}>
+          {transactionsError}，点击重试
+        </Text>
       ) : filtered.length === 0 ? (
         <CoinNoDataState />
       ) : (
-        <ScrollView scrollY style={{ height: 'calc(100vh - 264rpx)' }} showScrollbar={false}>
+        <ScrollView scrollY onScrollToLower={() => void loadMoreTransactions().catch(showLoadError)} lowerThreshold={120} style={{ height: 'calc(100vh - 264rpx)' }} showScrollbar={false}>
           <View style={{ width: '750rpx', padding: '0 25rpx 80rpx', boxSizing: 'border-box' }}>
             {filtered.map((item) => (
               <DetailRow key={item.id} item={item} />
             ))}
+            <Text onClick={() => void loadMoreTransactions().catch(showLoadError)} style={{ display: 'block', padding: '32rpx', textAlign: 'center', color: '#999999', fontSize: '24rpx' }}>
+              {transactionsLoading ? '加载中…' : transactionsHasMore ? '加载更多' : '已显示全部明细'}
+            </Text>
           </View>
         </ScrollView>
       )}
     </View>
   )
+}
+
+function showLoadError(error: unknown) {
+  void Taro.showToast({ title: error instanceof Error ? error.message : '明细加载失败，请重试', icon: 'none' })
 }
 
 function CoinNoDataState() {

@@ -74,6 +74,35 @@ class RelationUnlockServiceImplTest {
         org.mockito.Mockito.lenient().when(valueOperations.get(anyString())).thenAnswer(invocation -> quotePayload.get());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"like", "visit"})
+    void paidPersonIsAlreadyUnlockedInBothEntrancesEvenWhenSceneIsDisabled(String entrance) {
+        AppUser current = activeUser(7L, "当前用户");
+        AppUser target = activeUser(8L, "被解锁用户");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        RelationUnlockQuoteReq req = likeQuote();
+        if ("like".equals(entrance)) when(likeDao.selectOne(any())).thenReturn(activeLike());
+        else {
+            AppRelationVisit visit = new AppRelationVisit();
+            visit.setVisitorUserId(8L);
+            when(visitDao.selectOne(any())).thenReturn(visit);
+            req.setScene("viewers_unlock_one"); req.setTargetBizType("visit"); req.setTargetBizNo("VIS-new");
+        }
+        UserUnlockRecord prior = new UserUnlockRecord();
+        prior.setUserId(7L); prior.setTargetUserId(8L);
+        prior.setTargetBizType("like".equals(entrance) ? "visit" : "like");
+        org.mockito.Mockito.lenient().when(unlockRecordDao.selectActiveRelationByTargetUser(7L, 8L)).thenReturn(prior);
+        UnlockQuoteVO quote = service.quote(7L, req);
+        assertThat(quote.getAlreadyUnlocked()).isTrue();
+        assertThat(quote.getTargetUserId()).isEqualTo(8L);
+        assertThat(quote.getUnitPrice()).isZero();
+        verify(sceneConfigDao, never()).selectPage(any(), any());
+        verify(userAssetDao, never()).updateCoinBalance(any(), any());
+    }
+
     @Test
     void quoteDoesNotExposeTargetIdentityBeforePaymentAndConfirmDeductsOnce() {
         AppUser current = activeUser(7L, "当前用户");
@@ -132,6 +161,62 @@ class RelationUnlockServiceImplTest {
                         && "LIK-001".equals(record.getTargetBizNo())
                         && Long.valueOf(8L).equals(record.getTargetUserId())));
         verify(coinLogDao).insert(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"like", "visit"})
+    void confirmRechecksSharedAccessAfterLockWithoutChargingTwice(String entrance) {
+        AppUser current = activeUser(7L, "当前用户");
+        AppUser target = activeUser(8L, "同一对象");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        RelationUnlockQuoteReq request = likeQuote();
+        if ("like".equals(entrance)) {
+            when(likeDao.selectOne(any())).thenReturn(activeLike());
+        } else {
+            AppRelationVisit visit = new AppRelationVisit();
+            visit.setVisitorUserId(8L);
+            when(visitDao.selectOne(any())).thenReturn(visit);
+            request.setScene("viewers_unlock_one");
+            request.setTargetBizType("visit");
+            request.setTargetBizNo("VIS-NEW");
+        }
+        UserUnlockRecord prior = new UserUnlockRecord();
+        prior.setUnlockNo("ULK-OTHER-ENTRANCE");
+        prior.setUserId(7L);
+        prior.setTargetUserId(8L);
+        prior.setTargetBizType("like".equals(entrance) ? "visit" : "like");
+        prior.setCoinCost(8);
+        when(unlockRecordDao.selectActiveRelationByTargetUser(7L, 8L)).thenReturn(null, prior);
+        UserAsset wallet = asset(7L, 92);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(wallet);
+        when(userAssetDao.selectByUserIdForUpdate(7L)).thenReturn(wallet);
+        CoinSceneConfig config = new CoinSceneConfig();
+        config.setSceneCode(request.getScene());
+        config.setStatus("ENABLED");
+        config.setUnitPrice(8);
+        Page<CoinSceneConfig> configs = new Page<>(1, 1, 1);
+        configs.setRecords(List.of(config));
+        when(sceneConfigDao.selectPage(any(), any())).thenReturn(configs);
+        UnlockQuoteVO quote = service.quote(7L, request);
+        org.mockito.Mockito.clearInvocations(userAssetDao, unlockRecordDao);
+        RelationUnlockConfirmReq confirm = new RelationUnlockConfirmReq();
+        confirm.setQuoteToken(quote.getQuoteToken());
+        confirm.setRequestId("second-entrance");
+
+        UnlockConfirmVO result = service.confirm(7L, confirm);
+
+        assertThat(result.getCharged()).isFalse();
+        assertThat(result.getUnlockNo()).isEqualTo("ULK-OTHER-ENTRANCE");
+        assertThat(result.getCoinBalance()).isEqualTo(92);
+        var order = org.mockito.Mockito.inOrder(userAssetDao, unlockRecordDao);
+        order.verify(userAssetDao).selectByUserIdForUpdate(7L);
+        order.verify(unlockRecordDao).selectActiveRelationByTargetUser(7L, 8L);
+        verify(userAssetDao, never()).updateCoinBalance(any(), any());
+        verify(unlockRecordDao, never()).insert(any());
+        verify(coinLogDao, never()).insert(any());
     }
 
     @Test
@@ -349,8 +434,7 @@ class RelationUnlockServiceImplTest {
         when(accessProjectionService.project(target)).thenReturn("OPEN");
         when(visitDao.selectOne(any())).thenReturn(latestVisit);
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset(7L, 100));
-        when(unlockRecordDao.selectActiveByTargetUser(7L, "visit", 8L)).thenReturn(existing);
-        when(sceneConfigDao.selectPage(any(), any())).thenReturn(configPage);
+        when(unlockRecordDao.selectActiveRelationByTargetUser(7L, 8L)).thenReturn(existing);
 
         RelationUnlockQuoteReq req = new RelationUnlockQuoteReq();
         req.setScene("viewers_unlock_one");

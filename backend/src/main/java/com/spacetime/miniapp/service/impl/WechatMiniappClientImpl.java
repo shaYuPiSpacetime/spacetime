@@ -2,6 +2,7 @@ package com.spacetime.miniapp.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spacetime.common.util.WechatStableTokenRequest;
 import com.spacetime.common.config.WechatMiniappProperties;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.miniapp.service.WechatMiniappClient;
@@ -28,7 +29,6 @@ import java.util.Map;
 public class WechatMiniappClientImpl implements WechatMiniappClient {
 
     private static final String CODE2_SESSION_URL = "https://api.weixin.qq.com/sns/jscode2session";
-    private static final String ACCESS_TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token";
     private static final String PHONE_NUMBER_URL = "https://api.weixin.qq.com/wxa/business/getuserphonenumber";
     private static final String ACCESS_TOKEN_CACHE_KEY = "wechat:miniapp:access_token";
 
@@ -117,11 +117,10 @@ public class WechatMiniappClientImpl implements WechatMiniappClient {
             if (cached != null && !cached.isBlank()) {
                 return cached;
             }
-            String url = ACCESS_TOKEN_URL
-                    + "?grant_type=client_credential"
-                    + "&appid=" + encode(properties.getAppId())
-                    + "&secret=" + encode(properties.getAppSecret());
-            JsonNode root = sendGet(url);
+            HttpRequest request = WechatStableTokenRequest.create(objectMapper, properties.getAppId(), properties.getAppSecret());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() < 200 || response.statusCode() >= 300) throw new BusinessException("微信服务暂不可用，请稍后重试");
+            JsonNode root = objectMapper.readTree(response.body());
             assertWechatSuccess(root, "微信 access_token");
             String accessToken = root.path("access_token").asText();
             if (accessToken.isBlank()) {

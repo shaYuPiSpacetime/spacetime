@@ -1,3 +1,4 @@
+import Taro from '@tarojs/taro'
 import { withCommunityPersonalRefresh } from '@/domain/communityPersonalEvents'
 import { notifyCommunityPostResubmitted } from '@/domain/communityPostResubmitted'
 import { isCommunityPostFailure } from '@/domain/qianxunInteractionPresentation'
@@ -300,16 +301,22 @@ export const getSincerePosts = (page = 1, size = 10) => get<PageVO<CommunityPost
 
 export const getCommunityPostDetail = (postId: number | string) => get<CommunityPostDetailVO>(`/miniapp/community/posts/${postId}`)
 export const getCommunityComments = (postId: number | string, page = 1, size = 20) => get<PageVO<CommunityCommentVO>>(`/miniapp/community/posts/${postId}/comments`, { page, size })
-export const createCommunityComment = (postId: number | string, content: string, parentCommentId?: number, replyUserId?: number) => withCommunityPersonalRefresh(post<CommunityCommentResultVO>('/miniapp/community/comments', { postId, content, parentCommentId, replyUserId }))
-export const deleteCommunityComment = (commentId: number | string) => withCommunityPersonalRefresh(del<void>(`/miniapp/community/comments/${commentId}`))
-export const deleteCommunityPost = (postId: number | string) => withCommunityPersonalRefresh(del<void>(`/miniapp/community/posts/${postId}`))
+export async function createCommunityComment(postId: number | string, content: string, parentCommentId?: number, replyUserId?: number) {
+  // 微信审核身份暂不可用时仍提交，由后端决定是否转人工审核，客户端不自行公开。
+  const wechatLoginCode = await Taro.login().then(session => session.code || undefined).catch(() => undefined)
+  return withCommunityPersonalRefresh(post<CommunityCommentResultVO>('/miniapp/community/comments', {
+    postId, content, parentCommentId, replyUserId, wechatLoginCode,
+  }), { kind: 'interaction' })
+}
+export const deleteCommunityComment = (commentId: number | string) => withCommunityPersonalRefresh(del<void>(`/miniapp/community/comments/${commentId}`), { kind: 'interaction' })
+export const deleteCommunityPost = (postId: number | string) => withCommunityPersonalRefresh(del<void>(`/miniapp/community/posts/${postId}`), { kind: 'delete', postId: Number(postId) })
 
 export const getCommunityConfig = () => get<CommunityConfig>('/miniapp/community/config')
 export const getCommunityMeta = async () => normalizeCommunityMeta(await get<CommunityMetaPayloadVO>('/miniapp/community/meta'))
 export const getFollowingCount = () => get<number>('/miniapp/community/following/count')
-export const toggleCommunityFollow = (targetUserId: number) => withCommunityPersonalRefresh(post<{ following: boolean; followingCount?: number; followerCount?: number }>(`/miniapp/community/follows/${targetUserId}`))
-export const toggleCommunityLike = (postId: number | string) => withCommunityPersonalRefresh(post<{ liked: boolean; likeCount: number }>(`/miniapp/community/posts/${postId}/like`))
-export const toggleCommunityCommentLike = (commentId: number | string) => withCommunityPersonalRefresh(post<{ liked: boolean; likeCount: number }>(`/miniapp/community/comments/${commentId}/like`))
+export const toggleCommunityFollow = (targetUserId: number) => withCommunityPersonalRefresh(post<{ following: boolean; followingCount?: number; followerCount?: number }>(`/miniapp/community/follows/${targetUserId}`), { kind: 'follow', authorId: targetUserId })
+export const toggleCommunityLike = (postId: number | string) => withCommunityPersonalRefresh(post<{ liked: boolean; likeCount: number }>(`/miniapp/community/posts/${postId}/like`), { kind: 'interaction' })
+export const toggleCommunityCommentLike = (commentId: number | string) => withCommunityPersonalRefresh(post<{ liked: boolean; likeCount: number }>(`/miniapp/community/comments/${commentId}/like`), { kind: 'interaction' })
 
 export function reportCommunityTarget(targetType: CommunityReportTargetType, targetId: number | string, reasonCode: string) {
   return post<CommunityReportResultVO>('/miniapp/community/reports', { targetType, targetId: String(targetId), reasonCode })

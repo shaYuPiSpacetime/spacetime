@@ -8,7 +8,6 @@ import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
 import blurredPersonImage from '@/assets/lanhu/heart-message/heart-person-blur.webp'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useAccessStatus } from '@/hooks/useAccessStatus'
-import { refreshRetainedItems } from '@/domain/retainedList'
 import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
@@ -98,6 +97,7 @@ export default function CommunityPage() {
   const access = useAccessStatus('canCommunity')
   const snapshotCursorRef = useRef<string | undefined>(undefined)
   const acknowledgedCursorRef = useRef<string | null>(null)
+  const likesDisplayedCursorRef = useRef<string | null>(null)
   const unlockAttemptRef = useRef<UnlockAttempt | undefined>(undefined)
   const unlockBusyRef = useRef(false)
   const likesLoadingRef = useRef(false)
@@ -118,6 +118,7 @@ export default function CommunityPage() {
     await new Promise<void>(resolve => Taro.nextTick(resolve))
     try {
       await markLikesMeRead(readCursor)
+      if (likesDisplayedCursorRef.current !== readCursor) return
       acknowledgedCursorRef.current = readCursor
       setLikesBadgeCount(0)
     } catch (error) {
@@ -137,20 +138,24 @@ export default function CommunityPage() {
       setLikesLoadingMore(true)
     }
     try {
-      const pageData = await getLikesMePage(page, 20, (page > 1 || retaining) ? snapshotCursorRef.current : undefined)
+      const pageData = await getLikesMePage(page, 20, page > 1 ? snapshotCursorRef.current : undefined)
       if (retaining && likesPage?.accessMode !== pageData.accessMode) retaining = false
-      const updates = retaining ? (await Promise.all(Array.from({ length: likesPageNo }, (_, index) => index === 0
-        ? Promise.resolve(pageData) : getLikesMePage(index + 1, 20, snapshotCursorRef.current)))).flatMap(result => result.records || []) : pageData.records || []
-      const nextRecords = retaining ? refreshRetainedItems(likesRecords, updates, item => item.recordNo)
-        : page === 1 ? (pageData.records || []) : [...likesRecords, ...(pageData.records || [])]
-      setLikesPage(current => retaining && current ? { ...pageData, current: current.current, hasMore: current.hasMore } : pageData)
+      const refreshedPages = retaining ? await Promise.all(Array.from({ length: likesPageNo }, (_, index) => index === 0
+        ? Promise.resolve(pageData) : getLikesMePage(index + 1, 20, pageData.readCursor || undefined))) : [pageData]
+      const updates = refreshedPages.flatMap(result => result.records || [])
+      const nextRecords = page === 1 ? updates : [...likesRecords, ...updates]
+      if (page === 1) {
+        const lastPage = refreshedPages[refreshedPages.length - 1]
+        setLikesPage({ ...pageData, current: lastPage.current, hasMore: lastPage.hasMore })
+        snapshotCursorRef.current = pageData.readCursor || undefined
+        likesDisplayedCursorRef.current = pageData.readCursor || null
+      } else setLikesPage(current => current ? { ...current, current: pageData.current, hasMore: pageData.hasMore } : pageData)
       if (!retaining) setLikesPageNo(page)
       setLikesRecords(nextRecords)
       setLikesState(resolveState(nextRecords))
       if (page === 1) {
         setLikesBadgeCount(pageData.newCount)
-        if (!retaining) snapshotCursorRef.current = pageData.readCursor || undefined
-        if (!retaining) await acknowledgeLikesAfterPaint(pageData)
+        await acknowledgeLikesAfterPaint(pageData)
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '喜欢列表加载失败'

@@ -204,7 +204,7 @@ public class RecommendServiceImpl implements RecommendService {
         }
         Predicate<AppUser> preferredCandidate = preferredCandidateMatcher(
                 preference, advancedFilterEffective, preferredCities);
-        Set<Long> viewedCandidateIds = viewedCandidateIdsInCycle(userId, cycle);
+        Set<Long> viewedCandidateIds = excludedCandidateIds(userId);
         Set<Long> emittedCandidateIds = new LinkedHashSet<>();
         List<RecommendCandidateVO> items = new ArrayList<>();
         AppUser lastAccepted = null;
@@ -942,8 +942,13 @@ public class RecommendServiceImpl implements RecommendService {
         return views != null && !views.isEmpty();
     }
 
-    private Set<Long> viewedCandidateIdsInCycle(Long userId, RecommendBrowseCycle cycle) {
-        List<RecommendViewLog> views = viewLogDao.selectList(browseViewsInCycle(userId, cycle));
+    private Set<Long> excludedCandidateIds(Long userId) {
+        // 去重窗口独立于每日额度：左滑持续排除，浏览跨午夜按滚动二十四小时排除。
+        List<RecommendViewLog> views = viewLogDao.selectList(new LambdaQueryWrapper<RecommendViewLog>()
+                .eq(RecommendViewLog::getUserId, userId)
+                .and(query -> query.eq(RecommendViewLog::getAction, "skip")
+                        .or(recent -> recent.eq(RecommendViewLog::getAction, "view")
+                                .ge(RecommendViewLog::getViewedAt, LocalDateTime.now(BEIJING).minusHours(24)))));
         return (views == null ? List.<RecommendViewLog>of() : views).stream()
                 .map(RecommendViewLog::getCandidateUserId)
                 .filter(Objects::nonNull)

@@ -16,6 +16,11 @@ function queryValue(path, query, name) {
 
 export function resolvePendingShareRoute(path, query) {
   const route = String(path || '').split('?')[0].replace(/^\/+/, '')
+  // 兼容已发出的旧分享卡片，直接进入对应详情，不再依赖首页当前栏目和分页。
+  if (route === 'pages/index/index') {
+    const id = positiveId(queryValue(path, query, 'postId'))
+    return id ? `/pages/qianxun/post-detail?id=${id}` : null
+  }
   if (route === 'pages/qianxun/post-detail') {
     const id = positiveId(queryValue(path, query, 'id'))
     return id ? `/pages/qianxun/post-detail?id=${id}` : null

@@ -55,7 +55,6 @@ export default function CommunityWhisperSheet({
         <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '136rpx', zIndex: 2, paddingTop: '54rpx', boxSizing: 'border-box' }}>
           <View style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ color: '#333333', fontSize: '34rpx', lineHeight: '48rpx', fontWeight: 600 }}>悄悄话</Text>
-            <View style={{ width: '48rpx', height: '48rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '8rpx' }}><Text style={{ color: '#9AA1AB', fontSize: '28rpx' }}>?</Text></View>
           </View>
           <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '40rpx', textAlign: 'center', marginTop: '14rpx' }}>—第一时间抓住ta的目光—</Text>
         </View>

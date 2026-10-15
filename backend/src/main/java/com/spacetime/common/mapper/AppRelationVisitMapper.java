@@ -55,7 +55,8 @@ public interface AppRelationVisitMapper extends BaseMapper<AppRelationVisit> {
                 SELECT target_user_id, MAX(effective_time) AS unlock_time
                 FROM app_user_unlock_record
                 WHERE user_id = #{userId}
-                  AND target_biz_type = 'visit'
+                  AND target_biz_type IN ('like', 'visit')
+                  AND (expire_time IS NULL OR expire_time > NOW())
                   AND status = 'active'
                   AND active_marker = 1
                   AND deleted = 0
@@ -103,7 +104,8 @@ public interface AppRelationVisitMapper extends BaseMapper<AppRelationVisit> {
             INNER JOIN app_user_unlock_record u
                     ON u.target_user_id = rv.visitor_user_id
                    AND u.user_id = #{userId}
-                   AND u.target_biz_type = 'visit'
+                   AND u.target_biz_type IN ('like', 'visit')
+                     AND (u.expire_time IS NULL OR u.expire_time > NOW())
                    AND u.status = 'active'
                    AND u.active_marker = 1
                    AND u.deleted = 0
@@ -140,7 +142,8 @@ public interface AppRelationVisitMapper extends BaseMapper<AppRelationVisit> {
                 SELECT target_user_id, MAX(effective_time) AS unlock_time
                 FROM app_user_unlock_record
                 WHERE user_id = #{userId}
-                  AND target_biz_type = 'visit'
+                  AND target_biz_type IN ('like', 'visit')
+                  AND (expire_time IS NULL OR expire_time > NOW())
                   AND status = 'active'
                   AND active_marker = 1
                   AND deleted = 0
@@ -236,7 +239,8 @@ public interface AppRelationVisitMapper extends BaseMapper<AppRelationVisit> {
                 SELECT target_user_id, MAX(effective_time) AS unlock_time
                   FROM app_user_unlock_record
                  WHERE user_id = #{userId}
-                   AND target_biz_type = 'visit'
+                   AND target_biz_type IN ('like', 'visit')
+                  AND (expire_time IS NULL OR expire_time > NOW())
                    AND status = 'active'
                    AND active_marker = 1
                    AND deleted = 0
@@ -278,7 +282,8 @@ public interface AppRelationVisitMapper extends BaseMapper<AppRelationVisit> {
               INNER JOIN app_user_unlock_record u
                       ON u.target_user_id = e.visitor_user_id
                      AND u.user_id = #{userId}
-                     AND u.target_biz_type = 'visit'
+                     AND u.target_biz_type IN ('like', 'visit')
+                     AND (u.expire_time IS NULL OR u.expire_time > NOW())
                      AND u.status = 'active'
                      AND u.active_marker = 1
                      AND u.deleted = 0
@@ -327,7 +332,8 @@ public interface AppRelationVisitMapper extends BaseMapper<AppRelationVisit> {
                 SELECT target_user_id, MAX(effective_time) AS unlock_time
                   FROM app_user_unlock_record
                  WHERE user_id = #{userId}
-                   AND target_biz_type = 'visit'
+                   AND target_biz_type IN ('like', 'visit')
+                  AND (expire_time IS NULL OR expire_time > NOW())
                    AND status = 'active'
                    AND active_marker = 1
                    AND deleted = 0

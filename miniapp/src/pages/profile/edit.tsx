@@ -548,9 +548,22 @@ function ProfileEditContent() {
     }
   }
 
-  const openVoiceRecorder = () => {
+  const openVoiceRecorder = async () => {
     if (voiceDetail?.canSubmit === false) {
-      void Taro.showToast({ title: '语音审核中，请稍后查看', icon: 'none' })
+      if (voiceSaving) return
+      const answer = await Taro.showModal({ title: '重新录制语音', content: '当前语音正在审核。撤回后可以重新录制，新语音审核通过后展示。', confirmText: '撤回重录' })
+      if (!answer.confirm) return
+      setVoiceSaving(true)
+      try {
+        await prd01Api.deleteVoiceIntro()
+        setVoiceDetail(await prd01Api.getVoiceIntro())
+        resetVoiceDraft()
+        setVoiceSheet('voice')
+      } catch (error) {
+        await showError(error)
+      } finally {
+        setVoiceSaving(false)
+      }
       return
     }
     setVoiceSheet(voiceTempPath || voiceDetail?.voiceIntroUrl ? 'complete' : 'voice')
@@ -1816,7 +1829,7 @@ function VoiceSection({ voice, onRecord, onDelete }: { voice?: VoiceIntro; onRec
   const hasVoice = Boolean(voice?.voiceIntroUrl)
   const duration = voice ? voice.voiceIntroDuration || 0 : 0
   return (
-    <ProfileSection title="语音介绍" action={voiceUnderReview ? '审核中' : hasVoice ? '管理' : '录音'} actionId="voice-intro-manage" onAction={onRecord} padding={hasVoice ? '30rpx 26rpx 36rpx' : undefined}>
+    <ProfileSection title="语音介绍" action={voiceUnderReview ? '重新录制' : hasVoice ? '管理' : '录音'} actionId="voice-intro-manage" onAction={onRecord} padding={hasVoice ? '30rpx 26rpx 36rpx' : undefined}>
       {voiceUnderReview ? (
         <View data-role="voice-intro-under-review" style={{ marginTop: '24rpx', borderRadius: '12rpx', background: '#F7FAFF', padding: '24rpx 26rpx' }}>
           <Text style={{ display: 'block', color: '#333333', fontSize: '26rpx', lineHeight: '38rpx' }}>

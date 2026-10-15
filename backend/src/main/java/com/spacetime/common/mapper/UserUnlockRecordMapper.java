@@ -28,4 +28,15 @@ public interface UserUnlockRecordMapper extends BaseMapper<UserUnlockRecord> {
     UserUnlockRecord selectActiveByTargetUser(@Param("userId") Long userId,
                                               @Param("targetBizType") String targetBizType,
                                               @Param("targetUserId") Long targetUserId);
+
+    @Select("""
+            SELECT * FROM app_user_unlock_record
+            WHERE user_id = #{userId} AND target_user_id = #{targetUserId}
+              AND target_biz_type IN ('like', 'visit')
+              AND status = 'active' AND active_marker = 1 AND deleted = 0
+              AND (expire_time IS NULL OR expire_time > NOW())
+            ORDER BY effective_time DESC, id DESC LIMIT 1
+            """)
+    UserUnlockRecord selectActiveRelationByTargetUser(@Param("userId") Long userId,
+                                                     @Param("targetUserId") Long targetUserId);
 }

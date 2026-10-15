@@ -55,6 +55,16 @@ import static org.mockito.Mockito.inOrder;
  */
 @ExtendWith(MockitoExtension.class)
 class MiniappAccountSecurityServiceImplTest {
+    @Test
+    void configuredOtherReasonRequiresAndAcceptsDescription() {
+        when(appConfigDao.selectByKey("account_cancel.reasons")).thenAnswer(invocation -> {
+            AppConfig cfg = new AppConfig(); cfg.setConfigValue("[\"体验不符合预期\",\"其他原因\"]"); return cfg;
+        });
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "validateReason", "其他原因：个人安排");
+        assertThatThrownBy(() -> org.springframework.test.util.ReflectionTestUtils.invokeMethod(service, "validateReason", "其他原因：  "))
+                .isInstanceOf(com.spacetime.common.exception.BusinessException.class);
+    }
+
     @Mock private AppUserCancelRequestDao cancelRequestDao;
     @Mock private AppUserSecurityAuditLogDao auditLogDao;
     @Mock private AppConfigDao appConfigDao;

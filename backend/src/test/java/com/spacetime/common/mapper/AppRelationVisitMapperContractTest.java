@@ -51,6 +51,20 @@ class AppRelationVisitMapperContractTest {
         assertThat(unlockedSql).contains("count(distinct rv.visitor_user_id)");
     }
 
+    @Test
+    void bothRelationListsReusePersonEntitlementsAndIgnoreExpiredPurchases() {
+        for (Class<?> mapper : java.util.List.of(AppRelationLikeMapper.class, AppRelationVisitMapper.class)) {
+            for (Method method : mapper.getDeclaredMethods()) {
+                if (method.getAnnotation(Select.class) == null) continue;
+                String query = sql(method);
+                if (!query.contains("app_user_unlock_record")) continue;
+                assertThat(query).as(method.getName()).contains("target_biz_type in ('like', 'visit')")
+                        .contains("expire_time");
+                if (mapper == AppRelationLikeMapper.class) assertThat(query).contains("u.target_user_id = l.from_user_id");
+            }
+        }
+    }
+
     private String sql(Method method) {
         Select select = method.getAnnotation(Select.class);
         return String.join(" ", Arrays.asList(select.value()))

@@ -149,6 +149,14 @@ public class VoiceIntroServiceImpl implements VoiceIntroService {
     @Transactional
     public void deleteVoiceIntro(Long userId) {
         requireUser(userId);
+        AppUserAuditRecord latest = auditService.latestRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
+        if (latest != null && AppUserAuditStatusEnum.isPendingLike(latest.getStatus())) {
+            // 撤回只令本人待审版本失效，审核证据保留，旧有效语音继续展示。
+            if (!auditService.expirePending(latest.getId(), latest.getStatus(), latest.getProviderTaskId(), "用户撤回语音介绍")) {
+                throw new BusinessException("语音审核状态已变化，请刷新后重试");
+            }
+            return;
+        }
         AppUserAuditRecord current = auditService.latestEffectiveRecord(userId, AppUserAuditTypeEnum.VOICE_INTRO);
         if (current == null) {
             throw new BusinessException("语音介绍不存在");

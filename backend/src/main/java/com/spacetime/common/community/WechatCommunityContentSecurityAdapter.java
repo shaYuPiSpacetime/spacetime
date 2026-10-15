@@ -2,6 +2,7 @@ package com.spacetime.common.community;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spacetime.common.util.WechatStableTokenRequest;
 import com.spacetime.common.config.WechatMiniappProperties;
 import com.spacetime.common.service.LocalSensitiveWordService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,6 @@ import java.util.Map;
 @ConditionalOnProperty(name = "community.content-security.provider", havingValue = "wechat", matchIfMissing = true)
 public class WechatCommunityContentSecurityAdapter implements CommunityContentSecurityPort {
     private static final String TOKEN_CACHE_KEY = "wechat:miniapp:access_token";
-    private static final String TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token";
     private static final String MSG_SEC_URL = "https://api.weixin.qq.com/wxa/msg_sec_check";
     private static final String MEDIA_SEC_URL = "https://api.weixin.qq.com/wxa/media_check_async";
 
@@ -132,9 +132,12 @@ public class WechatCommunityContentSecurityAdapter implements CommunityContentSe
                 int code = result.path("errcode").asInt(-1);
                 if (attempt == 0 && (code == 40001 || code == 40014 || code == 42001)) {
                     // 仅清理当前小程序的失效凭证，刷新后最多重试一次，其他错误不重试。
-                    redisTemplate.delete(accessTokenCacheKey());
+                    redisTemplate.execute(new org.springframework.data.redis.core.script.DefaultRedisScript<>(
+                            "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end", Long.class),
+                            List.of(accessTokenCacheKey()), token);
                     continue;
                 }
+                if (code != 0) log.warn("微信内容安全校验返回错误码：{}", code);
                 return result;
             }
             return null;
@@ -151,9 +154,7 @@ public class WechatCommunityContentSecurityAdapter implements CommunityContentSe
             String cacheKey = accessTokenCacheKey();
             String cached = redisTemplate.opsForValue().get(cacheKey);
             if (cached != null && !cached.isBlank()) return cached;
-            String url = TOKEN_URL + "?grant_type=client_credential&appid=" + encode(properties.getAppId())
-                    + "&secret=" + encode(properties.getAppSecret());
-            HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofSeconds(8)).GET().build();
+            HttpRequest request = WechatStableTokenRequest.create(objectMapper, properties.getAppId(), properties.getAppSecret());
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             JsonNode root = objectMapper.readTree(response.body());
             String token = root.path("access_token").asText();

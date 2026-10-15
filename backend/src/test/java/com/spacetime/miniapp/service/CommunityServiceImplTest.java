@@ -74,6 +74,7 @@ class CommunityServiceImplTest {
     @Mock private ProfileDictionaryService profileDictionaryService;
     @Mock private AppRelationLikeDao appRelationLikeDao;
     @Mock private AppUserRelationBlockDao relationBlockDao;
+    @Mock private WechatMiniappClient wechatMiniappClient;
     @Mock private RelationDomainService relationDomainService;
     @Mock private com.spacetime.miniapp.service.impl.Prd01AccessEvaluator accessEvaluator;
     @Mock private Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
@@ -1037,6 +1038,49 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("手机号评论使用本次真实微信会话审核，不能把手机号占位值当成微信身份")
+    void commentUsesCurrentWechatSessionWithoutRebindingPhoneAccount() {
+        user.setOpenid("phone_test-placeholder");
+        CommunityCommentCreateReq req = new CommunityCommentCreateReq();
+        req.setPostId(100L); req.setContent("普通评论"); req.setWechatLoginCode("one-time-code");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(communityPostDao.selectByIdForUpdate(100L)).thenReturn(post);
+        lenient().when(wechatMiniappClient.code2Session("one-time-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo("real-session-openid", null, null));
+        when(contentSecurityPort.checkText(any(), any(), any())).thenReturn(CommunitySecurityResult.pass("0"));
+        assertThat(communityService.createComment(1L, req).getStatus()).isEqualTo("published");
+        verify(contentSecurityPort).checkText("real-session-openid", "普通评论", "community");
+        assertThat(user.getOpenid()).isEqualTo("phone_test-placeholder");
+        verify(appUserDao, never()).updateById(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("评论审核身份获取失败时进入人工队列，不能公开或改绑账号")
+    void commentSessionFailureShouldRemainPending(boolean throwsError) {
+        user.setOpenid("phone_test-placeholder");
+        CommunityCommentCreateReq req = new CommunityCommentCreateReq();
+        req.setPostId(100L);
+        req.setContent("普通评论");
+        req.setWechatLoginCode("expired-code");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        if (throwsError) {
+            when(wechatMiniappClient.code2Session("expired-code"))
+                    .thenThrow(new BusinessException("微信会话暂不可用"));
+        }
+
+        assertThat(communityService.createComment(1L, req).getStatus()).isEqualTo("pending");
+        verify(communityCommentDao).insert(argThat(row -> "PENDING".equals(row.getAuditStatus())
+                && "unavailable".equals(row.getMachineResult()) && row.getPublishedAt() == null));
+        verifyNoInteractions(contentSecurityPort);
+        verify(communityPostDao, never()).updateById(any());
+        verify(communityExtensionDao, never()).insertOutbox(any());
+        verify(appUserDao, never()).updateById(any());
+    }
+
+    @Test
     @DisplayName("提交举报-动态目标")
     void createReport_shouldSucceed() {
         CommunityReportCreateReq req = new CommunityReportCreateReq();
@@ -1517,6 +1561,24 @@ class CommunityServiceImplTest {
         verify(profileDictionaryService, never()).label(anyString(), anyString());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"following", "fans"})
+    @DisplayName("关注和粉丝列表均在分页前排除双方拉黑，计数不能包含被拉黑人")
+    void relationPagesExcludeBothBlockDirectionsBeforePagination(String relation) {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), CommunityFollow.class);
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        AppUserRelationBlock outgoing = new AppUserRelationBlock(); outgoing.setUserId(1L); outgoing.setTargetUserId(2L);
+        AppUserRelationBlock incoming = new AppUserRelationBlock(); incoming.setUserId(3L); incoming.setTargetUserId(1L);
+        when(relationBlockDao.selectActiveInvolvingUser(1L, "BLACKLIST")).thenReturn(List.of(outgoing, incoming));
+        when(communityFollowDao.selectPage(any(), any())).thenAnswer(invocation -> {
+            LambdaQueryWrapper<CommunityFollow> query = invocation.getArgument(1);
+            assertThat(query.getSqlSegment()).contains(("fans".equals(relation) ? "follower_id" : "target_user_id") + " NOT IN");
+            assertThat(query.getParamNameValuePairs().values()).contains(2L, 3L, "FOLLOW");
+            return new Page<CommunityFollow>(1, 10, 0);
+        });
+        assertThat(communityService.getRelations(1L, relation, 1, 10).getRecords()).isEmpty();
+    }
+
     @Test
     @DisplayName("关注列表分页后只批量装载当前页资料且不泄露未知字典编码")
     void getRelationsShouldPageBeforeBatchLoadingProfiles() {
@@ -1557,6 +1619,7 @@ class CommunityServiceImplTest {
     @Test
     @DisplayName("我的动态-只排除已删除内容，下架记录保留给本人")
     void getUserPosts_mine_shouldKeepBlockedAndExcludeDeleted() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), CommunityPost.class);
         when(appUserDao.selectById(1L)).thenReturn(user);
         when(communityPostDao.selectPage(any(), any())).thenReturn(new Page<>(1, 10, 0));
 

@@ -1,4 +1,6 @@
 import MatchPopupHost from '@/components/MatchPopupHost'
+import { PENDING_SHARE_ROUTE_KEY, resolvePendingShareRoute } from '@/domain/pendingShareRoute'
+import { TOKEN_KEY } from '@/constants/config'
 import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
 import AccessBlockedPage from '@/components/AccessBlockedPage'
@@ -77,6 +79,11 @@ export default function IndexPage() {
   })
 
   useLoad(options => {
+    const sharedPost = resolvePendingShareRoute('pages/index/index', options)
+    if (sharedPost) {
+      if (!Taro.getStorageSync(TOKEN_KEY)) Taro.setStorageSync(PENDING_SHARE_ROUTE_KEY, sharedPost)
+      return
+    }
     // 分享卡片进入：透传栏目与动态定位参数，由千寻信息流读取后滚动定位。
     const scene = options.scene
     if (scene) Taro.setStorageSync('qianxun_requested_scene', scene)

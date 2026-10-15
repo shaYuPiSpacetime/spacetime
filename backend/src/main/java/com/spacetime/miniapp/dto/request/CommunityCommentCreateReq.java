@@ -27,6 +27,10 @@ public class CommunityCommentCreateReq {
     /** 被回复用户ID（仅回复评论时有值） */
     private Long replyUserId;
 
+    /** 本次微信会话凭据，仅用于内容审核，不改变手机号账号绑定。 */
+    @jakarta.validation.constraints.Size(max = 256, message = "微信会话凭据格式不正确")
+    private String wechatLoginCode;
+
     /** 评论内容 */
     @NotBlank(message = "评论内容不能为空")
     private String content;

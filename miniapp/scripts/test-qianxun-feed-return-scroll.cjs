@@ -34,6 +34,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   let nextSincerePage = false
   let hiddenAuthorId
   let detailFails = false
+  let unavailableCode
   let navigationFails = false
   let instanceKey = 0
   let authUserId = 1
@@ -45,6 +46,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     removeStorageSync: key => storage.delete(key),
     navigateTo: async options => { navigation.push(options); if (navigationFails) throw new Error('navigateTo:fail webview count limit exceed') },
     showToast: async () => {},
+    switchTab: async options => { navigation.push(options) },
     nextTick: callback => callback(),
     eventCenter: { on: () => {}, off: () => {} },
   }
@@ -105,6 +107,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     getSincerePosts: async () => ({ records: nextSincerePage ? [post(62), post(61)] : [post(61), post(60)] }),
     getCommunityPostDetail: async id => {
       detailRequests.push(id)
+      if (unavailableCode) throw Object.assign(new Error('动态已不可访问'), { code: unavailableCode })
       if (detailFails) throw new Error('网络暂不可用')
       return { ...post(id), likeCount: nextFirstPage || nextSincerePage ? 7 : 0, hiddenAuthor: hiddenAuthorId === id + 100 }
     },
@@ -118,6 +121,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     '@tarojs/taro': { ...taro, default: taro, __esModule: true },
     '@/constants/ossIcons': { miniappOssIcons: new Proxy({}, { get: () => 'icon.png' }) },
     '@/services/community': community,
+    '@/services/recommend': { getRecommendPreferences: async () => ({ vipEffective: false }) },
     '@/services/prd01': { prd01Api: { getHomeDetail: async () => ({ profile: {} }) } },
     '@/services/message': { findConversationByPeerUserId: async () => null },
     '@/stores/prd01Store': { usePrd01Store: store },
@@ -143,9 +147,10 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     },
     '@/utils/navigation': { navigateToOrRedirect: async url => taro.navigateTo({ url }) },
     '@/services/profile': { getPublicProfile: async () => ({ liked: false }) },
-    '@/services/request': { getApiErrorCode: () => undefined },
+    '@/services/request': { getApiErrorCode: error => error?.code },
     '@/services/messagePlatformRuntime': { messagePlatformRuntime: { onForeground: async () => {} } },
     '@/services/relation': {
+      getMutualMatches: async () => ({ total: 0, records: [] }),
       getPendingMatchPopup: async () => null,
       markLikesMeRead: async () => {},
       markRecentViewersRead: async () => ({}),
@@ -235,7 +240,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   })
   const run = async key => act(async () => { for (const callback of lifecycle[key]) callback() })
   return {
-    container, navigation, requests, detailRequests, shareHandlers,
+    container, navigation, requests, detailRequests, shareHandlers, storage,
     render: () => act(async () => root.render(React.createElement(Component, { snapshotNo: 'SNAPSHOT-1' }))),
     remount: () => act(async () => root.render(React.createElement(Component, { key: `rebuilt-${++instanceKey}`, snapshotNo: 'SNAPSHOT-1' }))),
     changeUser: value => { authUserId = value },
@@ -255,6 +260,8 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     changeSincerePage: () => { nextSincerePage = true },
     hideAuthor: id => { hiddenAuthorId = id + 100 },
     failDetail: () => { detailFails = true },
+    unavailableDetail: code => { unavailableCode = code },
+    notifyChange: change => act(async () => load('domain/communityPersonalEvents.ts').withCommunityPersonalRefresh(Promise.resolve(), change)),
     failNavigation: () => { navigationFails = true },
   }
 }
@@ -592,4 +599,94 @@ test('S-04: 知音动态分享随面板开关和栏目切换同步，始终只�
   await act(async () => app.container.querySelector('#open-family').click())
   assert.equal(app.shareHandlers.size, 1)
   assert.equal(share('menu').path, '/pages/index/index')
+})
+
+test('理想型跨页勾选保留，返回上一页仍可取消原来的选择', async t => {
+  const app = mount(t, 'FOLLOWING', 'components/IdealResultsContent/index.tsx')
+  await app.render()
+  const clickText = async label => {
+    const node = [...app.container.querySelectorAll('span,div')].find(node => node.textContent === label)
+    assert.ok(node, label)
+    await act(async () => node.click())
+  }
+  await clickText('勾选此人')
+  assert.match(app.container.textContent, /已选 1 人/)
+  await app.loadMore()
+  assert.match(app.container.textContent, /已选 1 人/)
+  await clickText('勾选此人')
+  assert.match(app.container.textContent, /已选 2 人/)
+  await clickText('上一页')
+  assert.match(app.container.textContent, /已选 2 人/)
+  await clickText('已勾选')
+  assert.match(app.container.textContent, /已选 1 人/)
+})
+
+test('已删除动态返回后移除缓存卡片，其他动态顺序保留', async t => {
+  const app = mount(t)
+  await app.render()
+  await act(async () => app.container.querySelector('[data-post-id="3"] img').click())
+  await app.hide()
+  app.unavailableDetail(505020)
+  await app.show()
+  assert.equal(app.container.querySelector('[data-post-id="3"]'), null)
+  assert.deepEqual([...app.container.querySelectorAll('.qianxun-community-card')].map(x => Number(x.getAttribute('data-post-id'))), [5,4])
+})
+
+test('其他页面改变关注关系后，返回关注信息流重读列表而非仅刷新数字', async t => {
+  const app = mount(t)
+  await app.render()
+  await app.hide()
+  app.changeFirstPage()
+  await app.notifyChange()
+  await app.show()
+  assert.deepEqual([...app.container.querySelectorAll('.qianxun-community-card')].map(x => Number(x.getAttribute('data-post-id'))), [6,5,4])
+})
+
+for (const code of [505020, 505021]) test(`知音详情确认不可见 ${code} 后移除缓存，网络错误另有保留用例`, async t => {
+  const app = mount(t)
+  await app.render()
+  await act(async () => app.container.querySelector('#open-kindred').click())
+  await act(async () => app.container.querySelector('#qianxun-zhiyin-sincere').click())
+  const card = app.container.querySelector('.qianxun-zhiyin-post-card')
+  await act(async () => card.querySelector('img').click())
+  await app.hide()
+  app.unavailableDetail(code)
+  await app.show()
+  assert.equal(app.container.querySelectorAll('.qianxun-zhiyin-post-card').length, 1)
+})
+
+test('拉黑事件立即清除缓存里的该作者，不能等再次点击详情才消失', async t => {
+  const app = mount(t)
+  await app.render()
+  await app.hide()
+  await app.notifyChange({ kind: 'block', authorId: 103 })
+  assert.equal(app.container.querySelector('[data-post-id="3"]'), null)
+  assert.ok(app.container.querySelector('[data-post-id="4"]'))
+})
+
+test('原生分享按钮携带的动态编号优先于尚未同步的弹窗状态', async t => {
+  const app = mount(t)
+  await app.render()
+  const result = [...app.shareHandlers][0]({ from: 'button', target: { dataset: { postId: '4' } } })
+  assert.equal(result.path, '/pages/qianxun/post-detail?id=4')
+  assert.match(result.title, /第4条/)
+})
+
+test('推荐等待页同城入口显式切换同城，不受此前关注栏目影响', async t => {
+  const app = mount(t, 'FOLLOWING', 'components/RecommendWaitingContent/index.tsx')
+  await app.render()
+  const label = [...app.container.querySelectorAll('span')].find(node => node.textContent === '同城推荐')
+  await act(async () => label.click())
+  assert.equal(app.storage.get('qianxun_requested_scene'), 'CITY')
+  assert.equal(app.navigation.at(-1).url, '/pages/index/index')
+})
+
+test('相互喜欢空态进入推荐栏目，覆盖上次理想型选中状态', async t => {
+  const app = mount(t, 'FOLLOWING', 'pages/heart/mutual.tsx')
+  app.storage.set('prd08RecommendTab', 'ideal')
+  await app.render()
+  const button = [...app.container.querySelectorAll('span')].find(node => node.textContent === '去发现心动')
+  await act(async () => button.click())
+  assert.equal(app.storage.get('prd08RecommendTab'), 'recommend')
+  assert.equal(app.navigation.at(-1).url, '/pages/recommend/index')
 })

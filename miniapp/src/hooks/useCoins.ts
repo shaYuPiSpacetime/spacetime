@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { miniappOssIcons, type MiniappOssIconKey } from '@/constants/ossIcons'
 import { resolvePaymentFailureFeedback } from '@/domain/paymentFailureFeedback'
@@ -113,6 +113,10 @@ export function useCoins() {
   const [paymentErrorMessage, setPaymentErrorMessage] = useState('')
   const [transactions, setTransactions] = useState<CoinTransaction[]>([])
   const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [transactionsHasMore, setTransactionsHasMore] = useState(false)
+  const [transactionsError, setTransactionsError] = useState('')
+  const transactionQuery = useRef({ generation: 0, page: 0, flowType: undefined as string | undefined, hasMore: false, loading: false })
+  useEffect(() => () => { transactionQuery.current.generation++ }, [])
   const [usages, setUsages] = useState<CoinUsage[]>([])
 
   const fetchBalance = useCallback(async () => {
@@ -143,15 +147,42 @@ export function useCoins() {
     setUsages((await getCoinScenes()).map(adaptCoinScene))
   }, [])
 
-  const fetchTransactions = useCallback(async (flowType?: string) => {
+  const fetchTransactionPage = useCallback(async (flowType?: string, append = false) => {
+    const query = transactionQuery.current
+    if (append && (query.loading || !query.hasMore)) return
+    const generation = append ? query.generation : ++query.generation
+    const pageNo = append ? query.page + 1 : 1
+    if (!append) {
+      query.flowType = flowType
+      query.page = 0
+      query.hasMore = false
+      setTransactions([])
+      setTransactionsHasMore(false)
+    }
+    query.loading = true
     setTransactionsLoading(true)
+    setTransactionsError('')
     try {
-      const page = await getCoinFlows(1, 20, flowType)
-      setTransactions((page.records || []).map(adaptCoinFlow))
+      const page = await getCoinFlows(pageNo, 20, flowType)
+      if (query.generation !== generation) return
+      const rows = (page.records || []).map(adaptCoinFlow)
+      setTransactions(current => append ? Array.from(new Map([...current, ...rows].map(item => [item.id, item])).values()) : rows)
+      query.page = pageNo
+      query.hasMore = pageNo * 20 < Number(page.total || 0)
+      setTransactionsHasMore(query.hasMore)
+    } catch (error) {
+      if (query.generation === generation) setTransactionsError(error instanceof Error ? error.message : '明细加载失败')
+      throw error
     } finally {
-      setTransactionsLoading(false)
+      if (query.generation === generation) {
+        query.loading = false
+        setTransactionsLoading(false)
+      }
     }
   }, [])
+
+  const fetchTransactions = useCallback((flowType?: string) => fetchTransactionPage(flowType), [fetchTransactionPage])
+  const loadMoreTransactions = useCallback(() => fetchTransactionPage(transactionQuery.current.flowType, true), [fetchTransactionPage])
 
   const selectPackage = useCallback((pkg: CoinPackage) => {
     setSelectedPackage(pkg)
@@ -240,6 +271,9 @@ export function useCoins() {
     paymentErrorMessage,
     transactions,
     transactionsLoading,
+    transactionsHasMore,
+    transactionsError,
+    loadMoreTransactions,
     usages,
     fetchBalance,
     fetchPackages,

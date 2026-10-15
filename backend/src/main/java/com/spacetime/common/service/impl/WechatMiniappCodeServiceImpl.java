@@ -2,6 +2,7 @@ package com.spacetime.common.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spacetime.common.util.WechatStableTokenRequest;
 import com.spacetime.common.config.WechatMiniappProperties;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.WechatMiniappCodeService;
@@ -114,10 +115,7 @@ public class WechatMiniappCodeServiceImpl implements WechatMiniappCodeService {
             return cached;
         }
         try {
-            String url = API_BASE_URL + "/cgi-bin/token?grant_type=client_credential&appid="
-                    + encode(appId) + "&secret=" + encode(appSecret);
-            HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(12)).GET().build();
+            HttpRequest request = WechatStableTokenRequest.create(objectMapper, appId, appSecret);
             HttpResponse<String> response = httpClient.send(
                     request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             JsonNode root = objectMapper.readTree(response.body());

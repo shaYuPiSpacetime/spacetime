@@ -17,20 +17,21 @@ public interface AppRelationLikeMapper extends BaseMapper<AppRelationLike> {
     @Select("""
             <script>
             WITH active_unlock AS (
-                SELECT target_biz_no, MAX(effective_time) AS unlock_time
+                SELECT target_user_id, MAX(effective_time) AS unlock_time
                 FROM app_user_unlock_record
                 WHERE user_id = #{userId}
-                  AND target_biz_type = 'like'
+                  AND target_biz_type IN ('like', 'visit')
+                  AND (expire_time IS NULL OR expire_time > NOW())
                   AND status = 'active'
                   AND active_marker = 1
                   AND deleted = 0
-                GROUP BY target_biz_no
+                GROUP BY target_user_id
             ),
             base_like AS (
                 SELECT l.id, l.like_no, l.from_user_id, l.source_scene, l.liked_time,
                        u.unlock_time
                 FROM app_relation_like l
-                LEFT JOIN active_unlock u ON u.target_biz_no = l.like_no
+                LEFT JOIN active_unlock u ON u.target_user_id = l.from_user_id
                 WHERE l.to_user_id = #{userId}
                   AND l.like_status = 'active'
                   AND l.active_marker = 1
@@ -65,14 +66,15 @@ public interface AppRelationLikeMapper extends BaseMapper<AppRelationLike> {
     @Select("""
             <script>
             WITH active_unlock AS (
-                SELECT target_biz_no, MAX(effective_time) AS unlock_time
+                SELECT target_user_id, MAX(effective_time) AS unlock_time
                 FROM app_user_unlock_record
                 WHERE user_id = #{userId}
-                  AND target_biz_type = 'like'
+                  AND target_biz_type IN ('like', 'visit')
+                  AND (expire_time IS NULL OR expire_time > NOW())
                   AND status = 'active'
                   AND active_marker = 1
                   AND deleted = 0
-                GROUP BY target_biz_no
+                GROUP BY target_user_id
             ),
             base_like AS (
                 SELECT l.id, l.like_no, l.from_user_id, l.source_scene, l.liked_time,
@@ -85,7 +87,7 @@ public interface AppRelationLikeMapper extends BaseMapper<AppRelationLike> {
                            ELSE 0
                        END AS is_new
                 FROM app_relation_like l
-                LEFT JOIN active_unlock u ON u.target_biz_no = l.like_no
+                LEFT JOIN active_unlock u ON u.target_user_id = l.from_user_id
                 WHERE l.to_user_id = #{userId}
                   AND l.like_status = 'active'
                   AND l.active_marker = 1
@@ -149,14 +151,15 @@ public interface AppRelationLikeMapper extends BaseMapper<AppRelationLike> {
     @Select("""
             <script>
             WITH active_unlock AS (
-                SELECT target_biz_no, MAX(effective_time) AS unlock_time
+                SELECT target_user_id, MAX(effective_time) AS unlock_time
                 FROM app_user_unlock_record
                 WHERE user_id = #{userId}
-                  AND target_biz_type = 'like'
+                  AND target_biz_type IN ('like', 'visit')
+                  AND (expire_time IS NULL OR expire_time > NOW())
                   AND status = 'active'
                   AND active_marker = 1
                   AND deleted = 0
-                GROUP BY target_biz_no
+                GROUP BY target_user_id
             )
             SELECT l.id,
                    l.like_no AS likeNo,
@@ -166,7 +169,7 @@ public interface AppRelationLikeMapper extends BaseMapper<AppRelationLike> {
                    u.unlock_time AS unlockTime,
                    TRUE AS newLike
             FROM app_relation_like l
-            LEFT JOIN active_unlock u ON u.target_biz_no = l.like_no
+            LEFT JOIN active_unlock u ON u.target_user_id = l.from_user_id
             WHERE l.to_user_id = #{userId}
               AND l.like_status = 'active'
               AND l.active_marker = 1
@@ -205,15 +208,16 @@ public interface AppRelationLikeMapper extends BaseMapper<AppRelationLike> {
                    FALSE AS newLike
             FROM app_relation_like l
             LEFT JOIN (
-                SELECT target_biz_no, MAX(effective_time) AS unlock_time
+                SELECT target_user_id, MAX(effective_time) AS unlock_time
                 FROM app_user_unlock_record
                 WHERE user_id = #{userId}
-                  AND target_biz_type = 'like'
+                  AND target_biz_type IN ('like', 'visit')
+                  AND (expire_time IS NULL OR expire_time > NOW())
                   AND status = 'active'
                   AND active_marker = 1
                   AND deleted = 0
-                GROUP BY target_biz_no
-            ) u ON u.target_biz_no = l.like_no
+                GROUP BY target_user_id
+            ) u ON u.target_user_id = l.from_user_id
             WHERE l.to_user_id = #{userId}
               AND l.like_status = 'active'
               AND l.active_marker = 1

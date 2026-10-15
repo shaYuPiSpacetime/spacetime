@@ -39,6 +39,19 @@ test('其他原因组合用户输入且去除空白', async () => {
   assert.equal(resolveCancelSubmitState({ selected: ['其他'], detail: '   ' }).enabled, false)
 })
 
+test('线上其他原因标签与旧配置不同仍能输入，正文必须填写并提交', async () => {
+  const { isOtherCancelReason, resolveCancelSubmitState } = await loadFlowModule()
+  assert.equal(typeof isOtherCancelReason, 'function')
+  assert.equal(isOtherCancelReason('其他原因', '其他'), true)
+  assert.equal(isOtherCancelReason('其他', '其他原因'), true)
+  assert.equal(isOtherCancelReason('补充说明', '补充说明'), true)
+  assert.equal(isOtherCancelReason('隐私或安全原因', '其他'), false)
+  assert.equal(resolveCancelSubmitState({ selected: ['其他原因'], detail: '  ', otherReason: '其他' }).enabled, false)
+  assert.deepEqual(resolveCancelSubmitState({ selected: ['其他原因'], detail: ' 个人安排 ', otherReason: '其他' }), {
+    enabled: true, reason: '其他原因：个人安排',
+  })
+})
+
 test('注销冷静期和可撤销状态严格读取接口枚举', async () => {
   const { isCoolingOff, canRevokeCancellation } = await loadFlowModule()
 

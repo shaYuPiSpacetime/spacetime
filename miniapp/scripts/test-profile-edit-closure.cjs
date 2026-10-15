@@ -420,9 +420,10 @@ test('语音卡片与录音浮层按蓝湖完成态展示时限、短条、X 和
 
   assert.match(
     edit,
-    /<ProfileSection title="语音介绍" action=\{voiceUnderReview \? '审核中' : hasVoice \? '管理' : '录音'\}/,
-    '语音审核中必须展示审核态，已有录音时必须展示管理入口'
+    /<ProfileSection title="语音介绍" action=\{voiceUnderReview \? '重新录制' : hasVoice \? '管理' : '录音'\}/,
+    '待审语音必须提供撤回重录入口，已有录音时展示管理入口'
   )
+  assert.match(edit, /已录制 \$\{duration\} 秒 · 审核中/, '待审状态必须保留审核提示')
   assert.match(edit, /id="voice-intro-saved-bar"/, '已录音短条缺少稳定验收节点')
   assert.match(
     edit,

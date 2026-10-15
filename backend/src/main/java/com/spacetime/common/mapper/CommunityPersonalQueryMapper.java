@@ -11,7 +11,13 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface CommunityPersonalQueryMapper {
     /** 社区入口关注数字仅返回一个聚合值。 */
-    @Select("SELECT COUNT(*) FROM community_follow WHERE follower_id=#{userId} AND deleted=0 AND status='FOLLOW'")
+    @Select("""
+            SELECT COUNT(*) FROM community_follow f WHERE f.follower_id=#{userId} AND f.deleted=0 AND f.status='FOLLOW'
+             AND NOT EXISTS (SELECT 1 FROM app_user_relation_block b
+                   WHERE b.deleted=0 AND b.status='ENABLED' AND b.block_type='BLACKLIST'
+                   AND ((b.user_id=f.follower_id AND b.target_user_id=f.target_user_id)
+                     OR (b.user_id=f.target_user_id AND b.target_user_id=f.follower_id)))
+            """)
     long countFollowing(@Param("userId") Long userId);
 
     /** 实时计数，保留原有动态与评论获赞口径。 */
@@ -20,9 +26,15 @@ public interface CommunityPersonalQueryMapper {
               (SELECT COUNT(*) FROM community_post p WHERE p.author_id=#{userId}
                  AND p.deleted=0 AND p.status NOT IN ('deleted','blocked')) AS post_count,
               (SELECT COUNT(*) FROM community_follow f WHERE f.follower_id=#{userId}
-                 AND f.deleted=0 AND f.status='FOLLOW') AS following_count,
+                 AND f.deleted=0 AND f.status='FOLLOW' AND NOT EXISTS (SELECT 1 FROM app_user_relation_block b
+                   WHERE b.deleted=0 AND b.status='ENABLED' AND b.block_type='BLACKLIST'
+                   AND ((b.user_id=f.follower_id AND b.target_user_id=f.target_user_id)
+                     OR (b.user_id=f.target_user_id AND b.target_user_id=f.follower_id)))) AS following_count,
               (SELECT COUNT(*) FROM community_follow f WHERE f.target_user_id=#{userId}
-                 AND f.deleted=0 AND f.status='FOLLOW') AS follower_count,
+                 AND f.deleted=0 AND f.status='FOLLOW' AND NOT EXISTS (SELECT 1 FROM app_user_relation_block b
+                   WHERE b.deleted=0 AND b.status='ENABLED' AND b.block_type='BLACKLIST'
+                   AND ((b.user_id=f.follower_id AND b.target_user_id=f.target_user_id)
+                     OR (b.user_id=f.target_user_id AND b.target_user_id=f.follower_id)))) AS follower_count,
               (SELECT COALESCE(SUM(p.like_count),0) FROM community_post p WHERE p.author_id=#{userId}
                  AND p.deleted=0 AND p.status NOT IN ('deleted','blocked'))
               + (SELECT COUNT(*) FROM community_comment c JOIN community_comment_like l
@@ -36,26 +48,41 @@ public interface CommunityPersonalQueryMapper {
             <script>
             <choose>
               <when test="type == 'commented'">
-                SELECT CONCAT('comment-',i.id) AS id, i.post_id, p.author_id AS target_user_id,
-                       i.content AS description, i.create_time AS interaction_time
-                FROM community_comment i JOIN community_post p ON p.id=i.post_id
-                WHERE i.author_id=#{userId} AND i.deleted=0 AND i.status='published'
-                  AND p.deleted=0 AND p.status='published'
-                ORDER BY i.create_time DESC, i.id DESC
+                SELECT CONCAT('comment-post-',r.post_id) AS id, r.post_id, r.target_user_id,
+                       r.description, r.interaction_time FROM (
+                  SELECT i.id, i.post_id, p.author_id AS target_user_id,
+                         i.content AS description, i.create_time AS interaction_time,
+                         ROW_NUMBER() OVER (PARTITION BY i.post_id ORDER BY i.create_time DESC, i.id DESC) AS rn
+                  FROM community_comment i JOIN community_post p ON p.id=i.post_id
+                  WHERE i.author_id=#{userId} AND i.deleted=0 AND i.status='published'
+                    AND p.deleted=0 AND p.status='published' AND NOT EXISTS (
+                    SELECT 1 FROM app_user_relation_block b WHERE b.deleted=0 AND b.status='ENABLED'
+                      AND b.block_type='BLACKLIST'
+                      AND ((b.user_id=#{userId} AND b.target_user_id=p.author_id)
+                        OR (b.target_user_id=#{userId} AND b.user_id=p.author_id)))
+                ) r WHERE r.rn=1 ORDER BY r.interaction_time DESC, r.id DESC
               </when>
               <when test="type == 'liked'">
                 SELECT CONCAT('like-',i.id) AS id, i.post_id, p.author_id AS target_user_id,
                        NULL AS description, i.update_time AS interaction_time
                 FROM community_like i JOIN community_post p ON p.id=i.post_id
                 WHERE i.user_id=#{userId} AND i.deleted=0 AND i.status='ENABLED'
-                  AND p.deleted=0 AND p.status='published'
+                  AND p.deleted=0 AND p.status='published' AND NOT EXISTS (
+                    SELECT 1 FROM app_user_relation_block b WHERE b.deleted=0 AND b.status='ENABLED'
+                      AND b.block_type='BLACKLIST'
+                      AND ((b.user_id=#{userId} AND b.target_user_id=p.author_id)
+                        OR (b.target_user_id=#{userId} AND b.user_id=p.author_id)))
                 ORDER BY i.update_time DESC, i.id DESC
               </when>
               <when test="type == 'viewed'">
                 SELECT CONCAT('view-',i.id) AS id, i.post_id, p.author_id AS target_user_id,
                        NULL AS description, i.viewed_at AS interaction_time
                 FROM community_view_history i JOIN community_post p ON p.id=i.post_id
-                WHERE i.user_id=#{userId} AND i.deleted=0 AND p.deleted=0 AND p.status='published'
+                WHERE i.user_id=#{userId} AND i.deleted=0 AND p.deleted=0 AND p.status='published' AND NOT EXISTS (
+                    SELECT 1 FROM app_user_relation_block b WHERE b.deleted=0 AND b.status='ENABLED'
+                      AND b.block_type='BLACKLIST'
+                      AND ((b.user_id=#{userId} AND b.target_user_id=p.author_id)
+                        OR (b.target_user_id=#{userId} AND b.user_id=p.author_id)))
                 ORDER BY i.viewed_at DESC, i.id DESC
               </when>
               <otherwise>

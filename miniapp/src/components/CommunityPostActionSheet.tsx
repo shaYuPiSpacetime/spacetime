@@ -50,6 +50,7 @@ export default function CommunityPostActionSheet({
       >
         <Button
           openType="share"
+          data-post-id={post?.id}
           className="community-post-action-sheet__share"
         >
           <Image

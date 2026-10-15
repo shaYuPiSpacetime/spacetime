@@ -15,6 +15,8 @@ public interface UserUnlockRecordDao {
     List<UserUnlockRecord> selectList(LambdaQueryWrapper<UserUnlockRecord> wrapper);
     /** 按被解锁用户查询有效权益，访客跨展示记录复用。 */
     UserUnlockRecord selectActiveByTargetUser(Long userId, String targetBizType, Long targetUserId);
+    /** 喜欢与访客共享同一对象的有效解锁权益。 */
+    UserUnlockRecord selectActiveRelationByTargetUser(Long userId, Long targetUserId);
     Page<UserUnlockRecord> selectPage(Page<UserUnlockRecord> page, LambdaQueryWrapper<UserUnlockRecord> wrapper);
     void insert(UserUnlockRecord entity);
     void updateById(UserUnlockRecord entity);

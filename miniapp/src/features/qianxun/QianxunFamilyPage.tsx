@@ -1,3 +1,4 @@
+import { communityAvatarUrl } from '@/domain/communityAvatar'
 import { shareMessage } from '@/utils/shareMessage'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
 import { postShare } from '@/domain/sharePresentation'
@@ -38,6 +39,8 @@ import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
+import { subscribeCommunityPersonalChanged } from '@/domain/communityPersonalEvents'
+import { getApiErrorCode } from '@/services/request'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import { getActiveTabKey, setActiveTabKey, subscribeActiveTabKey } from '@/custom-tab-bar/tabState'
 import { getQianxunHeaderMetrics, QianxunHeader, type QianxunPrimaryTab } from './QianxunHeader'
@@ -111,14 +114,18 @@ export default function RecommendFamilyPage() {
   const loadingBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: false, CITY: false, SCHOOL: false, HOT: false })
   const loadingMoreBySceneRef = useRef<Record<CommunityScene, boolean>>({ FOLLOWING: false, CITY: false, SCHOOL: false, HOT: false })
   const resumeRefreshRef = useRef(false)
+  const dirtyScenesRef = useRef(new Set<CommunityScene>())
+  const sceneLoadedAtRef = useRef<Partial<Record<CommunityScene, number>>>({})
+  const contextGenerationRef = useRef(0)
   const returnFromPostDetailRef = useRef<number>()
   const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
-  useShareAppMessage(event => shareMessage(postShare(
-    event.from === 'button'
-      ? primaryTab === 'KINDRED' ? zhiyinSharePost : sheet === 'actions' ? selectedPost : undefined
-      : undefined
-  )))
+  useShareAppMessage(event => {
+    const nativePostId = Number((event.target as { dataset?: { postId?: string | number } } | undefined)?.dataset?.postId)
+    const fallback = primaryTab === 'KINDRED' ? zhiyinSharePost : sheet === 'actions' ? selectedPost : undefined
+    const clicked = [fallback, ...Object.values(postsByScene).flat()].find(post => post?.id === nativePostId)
+    return shareMessage(postShare(event.from === 'button' ? clicked || fallback : undefined))
+  })
 
   const tabs = useMemo(() => (config?.homeTabs || []).map(item => ({ label: item.entryName, scene: sceneByEntryKey[item.entryKey] })).filter((item): item is { label: string; scene: CommunityScene } => Boolean(item.scene)), [config?.homeTabs])
   const visiblePosts = postsByScene[activeTab] || []
@@ -144,6 +151,8 @@ export default function RecommendFamilyPage() {
       const page = await getCommunityPosts(targetScene, nextPage, COMMUNITY_PAGE_SIZE)
       if (requestSequenceRef.current[targetScene] !== sequence) return
       const records = page.records || []
+      dirtyScenesRef.current.delete(targetScene)
+      sceneLoadedAtRef.current[targetScene] = Date.now()
       setPostsByScene(state => ({
         ...state,
         [targetScene]: append ? mergeCommunityPosts(state[targetScene] || [], records) : records,
@@ -168,19 +177,23 @@ export default function RecommendFamilyPage() {
   }
 
   const loadContext = async () => {
-    try {
-      const [runtime, count, home] = await Promise.all([
-        getCommunityMeta(),
-        getFollowingCount(),
-        prd01Api.getHomeDetail(),
-      ])
-      setConfig(runtime)
-      Taro.setStorageSync(COMMUNITY_CONFIG_CACHE_KEY, runtime)
-      setFollowingCount(Number(count || 0))
-      setOwnerAvatar(normalizeAvatarUrl(String(home.profile.avatar || ''), defaultAvatar))
-      setHasSchool(Boolean(String(home.profile.schoolCode || home.profile.school || '').trim()))
-    } catch (error) {
-      await showError(config, error)
+    const generation = ++contextGenerationRef.current
+    // 头像与学校独立回显，不等待配置、关注计数等较慢请求。
+    const results = await Promise.allSettled([
+      getCommunityMeta().then(runtime => {
+        if (generation !== contextGenerationRef.current) return
+        setConfig(runtime)
+        Taro.setStorageSync(COMMUNITY_CONFIG_CACHE_KEY, runtime)
+      }),
+      getFollowingCount().then(count => { if (generation === contextGenerationRef.current) setFollowingCount(Number(count || 0)) }),
+      prd01Api.getHomeDetail().then(home => {
+        if (generation !== contextGenerationRef.current) return
+        setOwnerAvatar(normalizeAvatarUrl(String(home.profile.avatar || ''), defaultAvatar))
+        setHasSchool(Boolean(String(home.profile.schoolCode || home.profile.school || '').trim()))
+      }),
+    ])
+    if (generation === contextGenerationRef.current && results[0].status === 'rejected') {
+      await showError(config, results[0].reason)
     }
   }
 
@@ -209,16 +222,55 @@ export default function RecommendFamilyPage() {
         : mapPostsByScene(state, item => item.id === postId
           ? { ...item, ...current }
           : item.authorId === current.authorId ? { ...item, followingAuthor: current.followingAuthor } : item))
-    } catch {
-      // 详情同步失败时保留原列表快照及滚动位置。
+    } catch (error) {
+      if (getApiErrorCode(error) === 505020 || getApiErrorCode(error) === 505021) {
+        setPostsByScene(state => {
+          const authorId = Object.values(state).flat().find(item => item.id === postId)?.authorId
+          if (getApiErrorCode(error) === 505021 && authorId) return removeAuthorPostsFromScene(state, authorId)
+          return Object.fromEntries(Object.entries(state).map(([scene, posts]) => [scene, posts.filter(item => item.id !== postId)]))
+        })
+      }
+      // 网络失败保留快照；明确删除或拉黑的内容必须移除。
     }
   }
 
   useEffect(() => {
+    for (const scene of ['FOLLOWING', 'CITY', 'SCHOOL', 'HOT'] as const) {
+      requestSequenceRef.current[scene]++
+      pageBySceneRef.current[scene] = 0
+      loadingBySceneRef.current[scene] = false
+      loadingMoreBySceneRef.current[scene] = false
+      hasMoreBySceneRef.current[scene] = true
+    }
+    setPostsByScene({})
+    setOwnerAvatar(defaultAvatar)
+    setFollowingCount(0)
+    setHasSchool(undefined)
+    setTopicHome(undefined)
+    setSelectedPost(undefined)
+    setWhisperTarget(null)
+    setSheet(null)
     refreshFamily()
     // 初始化完成后同步逻辑入口，不能在渲染期间广播到其他 TabBar 实例。
     setActiveTabKey(primaryTab === 'KINDRED' ? 'kindred' : 'index')
-  }, [])
+  }, [currentUserId])
+
+  useEffect(() => subscribeCommunityPersonalChanged(change => {
+    if (change.kind === 'interaction') return
+    if (change.kind === 'block' && change.authorId) setPostsByScene(state => removeAuthorPostsFromScene(state, change.authorId!))
+    if (change.kind === 'delete' && change.postId) setPostsByScene(state => Object.fromEntries(
+      Object.entries(state).map(([scene, posts]) => [scene, posts.filter(post => post.id !== change.postId)])))
+    for (const scene of ['FOLLOWING', 'CITY', 'SCHOOL', 'HOT'] as const) {
+      dirtyScenesRef.current.add(scene)
+      // 关系变更后，之前已经发出的旧列表响应也不能重新写入缓存。
+      requestSequenceRef.current[scene]++
+      loadingBySceneRef.current[scene] = false
+      loadingMoreBySceneRef.current[scene] = false
+    }
+    setLoadingByScene({})
+    setLoadingMoreByScene({})
+  }), [])
+  useEffect(() => () => { contextGenerationRef.current++ }, [currentUserId])
 
   useEffect(() => subscribeActiveTabKey(key => {
     if (key === 'kindred') setPrimaryTab('KINDRED')
@@ -251,12 +303,23 @@ export default function RecommendFamilyPage() {
     const returnFromPostDetail = returnFromPostDetailRef.current
     returnFromPostDetailRef.current = undefined
     if (primaryTab === 'FAMILY') {
+      if (dirtyScenesRef.current.has(activeTab)) {
+        void loadContext()
+        void loadScene(activeTab)
+        return
+      }
       // 详情返回时保持当前列表及分页顺序；重拉第一页会让原滚动偏移指向另一条动态。
       if (returnFromPostDetail) {
         void loadContext()
         void refreshReturnedPost(returnFromPostDetail)
       }
-      else void loadContext()
+      else {
+        void loadContext()
+        if (Date.now() - (sceneLoadedAtRef.current[activeTab] || 0) > 60_000) {
+          feedScroll.reset()
+          void loadScene(activeTab)
+        }
+      }
     }
   })
 
@@ -283,7 +346,7 @@ export default function RecommendFamilyPage() {
   const changeTab = (tab: CommunityScene) => {
     if (tab === activeTab) return
     setActiveTab(tab)
-    if (postsByScene[tab] === undefined && !loadingBySceneRef.current[tab]) void loadScene(tab)
+    if ((dirtyScenesRef.current.has(tab) || postsByScene[tab] === undefined || Date.now() - (sceneLoadedAtRef.current[tab] || 0) > 60_000) && !loadingBySceneRef.current[tab]) void loadScene(tab)
     if (tab === 'HOT' && !topicHome) void loadTopicHome()
   }
 
@@ -522,7 +585,7 @@ function CommunityCard({ post, optionLabel, isSelf, onAuthor, onOpen, onTopic, o
   const contactText = post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'
   return <View id={`qianxun-post-${post.id}`} style={{ width: '700rpx', borderRadius: '18rpx', background: '#FFFFFF', marginBottom: '20rpx', padding: '33rpx 26rpx 0', boxSizing: 'border-box', overflow: 'hidden' }}>
     <View style={{ display: 'flex', alignItems: 'center' }}>
-      <Image onClick={onAuthor} src={post.authorAvatar || defaultAvatar} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} />
+      <Image onClick={onAuthor} src={communityAvatarUrl(post.authorAvatar || defaultAvatar)} mode="aspectFill" style={{ width: '80rpx', height: '80rpx', borderRadius: '40rpx', background: '#EEF3F8', flexShrink: 0 }} />
       <View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '20rpx' }}>
         <View style={{ display: 'flex', alignItems: 'center', height: '38rpx' }}><Text style={{ maxWidth: '260rpx', color: '#333333', fontSize: '26rpx', lineHeight: '37rpx', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{post.authorName || '用户'}</Text>{genderIcon ? <Image src={genderIcon} mode="aspectFit" style={{ width: '32rpx', height: '32rpx', marginLeft: '14rpx', flexShrink: 0 }} /> : null}</View>
         <Text style={{ display: 'block', maxWidth: '390rpx', color: BLUE, fontSize: '24rpx', lineHeight: '33rpx', marginTop: '9rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{meta}</Text>

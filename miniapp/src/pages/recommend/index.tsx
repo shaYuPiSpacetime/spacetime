@@ -1,4 +1,5 @@
 import MatchPopupHost from '@/components/MatchPopupHost'
+import { setActiveTabKey } from '@/custom-tab-bar/tabState'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow, usePullDownRefresh, useRouter } from '@tarojs/taro'
@@ -255,6 +256,7 @@ export default function RecommendPage() {
   }, [])
 
   useDidShow(() => {
+    setActiveTabKey('recommend')
     pageVisibleRef.current = true
     setPageVisible(true)
     const targetTab = Taro.getStorageSync(RECOMMEND_TAB_STORAGE_KEY)

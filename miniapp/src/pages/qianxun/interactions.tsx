@@ -607,22 +607,23 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage, onFailure 
   )
 }
 
-function MyPostImages({ images }: { images: string[] }) {
+function MyPostImages({ images, fullWidth = false }: { images: string[]; fullWidth?: boolean }) {
   const visible = images.filter(Boolean).slice(0, 9)
   if (!visible.length) return null
   const single = visible.length === 1
   const useTwoColumn = visible.length === 2 || visible.length === 4
   const columns = single ? 1 : useTwoColumn ? 2 : 3
-  const width = single ? '512rpx' : useTwoColumn ? '250rpx' : '164rpx'
+  const width = fullWidth ? single ? '100%' : useTwoColumn ? 'calc((100% - 10rpx) / 2)' : 'calc((100% - 20rpx) / 3)' : single ? '512rpx' : useTwoColumn ? '250rpx' : '164rpx'
   const height = single ? '332rpx' : useTwoColumn ? '210rpx' : '164rpx'
   const gap = 10
   const rows = Math.ceil(visible.length / columns)
   return (
-    <View style={{ display: 'flex', flexWrap: 'wrap', width: '512rpx' }}>
+    <View style={{ display: 'flex', flexWrap: 'wrap', width: fullWidth ? '100%' : '512rpx' }}>
       {visible.map((url, index) => (
         <Image
           key={`${url}-${index}`}
           src={url}
+          lazyLoad
           mode="aspectFill"
           onClick={event => {
             event.stopPropagation()
@@ -745,7 +746,7 @@ function InteractionPostCard({ post, measureKey, onDelete }: { post: CommunityPo
       </View>
       <InteractionPostExcerpt content={post.content} postId={post.id} measureKey={measureKey} color="#3D3D3D" marginTop="20rpx" />
       {post.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '23rpx', lineHeight: '34rpx', marginTop: '12rpx' }}># {post.topicName}</Text> : null}
-      {post.imageUrls?.[0] ? <Image lazyLoad src={post.imageUrls[0]} mode="aspectFill" style={{ width: '100%', height: '448rpx', borderRadius: '10rpx', marginTop: '18rpx', background: '#F3F5F8' }} /> : null}
+      {post.imageUrls?.length ? <View style={{ marginTop: '18rpx' }}><MyPostImages images={post.imageUrls} fullWidth /></View> : null}
       <View style={{ marginTop: '20rpx', height: '34rpx', display: 'flex', alignItems: 'center' }}>
         <Text className="qianxun-interaction-card-date" style={{ color: '#A4A4A4', fontSize: '22rpx', lineHeight: '32rpx' }}>{formatInteractionCardDate(post.createTime)}</Text>
         <View style={{ flex: 1 }} />

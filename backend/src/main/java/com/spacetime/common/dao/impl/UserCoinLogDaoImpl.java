@@ -41,9 +41,11 @@ public class UserCoinLogDaoImpl implements UserCoinLogDao {
     @Override
     public Page<UserCoinLog> selectPageByUserId(Page<UserCoinLog> page, Long userId, String flowType) {
         LambdaQueryWrapper<UserCoinLog> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(UserCoinLog::getUserId, userId)
-                .eq(flowType != null && !flowType.isBlank(), UserCoinLog::getFlowType, flowType)
-                .orderByDesc(UserCoinLog::getCreateTime);
+        wrapper.eq(UserCoinLog::getUserId, userId);
+        if ("income".equals(flowType)) wrapper.ge(UserCoinLog::getChangeAmount, 0);
+        else if ("expense".equals(flowType)) wrapper.lt(UserCoinLog::getChangeAmount, 0);
+        else wrapper.eq(flowType != null && !flowType.isBlank(), UserCoinLog::getFlowType, flowType);
+        wrapper.orderByDesc(UserCoinLog::getCreateTime).orderByDesc(UserCoinLog::getId);
         return mapper.selectPage(page, wrapper);
     }
 

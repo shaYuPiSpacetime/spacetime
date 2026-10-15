@@ -34,6 +34,18 @@ import static org.mockito.Mockito.never;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("移动端语音介绍微信审核")
 class VoiceIntroServiceImplTest {
+    @Test
+    void ownerCanWithdrawImportedManualPendingVoiceWithoutApprovingIt() {
+        AppUser user = new AppUser(); user.setId(7L);
+        when(appUserDao.selectById(7L)).thenReturn(user);
+        AppUserAuditRecord record = new AppUserAuditRecord();
+        record.setId(100L); record.setUserId(7L); record.setStatus("PENDING"); record.setAuditSource("MANUAL");
+        when(auditService.latestRecord(7L, com.spacetime.common.enums.AppUserAuditTypeEnum.VOICE_INTRO)).thenReturn(record);
+        service.deleteVoiceIntro(7L);
+        verify(auditService).expirePending(100L, "PENDING", null, "用户撤回语音介绍");
+        verify(auditService, never()).machineApprove(any(), any(), any());
+    }
+
 
     @Mock
     private AppUserDao appUserDao;

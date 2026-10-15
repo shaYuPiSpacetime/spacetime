@@ -28,7 +28,7 @@ async function mount(t, pageName, options = {}) {
   const storage = new Map()
   const taro = { getStorageSync: key => storage.get(key), setStorageSync: (key, value) => storage.set(key, value), removeStorageSync: key => storage.delete(key),
     useRouter: () => ({ params: options.route || {} }), eventCenter: { on() {}, off() {} },
-    showToast: async () => {}, navigateTo: async () => {},
+    showToast: async () => {}, navigateTo: async () => {}, previewImage: async args => { calls.push(['preview', args]) },
     nextTick: callback => callback(), getWindowInfo: () => ({ windowWidth: 375 }),
     createSelectorQuery: () => ({ select: () => ({ boundingClientRect: callback => ({ exec: () => callback({ height: 27 }) }) }) }),
     navigateBack: async () => { calls.push('back') },
@@ -63,7 +63,7 @@ async function mount(t, pageName, options = {}) {
   }
   function native(tag) {
     return ({ children, id, onClick, ...props }) => React.createElement(tag, {
-      id, onClick, style: props.style, 'data-role': props['data-role'], 'data-section-panel': props['data-section-panel'],
+      id, onClick, style: props.style, src: props.src, 'data-role': props['data-role'], 'data-section-panel': props['data-section-panel'],
     }, children)
   }
   const components = { View: native('div'), Text: native('span'), Image: native('img'), ScrollView: native('div'),
@@ -82,7 +82,8 @@ async function mount(t, pageName, options = {}) {
       if (name === '@/services/request') return { getApiErrorCode: () => undefined }
       if (name === '@/features/verification/navigateToVerification') return { navigateToPendingVerification() {} }
       if (name === '@/services/relation') return {
-        getLikesMePage: async () => options.likes || ({ records: [], newCount: 0 }),
+        getLikesMePage: async (...args) => { calls.push(['likes', ...args]); return typeof options.likes === 'function' ? options.likes(...args) : options.likes || ({ records: [], newCount: 0 }) },
+        markLikesMeRead: async cursor => { calls.push(['readLikes', cursor]) },
         quoteRelationUnlock: async (...args) => { calls.push(['quote', ...args]); return options.quote },
         confirmRelationUnlock: async (...args) => { calls.push(['confirm', ...args]); return { targetUserId: 2, charged: false, coinCost: 0 } },
         getRecentViewersPage: async (...args) => { calls.push(['visitors', ...args]); return options.visitors(...args) },
@@ -199,6 +200,7 @@ test('重提服务使用真实接口回执，重新驳回不伪装成待审，�
     }).outputText
     const module = { exports: {} }
     Function('require', 'module', 'exports', code)(name => {
+      if (name === '@tarojs/taro') return { default: {} }
       if (name === './request') return { put: async (url, body) => {
         requests.push({ url, body })
         if (failed) throw new Error('网络失败')
@@ -368,4 +370,34 @@ test('对我心动零元报价显示免费解锁并提交真实确认请求', as
   await h.click('免费解锁')
   assert.equal(h.calls.filter(x => Array.isArray(x) && x[0] === 'confirm').length, 1)
   assert.ok(h.element.textContent.includes('解锁成功'))
+})
+
+test('对我心动返回刷新读取新快照并确认已读，不丢新收到的人', async t => {
+  let cursor = 'like-a'
+  const h = await mount(t, 'community', { likes: () => ({
+    records: [{ recordNo: cursor, userId: 2, nickname: cursor, displayStatus: 'clear' }],
+    readCursor: cursor, newCount: 1, current: 1, hasMore: false, accessMode: 'VIP_ALL_CLEAR',
+  }), visitors: () => ({ records: [], unreadCount: 0 }) })
+  await h.fire('show')
+  cursor = 'like-b'
+  await h.fire('show')
+  assert.deepEqual(h.calls.filter(x => Array.isArray(x) && x[0] === 'readLikes'), [['readLikes', 'like-a'], ['readLikes', 'like-b']])
+  assert.ok(h.element.textContent.includes('like-b'))
+  assert.ok(!h.element.textContent.includes('like-a'))
+  assert.ok(h.calls.filter(x => Array.isArray(x) && x[0] === 'likes').every(x => x[3] === undefined))
+  await h.fire('show')
+  assert.equal(h.calls.filter(x => Array.isArray(x) && x[0] === 'readLikes').length, 2)
+})
+
+for (const section of ['commented', 'liked', 'viewed']) test(`${section} 互动九图全部显示且可预览`, async t => {
+  const record = interactionRecord('1', '九图内容')
+  record.post.imageUrls = Array.from({ length: 9 }, (_, i) => `https://example.test/photo${i}.jpg`)
+  const h = await mount(t, 'interactions', { lists: () => ({ records: [record] }), route: section === 'viewed' ? { section: 'history' } : {} })
+  await h.fire('show')
+  if (section === 'liked') await h.click('点赞过')
+  const images = [...h.element.querySelectorAll('img')].filter(x => x.src.includes('example.test'))
+  assert.equal(images.length, 9)
+  await act(async () => images[8].click())
+  const preview = h.calls.find(x => Array.isArray(x) && x[0] === 'preview')
+  assert.deepEqual(preview[1], { current: record.post.imageUrls[8], urls: record.post.imageUrls })
 })

@@ -112,7 +112,9 @@ test('S-03: 图文、纯文字、空文字、超长 emoji 文案', () => {
 function callback(file, end, deps) {
   const source = read(file)
   const start = source.indexOf('  useShareAppMessage(')
-  const code = source.slice(start, source.indexOf(end, start))
+  const code = ts.transpileModule(source.slice(start, source.indexOf(end, start)), {
+    compilerOptions: { target: ts.ScriptTarget.ES2020 },
+  }).outputText
   let share
   const values = { ...domain, shareMessage: value => value, useShareAppMessage: cb => { share = cb }, ...deps }
   Function(...Object.keys(values), code)(...Object.values(values))
@@ -122,8 +124,9 @@ function callback(file, end, deps) {
 test('S-04: 家人/知音由一个页面回调处理，菜单忽略已选动态', () => {
   const file = 'features/qianxun/QianxunFamilyPage.tsx'
   for (const primaryTab of ['FAMILY', 'KINDRED']) {
-    const share = callback(file, '  const tabs =', { primaryTab, sheet: 'actions', selectedPost: fixture, zhiyinSharePost: { ...fixture, id: 88 } })
+    const share = callback(file, '  const tabs =', { primaryTab, sheet: 'actions', selectedPost: fixture, zhiyinSharePost: { ...fixture, id: 88 }, postsByScene: { CITY: [{ ...fixture, id: 99 }] } })
     assert.equal(share({ from: 'button' }).path, `/pages/qianxun/post-detail?id=${primaryTab === 'FAMILY' ? 42 : 88}`)
+    assert.equal(share({ from: 'button', target: { dataset: { postId: 99 } } }).path, '/pages/qianxun/post-detail?id=99')
     assert.equal(share({ from: 'menu' }).path, '/pages/index/index')
   }
   assert.doesNotMatch(read('features/qianxun/QianxunZhiyinTab.tsx'), /useShareAppMessage/)

@@ -77,11 +77,13 @@ function harness(initialStatus) {
       if (id.startsWith('@/assets/')) return id
       if (id.startsWith('@/')) {
         const relative = id.slice(2)
-        return load(relative + (fs.existsSync(path.join(root, relative + '.tsx')) ? '.tsx' : '.ts'))
+        const extension = ['.tsx', '.ts', '.js'].find(value => fs.existsSync(path.join(root, relative + value)))
+        assert.ok(extension, `无法解析实际模块：${id}`)
+        return load(relative + extension)
       }
       return require(id)
     }
-    vm.runInNewContext('(function(require, module, exports) {' + compiled + '\n})', {}, { filename })(localRequire, module, module.exports)
+    vm.runInNewContext('(function(require, module, exports) {' + compiled + '\n})', { process: { env: { NODE_ENV: 'test' } } }, { filename })(localRequire, module, module.exports)
     cache.set(filename, module.exports)
     return module.exports
   }

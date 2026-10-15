@@ -21,6 +21,7 @@ import com.spacetime.miniapp.dto.request.CommunityPostCreateReq;
 import com.spacetime.miniapp.dto.request.CommunityReportCreateReq;
 import com.spacetime.miniapp.dto.response.*;
 import com.spacetime.miniapp.service.CommunityService;
+import com.spacetime.miniapp.service.WechatMiniappClient;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ChatReportEvidenceService;
 import com.spacetime.common.service.ProfileDictionaryService;
@@ -113,6 +114,7 @@ public class CommunityServiceImpl implements CommunityService {
     /** OSS 直传归属短期票据。 */
     private final StringRedisTemplate redisTemplate;
     private final Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
+    private final WechatMiniappClient wechatMiniappClient;
 
     @Override
     public CommunityTopicHomeVO getTopicHome(Long userId) {
@@ -640,9 +642,7 @@ public class CommunityServiceImpl implements CommunityService {
 
         AppUser author = requireUser(userId);
         boolean machineAuditEnabled = defaultBool(CommunityConfigKeys.MACHINE_AUDIT_ENABLED, true);
-        CommunitySecurityResult securityResult = machineAuditEnabled
-                ? contentSecurityPort.checkText(author.getOpenid(), req.getContent(), "community")
-                : CommunitySecurityResult.unavailable("machine_audit_disabled");
+        CommunitySecurityResult securityResult = checkCommentSecurity(author, req, machineAuditEnabled);
         CommunityAuditDecision decision = auditPolicy.decideComment(securityResult, machineAuditEnabled);
         if (decision.retryRequired()) {
             throw error(505010, "comment_retry");
@@ -689,6 +689,26 @@ public class CommunityServiceImpl implements CommunityService {
                 resolveStatusLabel("community_comment_status", entity.getStatus()),
                 copy("comment_" + entity.getStatus(), resolveStatusLabel("community_comment_status", entity.getStatus())),
                 post.getCommentCount());
+    }
+
+    private CommunitySecurityResult checkCommentSecurity(AppUser author, CommunityCommentCreateReq req,
+            boolean machineAuditEnabled) {
+        if (!machineAuditEnabled) return CommunitySecurityResult.unavailable("machine_audit_disabled");
+        String securityOpenId = author.getOpenid();
+        if (StrUtil.isNotBlank(req.getWechatLoginCode())) {
+            try {
+                // 使用本次微信会话审核，不重绑账号；会话异常仍交人工审核后才能公开。
+                WechatMiniappClient.SessionInfo session = wechatMiniappClient.code2Session(req.getWechatLoginCode());
+                if (session == null || StrUtil.isBlank(session.openid())) {
+                    return CommunitySecurityResult.unavailable("wechat_session_missing");
+                }
+                securityOpenId = session.openid();
+            } catch (BusinessException ex) {
+                log.warn("评论审核微信会话不可用，转人工审核：code={}", ex.getCode());
+                return CommunitySecurityResult.unavailable("wechat_session_unavailable");
+            }
+        }
+        return contentSecurityPort.checkText(securityOpenId, req.getContent(), "community");
     }
 
     /**
@@ -1108,7 +1128,7 @@ public class CommunityServiceImpl implements CommunityService {
         boolean blocked = relationBlockDao.selectActive(currentUserId, authorId, blockType) != null
                 || relationBlockDao.selectActive(authorId, currentUserId, blockType) != null;
         if (blocked) {
-            throw error("content_unavailable");
+            throw error(505021, "content_unavailable");
         }
     }
 
@@ -1224,11 +1244,13 @@ public class CommunityServiceImpl implements CommunityService {
         boolean fans = "fans".equalsIgnoreCase(relation) || "followers".equalsIgnoreCase(relation);
         int current = safePage(page);
         int limit = safeSize(size, 100);
+        List<Long> blockedIds = blockedAuthorIds(userId);
         Page<CommunityFollow> follows = communityFollowDao.selectPage(new Page<>(current, limit),
                 new LambdaQueryWrapper<CommunityFollow>()
                 .eq(fans, CommunityFollow::getTargetUserId, userId)
                 .eq(!fans, CommunityFollow::getFollowerId, userId)
                 .eq(CommunityFollow::getStatus, CommunityFollowStatusEnum.FOLLOW.getCode())
+                .notIn(!blockedIds.isEmpty(), fans ? CommunityFollow::getFollowerId : CommunityFollow::getTargetUserId, blockedIds)
                 .orderByDesc(CommunityFollow::getUpdateTime, CommunityFollow::getId));
         List<CommunityFollow> pageRecords = follows == null || follows.getRecords() == null
                 ? List.of() : follows.getRecords();
@@ -1541,6 +1563,9 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     private BusinessException error(String key) {
+        if ("content_not_found".equals(key) || "content_unavailable".equals(key)) {
+            return error(505020, key);
+        }
         return new BusinessException(message(key));
     }
 
@@ -2094,7 +2119,15 @@ public class CommunityServiceImpl implements CommunityService {
     /** 将与当前用户存在有效黑名单关系的作者排除在动态列表之外。 */
     private void excludeBlockedAuthors(Long userId, LambdaQueryWrapper<CommunityPost> wrapper) {
         if (userId == null) return;
-        List<Long> blockedAuthorIds = relationBlockDao.selectActiveInvolvingUser(
+        List<Long> blockedAuthorIds = blockedAuthorIds(userId);
+        if (!blockedAuthorIds.isEmpty()) {
+            wrapper.notIn(CommunityPost::getAuthorId, blockedAuthorIds);
+        }
+    }
+
+    private List<Long> blockedAuthorIds(Long userId) {
+        if (userId == null) return List.of();
+        return relationBlockDao.selectActiveInvolvingUser(
                         userId, RelationBlockTypeEnum.BLACKLIST.getCode())
                 .stream()
                 .map(block -> Objects.equals(userId, block.getUserId())
@@ -2103,9 +2136,6 @@ public class CommunityServiceImpl implements CommunityService {
                 .filter(authorId -> !Objects.equals(userId, authorId))
                 .distinct()
                 .toList();
-        if (!blockedAuthorIds.isEmpty()) {
-            wrapper.notIn(CommunityPost::getAuthorId, blockedAuthorIds);
-        }
     }
 
     /** 时空站台发布人必须是配置名单账号或启用的后台工作人员。 */

@@ -83,8 +83,7 @@ public class RelationUnlockServiceImpl implements RelationUnlockService {
         UserUnlockRecord existing = activeUnlock(
                 userId, req.getTargetBizType(), req.getTargetBizNo(), target.targetUserId());
         if (existing != null) {
-            CoinSceneConfig config = getEnabledScene(req.getScene());
-            return quoteResult(null, req, target.targetUserId(), config.getUnitPrice(), balance(asset), true, null);
+            return quoteResult(null, req, target.targetUserId(), 0, balance(asset), true, null);
         }
         requireSingleUnlockNeeded(asset);
         CoinSceneConfig config = getEnabledScene(req.getScene());
@@ -246,16 +245,7 @@ public class RelationUnlockServiceImpl implements RelationUnlockService {
 
     private UserUnlockRecord activeUnlock(
             Long userId, String targetBizType, String targetBizNo, Long targetUserId) {
-        if (VISIT_TYPE.equals(targetBizType)) {
-            return unlockRecordDao.selectActiveByTargetUser(userId, targetBizType, targetUserId);
-        }
-        return first(unlockRecordDao.selectList(new LambdaQueryWrapper<UserUnlockRecord>()
-                .eq(UserUnlockRecord::getUserId, userId)
-                .eq(UserUnlockRecord::getTargetBizType, targetBizType)
-                .eq(UserUnlockRecord::getTargetBizNo, targetBizNo)
-                .eq(UserUnlockRecord::getStatus, UnlockRecordStatusEnum.ACTIVE.getCode())
-                .eq(UserUnlockRecord::getActiveMarker, 1)
-                .last("LIMIT 1")));
+        return unlockRecordDao.selectActiveRelationByTargetUser(userId, targetUserId);
     }
 
     private UserUnlockRecord unlockByRequest(Long userId, String requestId) {
