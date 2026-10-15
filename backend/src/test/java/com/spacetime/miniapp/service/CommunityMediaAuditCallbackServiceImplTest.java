@@ -16,6 +16,8 @@ import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.miniapp.service.impl.CommunityMediaAuditCallbackServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -124,6 +126,36 @@ class CommunityMediaAuditCallbackServiceImplTest {
         assertThat(post.getStatus()).isEqualTo("deleted");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"pass", "risky"})
+    void manuallyApprovedPost_lateImageCallback_shouldRetainFinalStateAndMachineHistory(String result) throws Exception {
+        CommunityMediaAuditTask task = task("late-manual");
+        CommunityPost approved = post("community_post");
+        approved.setStatus("published");
+        approved.setAuditStatus("APPROVED");
+        approved.setMachineResult("review");
+        approved.setMachineCode("synthetic-original");
+        approved.setMachineDetail("synthetic uncertainty");
+        approved.setPublishedAt(java.time.LocalDateTime.of(2026, 10, 15, 12, 0));
+        when(extensionDao.selectMediaTaskOne(any())).thenReturn(task);
+        when(extensionDao.updateMediaTaskCas(any(), eq(0))).thenReturn(1);
+        when(extensionDao.selectMediaTasks(any())).thenAnswer(call -> List.of(task));
+        when(postDao.selectById(10L)).thenReturn(approved);
+
+        service.handle(signature("23", "manual"), "23", "manual", objectMapper.readTree(
+                "{\"trace_id\":\"late-manual\",\"result\":{\"suggest\":\"" + result + "\"}}"));
+
+        assertThat(approved.getStatus()).isEqualTo("published");
+        assertThat(approved.getAuditStatus()).isEqualTo("APPROVED");
+        assertThat(approved.getMachineResult()).isEqualTo("review");
+        assertThat(approved.getMachineCode()).isEqualTo("synthetic-original");
+        assertThat(approved.getMachineDetail()).isEqualTo("synthetic uncertainty");
+        assertThat(approved.getPublishedAt()).isEqualTo(java.time.LocalDateTime.of(2026, 10, 15, 12, 0));
+        verify(postDao, never()).updateCas(any(), anyInt());
+        verify(extensionDao, never()).insertAudit(any());
+        verify(extensionDao, never()).insertOutbox(any());
+    }
+
     @Test
     void deleteWinsWhenCallbackReadPendingBeforeDeleteCommitted() throws Exception {
         CommunityMediaAuditTask task = task("delete-race");
@@ -152,7 +184,7 @@ class CommunityMediaAuditCallbackServiceImplTest {
     }
 
     @Test
-    void allImagesPass_shouldKeepSincerePostPendingManual() throws Exception {
+    void allImagesPass_shouldPublishAuthorizedSincerePostWithoutSampling() throws Exception {
         CommunityMediaAuditTask task = task("t3");
         CommunityPost post = post("sincere_post");
         when(extensionDao.selectMediaTaskOne(any())).thenReturn(task);
@@ -164,7 +196,8 @@ class CommunityMediaAuditCallbackServiceImplTest {
         service.handle(signature("3", "z"), "3", "z",
                 objectMapper.readTree("{\"trace_id\":\"t3\",\"result\":{\"suggest\":\"pass\"}}"));
 
-        verify(postDao).updateCas(argThat(value -> "pending_manual".equals(value.getStatus())), eq(0));
+        verify(postDao).updateCas(argThat(value -> "published".equals(value.getStatus())
+                && Integer.valueOf(0).equals(value.getSampleRequired())), eq(0));
     }
 
     @Test

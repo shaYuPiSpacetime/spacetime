@@ -657,7 +657,9 @@ public class CommunityServiceImpl implements CommunityService {
         entity.setContent(StrUtil.trim(req.getContent()));
         entity.setStatus(decision.status());
         entity.setAuditStatus("published".equals(decision.status())
-                ? CommunityAuditStatusEnum.APPROVED.getCode() : CommunityAuditStatusEnum.REJECTED.getCode());
+                ? CommunityAuditStatusEnum.APPROVED.getCode()
+                : "rejected".equals(decision.status()) ? CommunityAuditStatusEnum.REJECTED.getCode()
+                : CommunityAuditStatusEnum.PENDING.getCode());
         entity.setMachineResult(decision.machineConclusion());
         entity.setMachineCode(persistableProviderCode(decision.machineCode()));
         entity.setMachineDetail(decision.detail());
@@ -672,6 +674,9 @@ public class CommunityServiceImpl implements CommunityService {
 
         // 4. 更新内容评论计数
         if ("published".equals(entity.getStatus())) {
+            // 对同一动态的发布、人工通过和删除统一串行化，避免跨评论并发整值覆盖。
+            post = communityPostDao.selectByIdForUpdate(post.getId());
+            if (post == null) throw error("content_not_found");
             post.setCommentCount((post.getCommentCount() == null ? 0 : post.getCommentCount()) + 1);
             communityPostDao.updateById(post);
             writeOutbox("comment_created", "comment", entity.getCommentNo(), 0,
@@ -704,15 +709,23 @@ public class CommunityServiceImpl implements CommunityService {
         if (CommunityPostStatusEnum.DELETED.getCode().equals(comment.getStatus())) {
             return;
         }
-        // 3. 软删除评论
+        // 3. 以读取版本 CAS 删除，避免旧待审快照覆盖并发人工通过后的状态。
+        boolean wasPublished = CommunityPostStatusEnum.PUBLISHED.getCode().equals(comment.getStatus());
+        int expectedVersion = comment.getVersion() == null ? 0 : comment.getVersion();
         comment.setStatus(CommunityPostStatusEnum.DELETED.getCode());
-        communityCommentDao.updateById(comment);
+        if (communityCommentDao.updateCas(comment, expectedVersion) != 1) {
+            throw error("version_conflict");
+        }
+        comment.setVersion(expectedVersion + 1);
 
-        // 4. 更新内容评论计数
-        CommunityPost post = requirePost(comment.getPostId());
-        int count = post.getCommentCount() == null ? 0 : post.getCommentCount();
-        post.setCommentCount(Math.max(0, count - 1));
-        communityPostDao.updateById(post);
+        // 4. 只有原公开评论占用公开计数；待审、驳回或屏蔽评论删除不扣数。
+        if (wasPublished) {
+            CommunityPost post = communityPostDao.selectByIdForUpdate(comment.getPostId());
+            if (post == null) throw error("content_not_found");
+            int count = post.getCommentCount() == null ? 0 : post.getCommentCount();
+            post.setCommentCount(Math.max(0, count - 1));
+            communityPostDao.updateById(post);
+        }
         log.info("Community comment deleted: userId={}, commentId={}", userId, commentId);
     }
 

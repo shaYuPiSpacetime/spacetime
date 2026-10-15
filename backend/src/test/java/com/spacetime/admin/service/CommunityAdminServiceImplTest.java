@@ -18,6 +18,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.ArgumentCaptor;
@@ -148,13 +150,141 @@ class CommunityAdminServiceImplTest {
         CommunityCommentAuditReq req = new CommunityCommentAuditReq();
         req.setAuditStatus("REJECTED");
         req.setAuditRemark("违规");
+        comment.setVersion(0);
 
         when(communityCommentDao.selectById(200L)).thenReturn(comment);
+        when(communityCommentDao.updateCas(any(), eq(0))).thenReturn(1);
 
         communityAdminService.auditComment(200L, req);
 
-        verify(communityCommentDao).updateById(argThat(item ->
-                "REJECTED".equals(item.getAuditStatus()) && "rejected".equals(item.getStatus())));
+        verify(communityCommentDao).updateCas(argThat(item ->
+                "REJECTED".equals(item.getAuditStatus()) && "rejected".equals(item.getStatus())
+                        && "违规".equals(item.getAuditRemark())), eq(0));
+        verify(communityCommentDao, never()).updateById(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void approvePendingComment_shouldPublishOnceWithCountAndMachineHistory(boolean legacy) {
+        preparePendingComment();
+        when(communityPostDao.selectByIdForUpdate(100L)).thenReturn(post);
+        post.setCommentCount(7);
+        LocalDateTime machineTime = comment.getMachineCheckedAt();
+        when(communityCommentDao.updateCas(any(), eq(4))).thenAnswer(call -> {
+            CommunityComment saved = call.getArgument(0);
+            saved.setVersion(5);
+            return 1;
+        });
+
+        approveComment(legacy, 4);
+
+        assertThat(comment.getStatus()).isEqualTo("published");
+        assertThat(comment.getAuditStatus()).isEqualTo("APPROVED");
+        assertThat(comment.getPublishedAt()).isNotNull();
+        assertThat(comment.getAuditRemark()).isEqualTo("人工确认正常");
+        assertThat(comment.getMachineResult()).isEqualTo("unavailable");
+        assertThat(comment.getMachineCode()).isEqualTo("synthetic-timeout");
+        assertThat(comment.getMachineDetail()).isEqualTo("synthetic outage");
+        assertThat(comment.getMachineCheckedAt()).isEqualTo(machineTime);
+        assertThat(post.getCommentCount()).isEqualTo(8);
+        verify(communityCommentDao).updateCas(any(), eq(4));
+        verify(communityPostDao).selectByIdForUpdate(100L);
+        verify(communityPostDao).updateById(post);
+        verify(communityExtensionDao).insertAudit(argThat(row -> "published".equals(row.getAfterSnapshot())
+                && "pending".equals(row.getBeforeSnapshot())
+                && "人工确认正常".equals(row.getReason())));
+        verify(communityCommentDao, never()).updateById(any());
+
+        assertThatThrownBy(() -> approveComment(legacy, 5)).isInstanceOf(BusinessException.class)
+                .hasMessage("invalid_status_transition");
+        assertThatThrownBy(() -> approveComment(false, 4)).isInstanceOf(BusinessException.class)
+                .hasMessage("version_conflict");
+        verify(communityCommentDao, times(1)).updateCas(any(), anyInt());
+        verify(communityPostDao, times(1)).updateById(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void approvePendingComment_casRace_shouldNotCountOrAudit(boolean legacy) {
+        preparePendingComment();
+        when(communityCommentDao.updateCas(any(), eq(4))).thenReturn(0);
+
+        assertThatThrownBy(() -> approveComment(legacy, 4)).isInstanceOf(BusinessException.class)
+                .hasMessage("version_conflict");
+
+        verify(communityPostDao, never()).updateById(any());
+        verify(communityExtensionDao, never()).insertAudit(any());
+        verify(communityExtensionDao, never()).insertOutbox(any());
+        verify(communityCommentDao, never()).updateById(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void approveGenuineRejectedComment_shouldNotOverrideMachineRejection(boolean legacy) {
+        preparePendingComment();
+        comment.setStatus("rejected");
+        comment.setAuditStatus("REJECTED");
+        comment.setMachineResult("reject");
+
+        assertThatThrownBy(() -> approveComment(legacy, 4)).isInstanceOf(BusinessException.class)
+                .hasMessage("invalid_status_transition");
+
+        verify(communityCommentDao, never()).updateCas(any(), anyInt());
+        verify(communityCommentDao, never()).updateById(any());
+        verifyNoInteractions(communityPostDao, communityExtensionDao);
+    }
+
+    @Test
+    void legacyCommentAudit_shouldRejectPendingAsAnAuditDecision() {
+        preparePendingComment();
+        CommunityCommentAuditReq request = new CommunityCommentAuditReq();
+        request.setAuditStatus("PENDING");
+
+        assertThatThrownBy(() -> communityAdminService.auditComment(200L, request))
+                .isInstanceOf(BusinessException.class).hasMessage("unsupported_audit_status");
+
+        verify(communityCommentDao, never()).updateCas(any(), anyInt());
+        verify(communityCommentDao, never()).updateById(any());
+    }
+
+    @Test
+    void commentStats_shouldIncludeManualPendingComments() {
+        comment.setStatus("pending");
+        CommunityComment machinePending = new CommunityComment();
+        machinePending.setStatus("pending_machine");
+        when(communityCommentDao.selectList(any())).thenReturn(List.of(comment, machinePending));
+
+        assertThat(communityAdminService.getCommentStats().getCards()).anySatisfy(card -> {
+            assertThat(card.getCode()).isEqualTo("pending");
+            assertThat(card.getValue()).isEqualTo(2L);
+        });
+    }
+
+    private void preparePendingComment() {
+        comment.setCommentNo("CMT-SYNTHETIC-200");
+        comment.setStatus("pending");
+        comment.setAuditStatus("PENDING");
+        comment.setVersion(4);
+        comment.setMachineResult("unavailable");
+        comment.setMachineCode("synthetic-timeout");
+        comment.setMachineDetail("synthetic outage");
+        comment.setMachineCheckedAt(LocalDateTime.of(2026, 10, 15, 12, 0));
+        when(communityCommentDao.selectById(200L)).thenReturn(comment);
+    }
+
+    private void approveComment(boolean legacy, int version) {
+        if (legacy) {
+            CommunityCommentAuditReq request = new CommunityCommentAuditReq();
+            request.setAuditStatus("APPROVED");
+            request.setAuditRemark("人工确认正常");
+            communityAdminService.auditComment(200L, request);
+        } else {
+            CommunityStatusCommandReq request = new CommunityStatusCommandReq();
+            request.setVersion(version);
+            request.setAction("approve");
+            request.setReason("人工确认正常");
+            communityAdminService.updateCommentStatus(200L, request);
+        }
     }
 
     @Test
@@ -988,11 +1118,12 @@ class CommunityAdminServiceImplTest {
         CommunityPost parent = new CommunityPost();
         parent.setId(100L);
         parent.setCommentCount(2);
-        when(communityPostDao.selectById(100L)).thenReturn(parent);
+        when(communityPostDao.selectByIdForUpdate(100L)).thenReturn(parent);
 
         communityAdminService.updateCommentStatus(200L, req);
 
         assertThat(comment.getStatus()).isEqualTo("rejected");
+        verify(communityPostDao).selectByIdForUpdate(100L);
         verify(communityPostDao).updateById(argThat(value -> value.getCommentCount() == 1));
     }
 

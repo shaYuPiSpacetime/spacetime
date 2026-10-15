@@ -29,6 +29,8 @@ import {
 import { findConversationByPeerUserId } from '@/services/message'
 import { cancelRelationLike, sendRelationLike } from '@/services/relation'
 import { useAuthStore } from '@/stores/authStore'
+import { getMessageAuthSessionVersion } from '@/domain/messageLifecycle'
+import { openPrivateChat } from '@/utils/privateChatNavigation'
 import { publishRecommendBadge } from '@/stores/recommendBadgeStore'
 
 type RecommendTab = 'recommend' | 'ideal'
@@ -81,7 +83,9 @@ export default function RecommendPage() {
   const candidateRequestGenerationRef = useRef(0)
   const retryCandidateCursorRef = useRef<string | null>(null)
   const pageVisibleRef = useRef(true)
+  const pageGenerationRef = useRef(0)
   const profileOpeningRef = useRef(false)
+  const conversationOpeningRef = useRef(false)
   const currentViewTaskRef = useRef<{
     candidateNo: string
     task: Promise<boolean>
@@ -291,6 +295,7 @@ export default function RecommendPage() {
 
   useDidHide(() => {
     pageVisibleRef.current = false
+    pageGenerationRef.current += 1
     setPageVisible(false)
   })
 
@@ -584,17 +589,28 @@ export default function RecommendPage() {
   }
 
   const openConversation = async () => {
-    if (!candidate) return
+    if (!candidate || conversationOpeningRef.current) return
     const profile = candidate.profile
     if (candidate.communicationMode === 'PRIVATE_MESSAGE') {
-      const conversation = await findConversationByPeerUserId(candidate.userId)
-      if (!conversation) {
-        await Taro.showToast({ title: '私信会话暂不可用，请刷新后重试', icon: 'none' })
-        return
+      const sessionVersion = getMessageAuthSessionVersion()
+      const sourceGeneration = pageGenerationRef.current
+      conversationOpeningRef.current = true
+      try {
+        const conversation = await findConversationByPeerUserId(candidate.userId)
+        if (!pageVisibleRef.current || sourceGeneration !== pageGenerationRef.current
+          || sessionVersion !== getMessageAuthSessionVersion()) return
+        if (!conversation) {
+          await Taro.showToast({ title: '私信会话暂不可用，请刷新后重试', icon: 'none' })
+          return
+        }
+        await openPrivateChat(conversation.conversationNo, sessionVersion)
+      } catch (error) {
+        if (!pageVisibleRef.current || sourceGeneration !== pageGenerationRef.current
+          || sessionVersion !== getMessageAuthSessionVersion()) return
+        await Taro.showToast({ title: error instanceof Error ? error.message : '私信会话暂不可用，请刷新后重试', icon: 'none' })
+      } finally {
+        conversationOpeningRef.current = false
       }
-      await Taro.navigateTo({
-        url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}`,
-      })
       return
     }
     setWhisperTarget({

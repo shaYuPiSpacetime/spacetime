@@ -23,6 +23,7 @@ const INITIAL_QUERY: CommentQuery = { page: 1, size: DEFAULT_PAGE_SIZE, keyword:
 
 function commentActionAllowed(status: string | undefined, action: string) {
   const allowed: Record<string, string[]> = {
+    pending: ['published', 'rejected', 'blocked', 'warn_user', 'mute_user'],
     pending_machine: ['published', 'rejected', 'blocked', 'warn_user', 'mute_user'],
     published: ['rejected', 'blocked', 'warn_user', 'mute_user'],
     blocked: ['published', 'warn_user', 'mute_user'],
@@ -95,7 +96,10 @@ export default function CommunityCommentAuditPage() {
       showToast(metaCopy(meta, 'comment_action_success'), 'success');
       setConfirmOpen(false);
       setDrawerOpen(false);
-      await list.load();
+      await Promise.all([
+        list.load(),
+        getCommunityCommentStats().then((response) => setStats(normalizeStats(response, meta, 'comment_stat'))),
+      ]);
     } catch (cause) {
       if (cause instanceof Error && /version|版本|conflict/i.test(cause.message)) showToast(metaCopy(meta, 'version_conflict'), 'error');
     } finally {
@@ -159,7 +163,7 @@ export default function CommunityCommentAuditPage() {
 
       <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="评论详情" description={metaCopy(meta, 'comment_detail_description')} footer={canHandleCurrent ? <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDrawerOpen(false)}>关闭</Button><Button onClick={requestSubmit} disabled={saving || detailLoading}>确认处理</Button></div> : undefined}>
         {detailLoading || !current ? <div className="py-20 text-center text-sm text-slate-400">加载中</div> : <div className="space-y-4">
-          <DetailGrid items={[{ label: '评论 ID', value: current.commentNo || current.id }, { label: '归属内容', value: hasPostContext(current) ? `${postTypeLabel(current)} / ${current.postNo}` : '内容已变化' }, { label: '用户', value: `${current.authorNo || current.authorId} / ${current.authorName || '-'}` }, { label: '点赞 / 举报', value: `${current.likeCount ?? 0} / ${current.reportCount ?? 0}` }, { label: '当前状态', value: statusPill(meta, 'commentStatus', current.status, current.statusName) }, { label: '机审结果', value: metaLabel(meta, 'machineResult', current.machineResult) }]} />
+          <DetailGrid items={[{ label: '评论 ID', value: current.commentNo || current.id }, { label: '归属内容', value: hasPostContext(current) ? `${postTypeLabel(current)} / ${current.postNo}` : '内容已变化' }, { label: '用户', value: `${current.authorNo || current.authorId} / ${current.authorName || '-'}` }, { label: '点赞 / 举报', value: `${current.likeCount ?? 0} / ${current.reportCount ?? 0}` }, { label: '当前状态', value: statusPill(meta, 'commentStatus', current.status, current.statusName) }, { label: '机审历史结论', value: metaLabel(meta, 'machineResult', current.machineResult) }]} />
           <DetailSection title="评论内容"><p className="whitespace-pre-wrap">{current.content}</p>{current.parentContent && <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">{current.parentContent}</div>}</DetailSection>
           <DetailSection title={hasPostContext(current) && current.postType === 'sincere_post' ? '所属时空站台' : '所属动态'}>
             {hasPostContext(current) ? <div className="space-y-3">

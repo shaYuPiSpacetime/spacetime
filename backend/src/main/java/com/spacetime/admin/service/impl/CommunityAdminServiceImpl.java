@@ -170,7 +170,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         List<CommunityComment> values = communityCommentDao.selectList(new LambdaQueryWrapper<>());
         return stats(List.of(
                 stat("total", message("stat_comment_total"), values.size(), "default"),
-                stat("pending", message("stat_comment_pending"), countCommentStatus(values, "pending_machine"), "warning"),
+                stat("pending", message("stat_comment_pending"), countCommentStatus(values, "pending", "pending_machine"), "warning"),
                 stat("published", message("stat_comment_published"), countCommentStatus(values, "published"), "success"),
                 stat("blocked", message("stat_comment_blocked"), countCommentStatus(values, "blocked", "rejected"), "danger")
         ));
@@ -205,6 +205,7 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         validateContentTransition(before, target, true, false);
         entity.setStatus(target);
         applyAuditStatus(entity, target);
+        entity.setAuditRemark(StrUtil.blankToDefault(StrUtil.trim(req.getReason()), null));
         if (communityCommentDao.updateCas(entity, req.getVersion()) != 1) throw versionConflict();
         syncPostCommentCount(entity.getPostId(), before, target);
         writeAudit("comment", entity.getCommentNo(), entity.getId(), req.getAction(), before, entity.getStatus(), req.getReason());
@@ -604,17 +605,16 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     public void auditComment(Long id, CommunityCommentAuditReq req) {
         CommunityComment comment = requireComment(id);
         CommunityAuditStatusEnum auditStatus = CommunityAuditStatusEnum.getByCode(req.getAuditStatus());
-        if (auditStatus == null) {
+        if (auditStatus != CommunityAuditStatusEnum.APPROVED
+                && auditStatus != CommunityAuditStatusEnum.REJECTED) {
             throw error("unsupported_audit_status");
         }
-        // 设置审核信息
-        comment.setAuditStatus(auditStatus.getCode());
-        comment.setAuditRemark(StrUtil.blankToDefault(StrUtil.trim(req.getAuditRemark()), null));
-        // 根据审核结果更新发布状态：通过→已发布，驳回→已拒绝
-        comment.setStatus(CommunityAuditStatusEnum.APPROVED.equals(auditStatus)
-                ? CommunityPostStatusEnum.PUBLISHED.getCode()
-                : CommunityPostStatusEnum.REJECTED.getCode());
-        communityCommentDao.updateById(comment);
+        // 旧审核入口复用统一状态命令，确保 CAS、发布时间和公开计数一致。
+        CommunityStatusCommandReq command = new CommunityStatusCommandReq();
+        command.setVersion(Objects.requireNonNullElse(comment.getVersion(), 0));
+        command.setAction(auditStatus == CommunityAuditStatusEnum.APPROVED ? "published" : "rejected");
+        command.setReason(req.getAuditRemark());
+        updateCommentStatus(id, command);
         // 记录操作日志
         writeLog("COMMUNITY_COMMENT", comment.getId(), "AUDIT", null, auditStatus.getCode());
         log.info("Community comment audited: commentId={}, auditStatus={}", id, auditStatus.getCode());
@@ -919,6 +919,10 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
             throw error("invalid_status_transition");
         }
         Map<String, Set<String>> allowed = comment ? Map.of(
+                "pending", Set.of(
+                        CommunityPostStatusEnum.PUBLISHED.getCode(),
+                        CommunityPostStatusEnum.REJECTED.getCode(),
+                        CommunityPostStatusEnum.BLOCKED.getCode()),
                 CommunityPostStatusEnum.PENDING.getCode(), Set.of(
                         CommunityPostStatusEnum.PUBLISHED.getCode(),
                         CommunityPostStatusEnum.REJECTED.getCode(),
@@ -968,7 +972,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
         boolean wasPublished = CommunityPostStatusEnum.PUBLISHED.getCode().equals(beforeStatus);
         boolean isPublished = CommunityPostStatusEnum.PUBLISHED.getCode().equals(afterStatus);
         if (postId == null || wasPublished == isPublished) return;
-        CommunityPost post = communityPostDao.selectById(postId);
+        // 与评论创建、删除共用帖子行锁，避免不同评论并发审批时丢失计数增减。
+        CommunityPost post = communityPostDao.selectByIdForUpdate(postId);
         if (post == null) return;
         int current = Optional.ofNullable(post.getCommentCount()).orElse(0);
         post.setCommentCount(Math.max(0, current + (isPublished ? 1 : -1)));

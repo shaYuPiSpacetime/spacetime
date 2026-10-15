@@ -27,6 +27,8 @@ import com.spacetime.common.util.OssUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.ArgumentCaptor;
@@ -813,14 +815,225 @@ class CommunityServiceImplTest {
 
         when(appUserDao.selectById(1L)).thenReturn(user);
         when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(communityPostDao.selectByIdForUpdate(100L)).thenReturn(post);
 
         when(contentSecurityPort.checkText(any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
 
         CommunityCommentResultVO result = communityService.createComment(1L, req);
 
         assertThat(result.getStatus()).isEqualTo("published");
-        verify(communityCommentDao).insert(any());
+        verify(communityCommentDao).insert(argThat(row -> "APPROVED".equals(row.getAuditStatus())
+                && "pass".equals(row.getMachineResult()) && row.getPublishedAt() != null));
+        verify(communityPostDao).selectByIdForUpdate(100L);
         verify(communityPostDao).updateById(argThat(item -> item.getCommentCount() == 1));
+        verify(communityExtensionDao).insertOutbox(argThat(event -> "comment_created".equals(event.getEventType())));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"review", "unavailable", "null", "disabled"})
+    void createComment_uncertainMachineResult_shouldPersistManualQueueWithoutPublicSideEffects(String scenario) {
+        CommunityCommentCreateReq req = new CommunityCommentCreateReq();
+        req.setPostId(100L);
+        req.setContent(" synthetic comment ");
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        CommunitySecurityResult machineResult = switch (scenario) {
+            case "review" -> new CommunitySecurityResult(CommunitySecurityConclusion.REVIEW,
+                    "synthetic-review", "synthetic uncertainty", "{\"fixture\":true}");
+            case "unavailable" -> new CommunitySecurityResult(CommunitySecurityConclusion.UNAVAILABLE,
+                    "synthetic-timeout", "synthetic outage", "{\"fixture\":true}");
+            case "disabled" -> CommunitySecurityResult.unavailable("machine_audit_disabled");
+            default -> null;
+        };
+        if ("disabled".equals(scenario)) {
+            runtimeConfigs = Map.of(CommunityConfigKeys.INTERACTION_GATE_MODE, "LOGIN_ONLY",
+                    CommunityConfigKeys.MACHINE_AUDIT_ENABLED, "false");
+        } else {
+            when(contentSecurityPort.checkText(any(), any(), any())).thenReturn(machineResult);
+        }
+        SysDictData pendingLabel = new SysDictData();
+        pendingLabel.setDictValue("pending");
+        pendingLabel.setDictLabel("待人工审核");
+        when(dictDataDao.selectByDictType("community_comment_status")).thenReturn(List.of(pendingLabel));
+        runtimeConfigs = new java.util.HashMap<>(runtimeConfigs);
+        runtimeConfigs.put("community.copy.comment_pending", "评论已提交，等待人工审核");
+        doAnswer(call -> { CommunityComment saved = call.getArgument(0); saved.setId(201L); return null; })
+                .when(communityCommentDao).insert(any());
+
+        CommunityCommentResultVO result = communityService.createComment(1L, req);
+
+        String expectedDetail = machineResult == null ? "empty_result" : machineResult.detail();
+        String expectedConclusion = "review".equals(scenario) ? "review" : "unavailable";
+        ArgumentCaptor<CommunityComment> saved = ArgumentCaptor.forClass(CommunityComment.class);
+        verify(communityCommentDao).insert(saved.capture());
+        assertThat(saved.getValue().getStatus()).isEqualTo("pending");
+        assertThat(saved.getValue().getAuditStatus()).isEqualTo("PENDING");
+        assertThat(saved.getValue().getPublishedAt()).isNull();
+        assertThat(saved.getValue().getMachineResult()).isEqualTo(expectedConclusion);
+        assertThat(saved.getValue().getMachineCode()).isEqualTo(machineResult == null ? null : machineResult.providerCode());
+        assertThat(saved.getValue().getMachineDetail()).isEqualTo(expectedDetail);
+        assertThat(saved.getValue().getMachineCheckedAt()).isNotNull();
+        assertThat(saved.getValue().getVersion()).isZero();
+        assertThat(saved.getValue().getContent()).isEqualTo("synthetic comment");
+        assertThat(result.getStatus()).isEqualTo("pending");
+        assertThat(result.getStatusName()).isEqualTo("待人工审核");
+        assertThat(result.getMessage()).isEqualTo("评论已提交，等待人工审核");
+        assertThat(result.getCommentCount()).isZero();
+        verify(communityExtensionDao).insertAudit(argThat(row -> "machine_audit".equals(row.getAction())
+                && expectedConclusion.equals(row.getResult()) && expectedDetail.equals(row.getReason())
+                && java.util.Objects.equals(row.getAfterSnapshot(), machineResult == null ? null : machineResult.evidenceJson())));
+        verify(communityPostDao, never()).updateById(any());
+        verify(communityExtensionDao, never()).insertOutbox(any());
+        if ("disabled".equals(scenario)) verifyNoInteractions(contentSecurityPort);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void syntheticCommentSubmissionToManualApproval_shouldBecomePublicExactlyOnce(boolean legacy) {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(communityPostDao.selectById(100L)).thenReturn(post);
+        when(contentSecurityPort.checkText(any(), any(), any())).thenReturn(new CommunitySecurityResult(
+                CommunitySecurityConclusion.UNAVAILABLE, "synthetic-timeout", "synthetic outage", "{\"fixture\":true}"));
+        var stored = new java.util.concurrent.atomic.AtomicReference<CommunityComment>();
+        doAnswer(call -> {
+            CommunityComment row = call.getArgument(0);
+            row.setId(201L);
+            stored.set(row);
+            return null;
+        }).when(communityCommentDao).insert(any());
+        when(communityCommentDao.selectById(201L)).thenAnswer(call -> stored.get());
+        when(communityCommentDao.selectPage(any(), any())).thenAnswer(call -> {
+            LambdaQueryWrapper<CommunityComment> query = call.getArgument(1);
+            assertThat(query.getSqlSegment()).contains("status =");
+            assertThat(query.getParamNameValuePairs()).containsValue("published").doesNotContainValue("pending");
+            Page<CommunityComment> page = call.getArgument(0);
+            page.setRecords("published".equals(stored.get().getStatus()) ? List.of(stored.get()) : List.of());
+            page.setTotal(page.getRecords().size());
+            return page;
+        });
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), CommunityComment.class);
+        CommunityCommentCreateReq create = new CommunityCommentCreateReq();
+        create.setPostId(100L);
+        create.setContent("synthetic chain fixture");
+
+        assertThat(communityService.createComment(1L, create).getStatus()).isEqualTo("pending");
+        assertThat(communityService.getComments(null, "100", 1, 20).getRecords()).isEmpty();
+        assertThat(post.getCommentCount()).isZero();
+        verify(communityExtensionDao, never()).insertOutbox(any());
+        var admin = new com.spacetime.admin.service.impl.CommunityAdminServiceImpl(communityPostDao,
+                communityCommentDao, communityReportDao, appConfigDao, mobileEntryConfigDao, dictDataDao,
+                userDao, appUserDao, mock(ContentOperationLogDao.class), communityExtensionDao,
+                mock(com.spacetime.admin.service.AppUserAdminService.class), ossUtil, new com.fasterxml.jackson.databind.ObjectMapper());
+        when(communityPostDao.selectByIdForUpdate(100L)).thenReturn(post);
+        when(communityCommentDao.updateCas(any(), eq(0))).thenAnswer(call -> {
+            stored.get().setVersion(1);
+            return 1;
+        });
+        if (legacy) {
+            var request = new com.spacetime.admin.dto.request.CommunityCommentAuditReq();
+            request.setAuditStatus("APPROVED");
+            request.setAuditRemark("synthetic manual approval");
+            admin.auditComment(201L, request);
+        } else {
+            var request = new com.spacetime.admin.dto.request.CommunityStatusCommandReq();
+            request.setVersion(0);
+            request.setAction("approve");
+            request.setReason("synthetic manual approval");
+            admin.updateCommentStatus(201L, request);
+        }
+
+        assertThat(stored.get().getAuditStatus()).isEqualTo("APPROVED");
+        assertThat(stored.get().getPublishedAt()).isNotNull();
+        assertThat(stored.get().getMachineResult()).isEqualTo("unavailable");
+        assertThat(stored.get().getMachineCode()).isEqualTo("synthetic-timeout");
+        assertThat(stored.get().getMachineDetail()).isEqualTo("synthetic outage");
+        assertThat(post.getCommentCount()).isEqualTo(1);
+        assertThat(communityService.getComments(null, "100", 1, 20).getRecords())
+                .extracting(CommunityCommentVO::getId).containsExactly(201L);
+        verify(communityCommentDao, times(1)).updateCas(any(), anyInt());
+        verify(communityPostDao, times(1)).updateById(any());
+        verify(communityExtensionDao, times(2)).insertAudit(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"pending", "pending_machine", "rejected", "blocked"})
+    void deleteComment_nonpublic_shouldLeavePublicCountAndOutboxUnchanged(String status) {
+        CommunityComment comment = syntheticCommentForDeletion(status, 3);
+        when(communityCommentDao.selectById(201L)).thenReturn(comment);
+        when(communityCommentDao.updateCas(any(), eq(3))).thenReturn(1);
+        post.setCommentCount(7);
+        lenient().when(communityPostDao.selectById(100L)).thenReturn(post);
+
+        communityService.deleteComment(1L, "201");
+
+        assertThat(comment.getStatus()).isEqualTo("deleted");
+        assertThat(post.getCommentCount()).isEqualTo(7);
+        verify(communityCommentDao).updateCas(argThat(row -> "deleted".equals(row.getStatus())), eq(3));
+        verify(communityCommentDao, never()).updateById(any());
+        verify(communityPostDao, never()).updateById(any());
+        verify(communityExtensionDao, never()).insertOutbox(any());
+    }
+
+    @Test
+    void deleteComment_published_shouldDecrementPublicCountExactlyOnce() {
+        CommunityComment comment = syntheticCommentForDeletion("published", 3);
+        when(communityCommentDao.selectById(201L)).thenReturn(comment);
+        when(communityCommentDao.updateCas(any(), eq(3))).thenReturn(1);
+        post.setCommentCount(7);
+        when(communityPostDao.selectByIdForUpdate(100L)).thenReturn(post);
+
+        communityService.deleteComment(1L, "201");
+        communityService.deleteComment(1L, "201");
+
+        assertThat(comment.getStatus()).isEqualTo("deleted");
+        assertThat(post.getCommentCount()).isEqualTo(6);
+        verify(communityCommentDao, times(1)).updateCas(any(), eq(3));
+        verify(communityCommentDao, never()).updateById(any());
+        verify(communityPostDao, times(1)).selectByIdForUpdate(100L);
+        verify(communityPostDao, times(1)).updateById(post);
+        verify(communityExtensionDao, never()).insertOutbox(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"pending", "published"})
+    void deleteComment_staleCasAfterConcurrentApproval_shouldNotOverwriteOrAdjustCount(String staleStatus) {
+        CommunityComment staleRead = syntheticCommentForDeletion(staleStatus, 3);
+        CommunityComment approved = syntheticCommentForDeletion("published", 4);
+        approved.setAuditStatus("APPROVED");
+        var committed = new java.util.concurrent.atomic.AtomicReference<>(approved);
+        when(communityCommentDao.selectById(201L)).thenReturn(staleRead);
+        when(communityCommentDao.updateCas(any(), eq(3))).thenAnswer(call -> {
+            assertThat(committed.get().getVersion()).isEqualTo(4);
+            return 0;
+        });
+        lenient().doAnswer(call -> { committed.set(call.getArgument(0)); return null; })
+                .when(communityCommentDao).updateById(any());
+        post.setCommentCount(7);
+        lenient().when(communityPostDao.selectById(100L)).thenReturn(post);
+
+        assertThatThrownBy(() -> communityService.deleteComment(1L, "201"))
+                .isInstanceOf(BusinessException.class).hasMessage("version_conflict");
+
+        assertThat(committed.get().getStatus()).isEqualTo("published");
+        assertThat(committed.get().getAuditStatus()).isEqualTo("APPROVED");
+        assertThat(committed.get().getVersion()).isEqualTo(4);
+        assertThat(post.getCommentCount()).isEqualTo(7);
+        verify(communityCommentDao).updateCas(any(), eq(3));
+        verify(communityCommentDao, never()).updateById(any());
+        verify(communityPostDao, never()).updateById(any());
+        verify(communityExtensionDao, never()).insertOutbox(any());
+    }
+
+    private CommunityComment syntheticCommentForDeletion(String status, int version) {
+        CommunityComment comment = new CommunityComment();
+        comment.setId(201L);
+        comment.setCommentNo("CMT-SYNTHETIC-DELETE-201");
+        comment.setAuthorId(1L);
+        comment.setPostId(100L);
+        comment.setStatus(status);
+        comment.setAuditStatus("PENDING");
+        comment.setVersion(version);
+        return comment;
     }
 
     @Test

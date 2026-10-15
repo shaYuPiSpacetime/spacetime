@@ -2,7 +2,7 @@ import MatchPopupHost from '@/components/MatchPopupHost'
 import { shareMessage } from '@/utils/shareMessage'
 import { profileShare } from '@/domain/sharePresentation'
 import { Image, Text, View } from '@tarojs/components'
-import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ProfilePreviewPage, { type ProfilePreviewModel } from '@/pages/profile/components/ProfilePreviewPage'
 import NativeNavigation from '@/components/NativeNavigation'
@@ -10,7 +10,8 @@ import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
 import UnverifiedCertificationModal from '@/components/UnverifiedCertificationModal'
 import WhisperComposeSheet, { type WhisperComposeTarget } from '@/components/WhisperComposeSheet'
 import { resolveReplayProfileStep } from '@/domain/recommendReplay'
-import { shouldReturnToPreviousPrivateChat } from '@/domain/messageRuntime'
+import { getMessageAuthSessionVersion } from '@/domain/messageLifecycle'
+import { openPrivateChat } from '@/utils/privateChatNavigation'
 import { resolveWhisperRouteSourceScene } from '@/domain/whisperRuntime'
 import { buildPublicProfileCertifications } from '@/domain/publicProfileCertification'
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
@@ -78,6 +79,17 @@ export default function HeartUserPage() {
   const access = useAccessStatus('canMatch', isLoggedIn)
   const eventNo = useMemo(() => createEventNo(targetUserId || 0, sourceScene), [targetUserId, sourceScene])
   const visitReported = useRef(false)
+  const conversationOpening = useRef(false)
+  const pageActive = useRef(true)
+  const pageGeneration = useRef(0)
+  useDidHide(() => {
+    pageActive.current = false
+    pageGeneration.current += 1
+  })
+  useEffect(() => () => {
+    pageActive.current = false
+    pageGeneration.current += 1
+  }, [])
   const likeRequestId = useRef<string | null>(null)
   const unlockRequestRef = useRef<{ targetUserId: number; expectedPrice: number; requestId: string } | null>(null)
 
@@ -204,6 +216,7 @@ export default function HeartUserPage() {
   }, [targetUserId, sourceScene, eventNo, isLoggedIn])
 
   useDidShow(() => {
+    pageActive.current = true
     if (!communityPosts.length) setCommunityPostsLoading(true)
     setCommunityPostsError('')
     if (!isLoggedIn) {
@@ -258,7 +271,7 @@ export default function HeartUserPage() {
   }
 
   const openConversation = async () => {
-    if (!profile) return
+    if (!profile || conversationOpening.current) return
     if (profile.communicationMode === 'WHISPER') {
       setWhisperTarget({
         targetUserNo: profile.userNo,
@@ -269,15 +282,21 @@ export default function HeartUserPage() {
       })
       return
     }
+    const sessionVersion = getMessageAuthSessionVersion()
+    const sourceGeneration = pageGeneration.current
+    conversationOpening.current = true
     try {
       const conversation = await resolveConversationByPeerUserId(profile.userId)
-      if (shouldReturnToPreviousPrivateChat(Taro.getCurrentPages(), conversation.conversationNo)) {
-        await Taro.navigateBack({ delta: 1 })
-        return
+      if (pageActive.current && sourceGeneration === pageGeneration.current
+        && sessionVersion === getMessageAuthSessionVersion()) {
+        await openPrivateChat(conversation.conversationNo, sessionVersion)
       }
-      await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}` })
     } catch (error) {
+      if (!pageActive.current || sourceGeneration !== pageGeneration.current
+        || sessionVersion !== getMessageAuthSessionVersion()) return
       await Taro.showToast({ title: error instanceof Error ? error.message : '私信会话暂不可用，请刷新后重试', icon: 'none' })
+    } finally {
+      conversationOpening.current = false
     }
   }
 

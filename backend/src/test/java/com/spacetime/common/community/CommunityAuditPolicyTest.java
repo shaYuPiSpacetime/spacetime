@@ -2,6 +2,11 @@ package com.spacetime.common.community;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
+
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,11 +43,27 @@ class CommunityAuditPolicyTest {
                 .isEqualTo("pending_manual");
     }
 
-    @Test
-    void commentUnavailable_shouldRequireRetryInsteadOfManualQueue() {
-        CommunityAuditDecision decision = policy.decideComment(CommunitySecurityResult.unavailable("timeout"), true);
+    @ParameterizedTest
+    @MethodSource("commentDecisions")
+    void commentDecision_shouldPreserveConclusionAndQueueUncertainResults(
+            CommunitySecurityResult result, boolean enabled, String status, String conclusion) {
+        CommunityAuditDecision decision = policy.decideComment(result, enabled);
 
-        assertThat(decision.retryRequired()).isTrue();
-        assertThat(decision.status()).isEqualTo("rejected");
+        assertThat(decision.status()).isEqualTo(status);
+        assertThat(decision.retryRequired()).isFalse();
+        assertThat(decision.sampleRequired()).isFalse();
+        assertThat(decision.machineConclusion()).isEqualTo(conclusion);
+        assertThat(decision.machineCode()).isEqualTo(result == null ? null : result.providerCode());
+        assertThat(decision.detail()).isEqualTo(result == null ? "empty_result" : result.detail());
+    }
+
+    private static Stream<Arguments> commentDecisions() {
+        return Stream.of(
+                Arguments.of(CommunitySecurityResult.pass("0"), true, "published", "pass"),
+                Arguments.of(CommunitySecurityResult.reject("87014", "risky"), true, "rejected", "reject"),
+                Arguments.of(CommunitySecurityResult.review("uncertain"), true, "pending", "review"),
+                Arguments.of(CommunitySecurityResult.unavailable("timeout"), true, "pending", "unavailable"),
+                Arguments.of(null, true, "pending", "unavailable"),
+                Arguments.of(CommunitySecurityResult.unavailable("machine_audit_disabled"), false, "pending", "unavailable"));
     }
 }

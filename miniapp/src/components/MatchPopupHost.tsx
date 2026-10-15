@@ -6,7 +6,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { getPendingMatchPopup, markMatchPopupRead, type MatchPopupAction, type MatchPopupVO } from '@/services/relation'
 import { resolveConversationByPeerUserId } from '@/services/message'
 import { MATCH_POPUP_POLL_MS, MATCH_POPUP_REFRESH_EVENT } from '@/domain/matchPopupRefresh'
-import { MESSAGE_RUNTIME_BACKGROUND_EVENT } from '@/domain/messageLifecycle'
+import { getMessageAuthSessionVersion, MESSAGE_RUNTIME_BACKGROUND_EVENT } from '@/domain/messageLifecycle'
+import { openPrivateChat } from '@/utils/privateChatNavigation'
 
 /** 页面前台匹配提醒：只处理可见页面，隐藏后忽略旧响应并停止轮询。 */
 export default function MatchPopupHost() {
@@ -83,6 +84,7 @@ export default function MatchPopupHost() {
     const current = popupRef.current
     if (!current || busy.current) return
     const actionEpoch = epoch.current
+    const sessionVersion = getMessageAuthSessionVersion()
     busy.current = true
     setSubmitting(true)
     try {
@@ -98,7 +100,7 @@ export default function MatchPopupHost() {
           return
         }
         const conversation = await resolveConversationByPeerUserId(current.matchedUserId)
-        if (active.current && actionEpoch === epoch.current) await Taro.navigateTo({ url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}` })
+        if (active.current && actionEpoch === epoch.current) await openPrivateChat(conversation.conversationNo, sessionVersion)
       }
     } catch (error) {
       await Taro.showToast({ title: error instanceof Error ? error.message : '匹配确认失败，请重试', icon: 'none' })

@@ -29,12 +29,12 @@ public class CommunityAuditPolicy {
         CommunitySecurityResult safeResult = securityResult == null
                 ? CommunitySecurityResult.unavailable("empty_result") : securityResult;
         if (!machineAuditEnabled) {
-            return decision("rejected", false, true, safeResult);
+            return decision("pending", false, false, safeResult);
         }
         return switch (safeResult.conclusion()) {
             case PASS -> decision("published", false, false, safeResult);
             case REJECT -> decision("rejected", false, false, safeResult);
-            case REVIEW, UNAVAILABLE -> decision("rejected", false, true, safeResult);
+            case REVIEW, UNAVAILABLE -> decision("pending", false, false, safeResult);
         };
     }
 

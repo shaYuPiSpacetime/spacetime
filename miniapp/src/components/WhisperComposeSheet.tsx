@@ -1,4 +1,4 @@
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import CommunityWhisperSheet from '@/components/CommunityWhisperSheet'
 import { createWhisperIdempotencyCache, resolveWhisperErrorMessage } from '@/domain/whisperRuntime'
@@ -9,6 +9,8 @@ import {
   type WhisperPrecheckCommand,
 } from '@/services/message'
 import type { WhisperPrecheckResponse } from '@/types/message'
+import { getMessageAuthSessionVersion } from '@/domain/messageLifecycle'
+import { openPrivateChat } from '@/utils/privateChatNavigation'
 
 export interface WhisperComposeTarget extends WhisperPrecheckCommand {
   nickname: string
@@ -30,20 +32,21 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
   const [submitting, setSubmitting] = useState(false)
   const idempotencyCache = useRef(createWhisperIdempotencyCache()).current
   const refreshAfterRecharge = useRef(false)
+  const pageActive = useRef(true)
+  const sourceGeneration = useRef(0)
+  const preparedTargetKey = useRef('')
+  const [lifecycleVersion, setLifecycleVersion] = useState(0)
 
-  const refreshPrecheck = async () => {
-    if (!target) return
-    const result = await precheckWhisper({
-      targetUserNo: target.targetUserNo,
-      sourceScene: target.sourceScene,
-      sourceBizNo: target.sourceBizNo,
-    })
-    setPrecheck(result)
+  const closeExistingEntry = async (isActive: () => boolean) => {
+    await Taro.hideKeyboard().catch(() => undefined)
+    if (!isActive()) return false
+    onClose()
+    return true
   }
 
-  const openExistingEntry = async (result: WhisperPrecheckResponse) => {
+  const openExistingEntry = async (result: WhisperPrecheckResponse, sessionVersion: number, isActive: () => boolean) => {
     if (result.existingWhisperNo) {
-      await close()
+      if (!await closeExistingEntry(isActive)) return
       await Taro.navigateTo({
         url: `/pages/message/whisper-detail?whisperNo=${encodeURIComponent(result.existingWhisperNo)}`,
       })
@@ -55,11 +58,11 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
       const conversation = result.existingConversationNo
         ? { conversationNo: result.existingConversationNo }
         : await resolveConversationByPeerUserId(peerUserId)
-      await close()
-      await Taro.navigateTo({
-        url: `/pages/message/private-chat?conversationNo=${encodeURIComponent(conversation.conversationNo)}`,
-      })
+      if (!isActive() || sessionVersion !== getMessageAuthSessionVersion()) return
+      if (!await closeExistingEntry(isActive)) return
+      await openPrivateChat(conversation.conversationNo, sessionVersion)
     } catch (error) {
+      if (!isActive() || sessionVersion !== getMessageAuthSessionVersion()) return
       await close()
       await Taro.showToast({
         title: resolveWhisperErrorMessage(error, '私信会话暂不可用，请刷新后重试'),
@@ -68,20 +71,37 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
     }
   }
 
+  useDidHide(() => {
+    pageActive.current = false
+    sourceGeneration.current += 1
+    setLifecycleVersion(value => value + 1)
+  })
+
   useDidShow(() => {
-    if (!refreshAfterRecharge.current) return
+    pageActive.current = true
+    sourceGeneration.current += 1
+    setLifecycleVersion(value => value + 1)
     refreshAfterRecharge.current = false
-    setLoading(true)
-    void refreshPrecheck().catch(error => {
-      void Taro.showToast({ title: resolveWhisperErrorMessage(error, '余额刷新失败，请重试'), icon: 'none' })
-    }).finally(() => setLoading(false))
   })
 
   useEffect(() => {
-    if (!target) return
+    if (!target || !visible) {
+      preparedTargetKey.current = ''
+      return
+    }
+    if (!pageActive.current) return
     let active = true
-    setContent('')
-    idempotencyCache.clear()
+    const sessionVersion = getMessageAuthSessionVersion()
+    const expectedGeneration = sourceGeneration.current
+    const targetKey = `${target.targetUserNo}:${target.sourceScene}:${target.sourceBizNo || ''}`
+    const isActive = () => active && pageActive.current
+      && expectedGeneration === sourceGeneration.current
+      && sessionVersion === getMessageAuthSessionVersion()
+    if (preparedTargetKey.current !== targetKey) {
+      preparedTargetKey.current = targetKey
+      setContent('')
+      idempotencyCache.clear()
+    }
     setLoading(true)
     setPrecheck(undefined)
     void precheckWhisper({
@@ -89,24 +109,24 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
       sourceScene: target.sourceScene,
       sourceBizNo: target.sourceBizNo,
     }).then(result => {
-      if (!active) return
+      if (!isActive()) return
       if (result.existingWhisperNo || result.reasonCode === 'MATCHED_PRIVATE_CHAT') {
-        void openExistingEntry(result)
+        void openExistingEntry(result, sessionVersion, isActive)
         return
       }
       setPrecheck(result)
     }).catch(error => {
-      if (!active) return
+      if (!isActive()) return
       onClose()
       void Taro.showToast({
         title: resolveWhisperErrorMessage(error, '悄悄话预检查失败，请稍后重试'),
         icon: 'none',
       })
     }).finally(() => {
-      if (active) setLoading(false)
+      if (isActive()) setLoading(false)
     })
     return () => { active = false }
-  }, [target?.targetUserNo, target?.sourceScene, target?.sourceBizNo])
+  }, [target?.targetUserNo, target?.sourceScene, target?.sourceBizNo, visible, lifecycleVersion])
 
   const close = async () => {
     if (submitting) return

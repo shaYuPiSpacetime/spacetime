@@ -270,7 +270,7 @@ export default function CommunityPostManagementPage({ variant }: { variant: Vari
             { label: '内容类型', value: metaLabel(meta, 'contentType', current.contentType || current.postType) },
             { label: '归属模块', value: metaLabel(meta, 'zhiyinSection', current.zhiyinSection) },
             { label: '来源场景', value: metaLabel(meta, 'sourceScene', current.sourceScene || current.contentSourceScene) },
-            { label: '机审 / 风险', value: `${metaLabel(meta, 'machineResult', current.machineResult, current.machineLabel)} / ${metaLabel(meta, 'riskLevel', current.riskLevel)}` },
+            { label: '机审历史结论 / 风险', value: `${metaLabel(meta, 'machineResult', current.machineResult, current.machineLabel)} / ${metaLabel(meta, 'riskLevel', current.riskLevel)}` },
             { label: '阅读 / 赞 / 评', value: `${current.readCount ?? 0} / ${current.likeCount ?? 0} / ${current.commentCount ?? 0}` },
           ]} />
           <DetailSection title="正文全文"><p className="whitespace-pre-wrap">{current.content || '-'}</p>{Boolean(current.imageUrls?.length) && <div className="mt-3 grid grid-cols-3 gap-2">{current.imageUrls?.map((url) => <img key={url} src={url} alt="内容图片" className="aspect-square w-full rounded-lg object-cover" />)}</div>}</DetailSection>

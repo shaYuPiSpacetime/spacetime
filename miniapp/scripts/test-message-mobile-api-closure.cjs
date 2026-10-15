@@ -99,12 +99,9 @@ test('从聊天进入用户主页后再次点私信必须复用上一层同会�
     { route: 'pages/message/private-chat', options: { conversationNo: 'CV-OTHER' } },
     { route: 'pages/heart/user', options: { targetUserId: '9' } },
   ], 'CV-1001'), false)
-  assert.match(
-    profile,
-    /shouldReturnToPreviousPrivateChat\(Taro\.getCurrentPages\(\), conversation\.conversationNo\)/,
-    '用户主页应识别上一层是否已经是当前私信会话'
-  )
-  assert.match(profile, /await Taro\.navigateBack\(\{ delta: 1 \}\)/, '命中同会话时应直接返回复用原页面')
+  assert.match(profile, /await openPrivateChat\(conversation\.conversationNo, sessionVersion\)/,
+    '用户主页应使用统一导航复用任意深度栈内的原会话')
+  assert.match(profile, /conversationOpening\.current = true/, '解析会话期间必须同步防止重复点击')
 })
 
 test('私信滚动策略区分首次进入、返回页面和新消息场景', () => {
