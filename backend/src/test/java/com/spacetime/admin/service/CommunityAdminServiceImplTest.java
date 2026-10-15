@@ -273,6 +273,23 @@ class CommunityAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("动态图片上限拒绝零、超九、非整数和空值，整批不写入")
+    void saveConfigVersion_invalidImageLimit_shouldRejectBeforeWrite() {
+        when(communityExtensionDao.selectConfigVersionOne(any())).thenReturn(null);
+        when(appConfigDao.selectByKeys(any())).thenReturn(List.of());
+        for (Object value : new Object[]{0, 10, 1.5, "invalid", null}) {
+            CommunityConfigVersionSaveReq req = new CommunityConfigVersionSaveReq();
+            req.setVersion(0);
+            req.setItems(List.of(configRequestItem(CommunityConfigKeys.POST_MAX_IMAGES, value, false)));
+            assertThatThrownBy(() -> communityAdminService.saveConfigVersion(req))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage("动态图片上限必须为1至9的整数");
+        }
+        verify(appConfigDao, never()).upsert(any());
+        verify(communityExtensionDao, never()).insertConfigVersion(any());
+    }
+
+    @Test
     @DisplayName("历史举报原因停用后仍返回字典显示名")
     void getReportDetail_disabledReason_shouldReturnHistoricalLabel() {
         report.setReasonCode("abuse");
@@ -614,14 +631,14 @@ class CommunityAdminServiceImplTest {
         req.setVersion(1);
         req.setHighRiskConfirmed(false);
         req.setItems(List.of(
-                configRequestItem(CommunityConfigKeys.POST_MAX_IMAGES, 12, false),
+                configRequestItem(CommunityConfigKeys.POST_MAX_IMAGES, 8, false),
                 configRequestItem(CommunityConfigKeys.INTERACTION_GATE_MODE, "FULL_CERT", true)
         ));
 
         communityAdminService.saveConfigVersion(req);
 
         verify(appConfigDao).upsert(argThat(item -> CommunityConfigKeys.POST_MAX_IMAGES.equals(item.getConfigKey())
-                && "12".equals(item.getConfigValue()) && Integer.valueOf(1).equals(item.getPublicVisible())));
+                && "8".equals(item.getConfigValue()) && Integer.valueOf(1).equals(item.getPublicVisible())));
         verify(communityExtensionDao).insertConfigVersion(any());
     }
 

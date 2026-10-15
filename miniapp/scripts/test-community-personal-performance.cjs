@@ -25,7 +25,10 @@ async function mount(t, pageName, options = {}) {
   const lifecycle = { show: new Set(), hide: new Set() }, calls = [], pending = []
   const intervals = new Set(), modules = new Map()
   let owner = 1
-  const taro = { showToast: async () => {}, navigateTo: async () => {},
+  const storage = new Map()
+  const taro = { getStorageSync: key => storage.get(key), setStorageSync: (key, value) => storage.set(key, value), removeStorageSync: key => storage.delete(key),
+    useRouter: () => ({ params: options.route || {} }), eventCenter: { on() {}, off() {} },
+    showToast: async () => {}, navigateTo: async () => {},
     nextTick: callback => callback(), getWindowInfo: () => ({ windowWidth: 375 }),
     createSelectorQuery: () => ({ select: () => ({ boundingClientRect: callback => ({ exec: () => callback({ height: 27 }) }) }) }),
     navigateBack: async () => { calls.push('back') },
@@ -51,7 +54,7 @@ async function mount(t, pageName, options = {}) {
     resubmitCommunityPost: async () => options.publishResult,
     getMyCommunityPosts: async () => { calls.push('mine'); return typeof options.posts === 'function' ? options.posts() : options.posts || { records: [] } },
     getCommunityInteractions: async type => {
-      calls.push(type); return options.lists?.[type] || { records: [] }
+      calls.push(type); return typeof options.lists === 'function' ? options.lists(type) : options.lists?.[type] || { records: [] }
     },
     resolveCommunityCopy: (_, key) => key || '暂无数据',
     resolveCommunityFeedback: (_, __, source) => typeof source === 'string' ? source : '失败',
@@ -60,7 +63,7 @@ async function mount(t, pageName, options = {}) {
   }
   function native(tag) {
     return ({ children, id, onClick, ...props }) => React.createElement(tag, {
-      id, onClick, 'data-role': props['data-role'], 'data-section-panel': props['data-section-panel'],
+      id, onClick, style: props.style, 'data-role': props['data-role'], 'data-section-panel': props['data-section-panel'],
     }, children)
   }
   const components = { View: native('div'), Text: native('span'), Image: native('img'), ScrollView: native('div'),
@@ -75,13 +78,23 @@ async function mount(t, pageName, options = {}) {
       if (name === '@tarojs/taro') return { ...taro, default: taro }
       if (name === '@tarojs/components') return components
       if (name === '@/services/community') return api
+      if (name === '@/hooks/useAccessStatus') return { useAccessStatus: () => ({ status: { coreAccessStatus: 'CORE_ALLOWED' } }) }
+      if (name === '@/services/request') return { getApiErrorCode: () => undefined }
+      if (name === '@/features/verification/navigateToVerification') return { navigateToPendingVerification() {} }
+      if (name === '@/services/relation') return {
+        getLikesMePage: async () => options.likes || ({ records: [], newCount: 0 }),
+        quoteRelationUnlock: async (...args) => { calls.push(['quote', ...args]); return options.quote },
+        confirmRelationUnlock: async (...args) => { calls.push(['confirm', ...args]); return { targetUserId: 2, charged: false, coinCost: 0 } },
+        getRecentViewersPage: async (...args) => { calls.push(['visitors', ...args]); return options.visitors(...args) },
+        markRecentViewersRead: async cursor => { calls.push(['read', cursor]) },
+      }
       if (name === '@/services/prd01') return { prd01Api: {} }
       if (name === '@/stores/authStore') return { useAuthStore: auth }
       if (name === '@/utils/avatar') return { normalizeAvatarUrl: (value, fallback) => value || fallback }
       if (name === '@/constants/ossIcons') return { miniappOssIcons: {} }
       if (name === '@/components/QianxunPostStatusBadge') return load('src/components/QianxunPostStatusBadge.tsx')
       if (name === '@/components/QianxunPublishFailureDialog') return load('src/components/QianxunPublishFailureDialog.tsx')
-      if (name.includes('/components/')) return { default: () => null, getNativeNavigationMetrics: () => ({ navigationHeight: 88 }), QianxunActionStat: () => null, QianxunGenderIcon: () => null }
+      if (name.includes('/components/')) return { default: () => null, getNativeNavigationMetrics: () => ({ navigationHeight: 88 }), getLanhuNavigationMetrics: () => ({ navigationHeight: 88 }), QianxunActionStat: () => null, QianxunGenderIcon: () => null }
       if (name.endsWith('.webp')) return ''
       if (name.startsWith('@/')) {
         const file = `src/${name.slice(2)}`
@@ -97,7 +110,7 @@ async function mount(t, pageName, options = {}) {
   const hook = load('src/hooks/useCommunityPersonalSummary.ts').useCommunityPersonalSummary
   let state
   const HookPage = () => { state = hook(); return React.createElement('div', null, state.summary?.stats.postCount ?? '—') }
-  const Page = pageName ? load(`src/pages/qianxun/${pageName}.tsx`).default : HookPage
+  const Page = pageName ? load(pageName === 'community' ? 'src/pages/community/index.tsx' : `src/pages/qianxun/${pageName}.tsx`).default : HookPage
   const element = document.createElement('div'); document.body.append(element)
   const root = createRoot(element)
   await act(async () => { root.render(React.createElement(Page)) })
@@ -291,4 +304,68 @@ test('失败的写操作不触发刷新，成功的写操作保留结果并触�
   assert.deepEqual(await module.exports.withCommunityPersonalRefresh(Promise.resolve({ liked: true })), { liked: true })
   assert.equal(changes, 1)
   unsubscribe()
+})
+
+const interactionRecord = (id, content, liked = false) => ({
+  id, targetUserId: 2, nickname: '测试用户', avatar: '', description: '',
+  interactionTime: '2026-10-15 09:00:00',
+  post: { id: Number(id), authorId: 2, authorNickname: '测试用户', content, imageUrls: [],
+    liked, likeCount: liked ? 1 : 0, commentCount: 1, createTime: '2026-10-15 09:00:00' },
+})
+
+test('返回互动列表移除已取消互动并展示新快照条目', async t => {
+  let rows = [interactionRecord('1', '旧评论正文')]
+  const h = await mount(t, 'interactions', { lists: () => ({ records: rows }) })
+  await h.fire('show')
+  assert.ok(h.element.textContent.includes('旧评论正文'))
+  rows = [interactionRecord('2', '新评论正文')]
+  await h.fire('show')
+  assert.ok(!h.element.textContent.includes('旧评论正文'))
+  assert.ok(h.element.textContent.includes('新评论正文'))
+  rows = []
+  await h.notify()
+  assert.ok(!h.element.textContent.includes('新评论正文'))
+})
+
+test('长正文的测量层必须裁剪，避免隐藏全文撑出滚动空白', async t => {
+  const h = await mount(t, 'interactions', { lists: { commented: { records: [interactionRecord('1', '长正文。'.repeat(300))] } } })
+  await h.fire('show')
+  const measure = h.element.querySelector('[id^="qianxun-interaction-content-measure-"]')
+  assert.ok(measure)
+  assert.equal(measure.parentElement.style.overflow, 'hidden')
+  assert.equal(measure.parentElement.style.height, '0px')
+  assert.equal(measure.parentElement.style.position, 'absolute')
+})
+
+
+test('最近访客刷新后确认新游标，不复用已确认的旧游标', async t => {
+  let cursor = 'snapshot-a'
+  const h = await mount(t, 'community', { route: { tab: 'visitors' }, visitors: () => ({
+    records: [{ recordNo: cursor, userId: 2, nickname: '访客', visitTime: '2026-10-15 09:00:00', identityState: 'CLEAR' }],
+    readCursor: cursor, unreadCount: 1, todayVisitorUv: 1, current: 1, hasMore: false, accessMode: 'VIP_ALL_CLEAR',
+  }) })
+  await h.fire('show')
+  assert.deepEqual(h.calls.filter(x => Array.isArray(x) && x[0] === 'read'), [['read', 'snapshot-a']])
+  cursor = 'snapshot-b'
+  await h.fire('show')
+  assert.deepEqual(h.calls.filter(x => Array.isArray(x) && x[0] === 'read'), [['read', 'snapshot-a'], ['read', 'snapshot-b']])
+  await h.fire('show')
+  assert.equal(h.calls.filter(x => Array.isArray(x) && x[0] === 'read').length, 2)
+})
+
+
+test('对我心动零元报价显示免费解锁并提交真实确认请求', async t => {
+  const h = await mount(t, 'community', { route: { tab: 'likes' },
+    likes: { records: [{ recordNo: 'LIK-FREE', userId: 2, nickname: '对方', displayStatus: 'blurred' }], newCount: 0 },
+    visitors: () => ({ records: [], unreadCount: 0 }),
+    quote: { quoteToken: 'test-quote', targetBizNo: 'LIK-FREE', unitPrice: 0, coinBalance: 0 },
+  })
+  const card = h.element.querySelector('#relation-card-LIK-FREE')
+  assert.ok(card)
+  await act(async () => { card.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
+  await h.click('只看ta')
+  assert.ok(h.element.textContent.includes('本次免费解锁，不消耗千寻币'))
+  await h.click('免费解锁')
+  assert.equal(h.calls.filter(x => Array.isArray(x) && x[0] === 'confirm').length, 1)
+  assert.ok(h.element.textContent.includes('解锁成功'))
 })

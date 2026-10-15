@@ -7,6 +7,7 @@ import { capturePromotionSource } from './services/promotionAttribution'
 import { messagePlatformRuntime } from './services/messagePlatformRuntime'
 import { MESSAGE_RUNTIME_BACKGROUND_EVENT } from './domain/messageLifecycle'
 import { PENDING_SHARE_ROUTE_KEY, resolvePendingShareRoute } from './domain/pendingShareRoute'
+import { isPublicReadingRoute } from './domain/publicReadingRoute'
 
 import './app.scss'
 
@@ -106,7 +107,11 @@ function App({ children }: PropsWithChildren<object>) {
       messagePlatformRuntime.stop()
       return
     }
-    if (currentRoute.startsWith('pages/login/')) return
+    if (isPublicReadingRoute(currentRoute || options?.path)) {
+      loginRedirectingRef.current = false
+      messagePlatformRuntime.stop()
+      return
+    }
     if (loginRedirectingRef.current) return
 
     loginRedirectingRef.current = true

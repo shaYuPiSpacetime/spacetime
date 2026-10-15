@@ -1,0 +1,40 @@
+# 飞书波波8项待处理Bug测试报告
+
+## 范围与执行环境
+
+2026-10-15，飞书工作簿「bug 记录」Sheet1，处理人「波波」、处理状态「待处理」共8项：179、180、181、185、186、187、188、189。实施获用户“继续”确认；用户随后明确181支持0千寻币免费解锁。保留飞书验收状态，由验收人复核。
+
+代码基线从a0fc44c6同步到f2c0bba3。Java使用本机Azul21.0.5，Node20。原始证据在忽略目录 `.runtime/feishu-bobo-20261015/`。
+
+## 根因、修复与验证
+
+| 行号 | 证据与修复 | 已完成验证 | 验证边界 |
+|---|---|---|---|
+| 179 | 全局前台守卫与401分支只放行登录页；加入精确公开协议路由，同时阻止旧401清除新会话 | 5项测试，修复前3失败，修复后全通过；受保护设置页仍跳转登录 | 微信前后台真机行为另行验收 |
+| 180 | 生产1052在10月12日issued/view/skip均去重10人，不能解释为后台女性用户不足；回看入口确实未等当前曝光写完 | 增加回看等待浏览回执、防连点和失败阻断；推荐相关14项通过，新增2项修复前失败 | 未修改推荐额度或历史日志；无法凭当前数据断言原截图9人的唯一成因 |
+| 181 | 线上likes_unlock_one启用且价格0，旧服务拒绝非正数 | 免费仅开放对我心动；保留准入、报价、价格复验、资产锁和解锁记录；不扣币、不记消费时间、不写扣币流水；重复确认、负价、停用、报价后改价、原付费与会员规则通过 | 本轮不改变其他场景零价含义；生产价格保持0 |
+| 185 | 绝对定位的隐藏全文测量节点没有裁剪边界，长文本会扩大滚动范围；列表主图立即加载 | 测量层改为高度0且裁剪，正文继续四行展示和查看全部；主图懒加载；页面组件测试复现旧裁剪失败并转绿，慢历史不阻塞切栏目 | 未取得生产网络耗时对照，不宣称端到端提速比例 |
+| 186 | 刷新新访客时保留旧readCursor，旧游标已确认导致漏写新已读状态 | 用新首页快照刷新已加载页并更新确认游标；真实组件验证A→B都确认，同B不重复；旧回执防覆盖及后页快照测试通过 | 保持服务端单调已读机制 |
+| 187 | refreshRetainedItems保留删除项且不添加新项；列表未订阅写操作事件 | 当前互动类型采用新快照，成功写操作触发刷新，隐藏时不额外请求；浏览历史按ID保持旧日期并移除失效项 | 不伪造计数，不改点赞评论业务规则 |
+| 188 | app_config与最新community-v8都为1，历史运营保存会反复覆盖修复值 | 事务恢复9并创建v9与审计；前端尊重合法配置且不超过9；后台拒绝0、10、小数、无效及空值；1/2/9张发布路径测试通过 | 生产未冒用真实用户发布测试动态 |
+| 189 | 自我介绍主页使用justify导致短行间距拉伸，编辑原生Textarea固定宽度 | 编辑/认证宽度100%、左对齐、连续字符可换行；主页左对齐且保留主动换行和既有首行缩进；3项检查通过 | 未连接红米K70至尊版，原生输入法复验尚未完成，不将桌面测试称为真机通过 |
+
+## 命令与结果
+
+- 前端专项：`node --test miniapp/scripts/test-public-content-auth.cjs miniapp/scripts/test-community-personal-performance.cjs miniapp/scripts/test-relation-visitor-read-cursor.cjs miniapp/scripts/test-recommend-action-quota-20261010.cjs miniapp/scripts/test-recommend-switch-quota-20261010.cjs miniapp/scripts/test-introduction-submit-feedback.cjs`。首次汇总38项通过；补充免费解锁页面用例后个人区15项通过。
+- 后端：`JAVA_HOME=/Users/bobo/Library/Java/JavaVirtualMachines/azul-21.0.5/Contents/Home mvn -q -f backend/pom.xml -Dtest=CommunityAdminServiceImplTest,RecommendServiceImplTest,RelationUnlockServiceImplTest,CommunityServiceImplTest test`，42+53+8+82=185项，无失败或错误。
+- `npm --prefix miniapp run prebuild:weapp`通过。初次遇到首行缩进的既有视觉门禁，已保留原54rpx缩进，未放松门禁。
+- `git diff --check`通过。
+
+## 生产配置审计
+
+2026-10-15，通过事务锁定运行配置及最新版本，确认旧值1、旧版本8后执行；版本不符会中止，未覆盖并发修改。
+
+- `community.post_max_images=9`，状态ENABLED。
+- `community-v9`摘要：修复飞书第188行：动态图片上限由1恢复为9，同步版本快照。
+- `community_audit_record`保存完整前后快照与中文原因。服务器私有目录备份旧版本，不提交包含其他运营配置的快照。
+- 对我心动价格仍为0，免费逻辑随本次后端版本发布。
+
+## 发布与飞书回填
+
+尚在发布流程中；提交SHA、部署验证、体验版号、包哈希/字节数及飞书回读结果在发布后追加。不将本报告中的单测结果当作已经上线或真机验收。

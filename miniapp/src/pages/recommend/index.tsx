@@ -368,9 +368,26 @@ export default function RecommendPage() {
     void ensureCandidateView(candidate, candidateIndex + 1, page?.preferenceVersion)
   }, [activeTab, state, refreshing, pageVisible, candidate?.candidateNo, candidateIndex, page?.preferenceVersion, page?.nextResetAt])
 
+  const historyOpeningRef = useRef(false)
   const awaitCurrentCandidateView = async () => {
     if (!candidate) return false
     return ensureCandidateView(candidate, candidateIndex + 1, page?.preferenceVersion)
+  }
+
+  const openReplay = async () => {
+    if (historyOpeningRef.current) return
+    historyOpeningRef.current = true
+    const generation = candidateRequestGenerationRef.current
+    try {
+      if (candidate && state === 'ready' && !await awaitCurrentCandidateView()) {
+        await Taro.showToast({ title: '浏览记录同步失败，请重试', icon: 'none' })
+        return
+      }
+      if (!pageVisibleRef.current || candidateRequestGenerationRef.current !== generation) return
+      await Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })
+    } finally {
+      historyOpeningRef.current = false
+    }
   }
 
   const openCandidateProfile = async () => {
@@ -627,7 +644,7 @@ export default function RecommendPage() {
           <RecommendHeader
             activeTab="recommend"
             onTabChange={handleTabChange}
-            onHistory={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/replay/index' })}
+            onHistory={() => void openReplay()}
             onPreference={() =>
               void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })
             }

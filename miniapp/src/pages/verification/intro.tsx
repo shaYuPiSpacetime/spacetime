@@ -104,7 +104,7 @@ export default function VerificationIntroPage() {
               placeholder={copy('intro_placeholder')}
               placeholderStyle="color:#999999;font-size:28rpx;line-height:48rpx"
               onInput={event => setValue(event.detail.value)}
-              style={{ width: '584rpx', height: '320rpx', color: '#333333', fontSize: '28rpx', lineHeight: '48rpx' }}
+              style={{ width: '100%', textAlign: 'left', wordBreak: 'break-all', overflowWrap: 'anywhere', height: '320rpx', color: '#333333', fontSize: '28rpx', lineHeight: '48rpx' }}
             />
             <Text style={{ position: 'absolute', right: '28rpx', bottom: '22rpx', color: '#999999', fontSize: '22rpx', lineHeight: '32rpx' }}>{copy('intro_minimum_hint')}</Text>
           </View>

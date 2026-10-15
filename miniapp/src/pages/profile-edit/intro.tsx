@@ -109,7 +109,10 @@ export default function ProfileEditIntroPage() {
             placeholder="写下你的自我介绍"
             onInput={event => setValue(event.detail.value)}
             style={{
-              width: '624rpx',
+              width: '100%',
+              textAlign: 'left',
+              wordBreak: 'break-all',
+              overflowWrap: 'anywhere',
               minHeight: '390rpx',
               color: '#333333',
               fontSize: '29rpx',

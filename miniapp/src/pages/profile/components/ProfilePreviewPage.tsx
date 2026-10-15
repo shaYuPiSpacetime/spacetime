@@ -347,16 +347,17 @@ function ProfilePreviewIntroduction({ introduction }: { introduction: string }) 
       <Text
         style={{
           display: 'block',
-          width: '620rpx',
+          width: '100%',
           height: '104rpx',
           color: '#333333',
           fontSize: '26rpx',
           lineHeight: '52rpx',
           fontWeight: 400,
-          textAlign: 'justify',
+          textAlign: 'left',
           textIndent: '54rpx',
+          wordBreak: 'break-all',
+          overflowWrap: 'anywhere',
           marginTop: '20rpx',
-          marginLeft: '12rpx',
           overflow: 'hidden',
           whiteSpace: 'pre-wrap',
         }}

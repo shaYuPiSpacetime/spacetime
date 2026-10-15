@@ -140,13 +140,11 @@ public class RelationUnlockServiceImpl implements RelationUnlockService {
         }
 
         int price = quote.getUnitPrice() == null ? 0 : quote.getUnitPrice();
-        if (price <= 0) {
-            throw new BusinessException(ASSET_ERROR, "当前解锁场景暂不可用");
-        }
+        // 场景与价格已复验；免费仍持有资产行锁并写解锁记录，保持并发幂等。
         if (before == null || balance(before) < price) {
             throw new BusinessException(ASSET_ERROR, "千寻币余额不足");
         }
-        if (userAssetDao.updateCoinBalance(userId, -price) != 1) {
+        if (price > 0 && userAssetDao.updateCoinBalance(userId, -price) != 1) {
             throw new BusinessException(ASSET_ERROR, "千寻币余额不足");
         }
 
@@ -170,9 +168,11 @@ public class RelationUnlockServiceImpl implements RelationUnlockService {
 
         UserAsset after = userAssetDao.selectByUserId(userId);
         int afterBalance = after == null ? balance(before) - price : balance(after);
-        userAssetDao.updateLastConsumeTime(userId, now);
-        writeCoinLog(record, balance(before), afterBalance);
-        return confirmResult(record, afterBalance, true);
+        if (price > 0) {
+            userAssetDao.updateLastConsumeTime(userId, now);
+            writeCoinLog(record, balance(before), afterBalance);
+        }
+        return confirmResult(record, afterBalance, price > 0);
     }
 
     private void requireSameUnlockTarget(UserUnlockRecord record, UnlockQuotePayload quote) {
@@ -237,7 +237,8 @@ public class RelationUnlockServiceImpl implements RelationUnlockService {
                         .eq(CoinSceneConfig::getStatus, CommonStatusEnum.ENABLED.getCode()));
         CoinSceneConfig config = result == null || result.getRecords() == null || result.getRecords().isEmpty()
                 ? null : result.getRecords().get(0);
-        if (config == null || config.getUnitPrice() == null || config.getUnitPrice() <= 0) {
+        if (config == null || config.getUnitPrice() == null || config.getUnitPrice() < 0
+                || config.getUnitPrice() == 0 && !LIKE_SCENE.equals(scene)) {
             throw new BusinessException(ASSET_ERROR, "当前解锁场景暂不可用");
         }
         return config;

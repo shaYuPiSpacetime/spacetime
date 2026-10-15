@@ -178,21 +178,23 @@ export default function CommunityPage() {
       const pageData = await getRecentViewersPage(
         page,
         20,
-        (page > 1 || retaining) ? visitorSnapshotCursorRef.current : undefined,
+        page > 1 ? visitorSnapshotCursorRef.current : undefined,
       )
       if (retaining && visitorsPage?.accessMode !== pageData.accessMode) retaining = false
-      const updates = retaining ? (await Promise.all(Array.from({ length: visitorsPageNo }, (_, index) => index === 0
-        ? Promise.resolve(pageData) : getRecentViewersPage(index + 1, 20, visitorSnapshotCursorRef.current)))).flatMap(result => result.records || []) : pageData.records || []
-      const nextRecords = retaining ? refreshRetainedItems(visitorRecords, updates, item => item.recordNo)
-        : page === 1 ? (pageData.records || []) : [...visitorRecords, ...(pageData.records || [])]
-      if (page === 1 && !retaining) {
+      // 刷新以新首页快照重读已加载页，展示内容和已读确认必须对应同一游标。
+      const refreshedPages = retaining ? await Promise.all(Array.from({ length: visitorsPageNo }, (_, index) => index === 0
+        ? Promise.resolve(pageData) : getRecentViewersPage(index + 1, 20, pageData.readCursor || undefined))) : [pageData]
+      const updates = refreshedPages.flatMap(result => result.records || [])
+      const nextRecords = page === 1 ? updates : [...visitorRecords, ...updates]
+      if (page === 1) {
         visitorSnapshotCursorRef.current = pageData.readCursor || undefined
         visitorDisplayedCursorRef.current = pageData.readCursor || null
         setVisitorsPage(pageData)
-      } else if (retaining) {
-        setVisitorsPage(currentPage => currentPage ? { ...pageData, current: currentPage.current,
-          hasMore: currentPage.hasMore, readCursor: currentPage.readCursor } : pageData)
-      } else if (!retaining) {
+        if (retaining) {
+          const lastPage = refreshedPages[refreshedPages.length - 1]
+          setVisitorsPage({ ...pageData, current: lastPage.current, hasMore: lastPage.hasMore })
+        }
+      } else {
         setVisitorsPage(currentPage => currentPage
           ? { ...currentPage, current: pageData.current, hasMore: pageData.hasMore }
           : pageData)
@@ -630,12 +632,13 @@ function LoadMoreButton({ loading, onClick }: { loading: boolean; onClick: () =>
 function UnlockSheet({ visible = true, stage, card, quote, result, submitting, sourceScene, onClose, onQuote, onConfirm }: { visible?: boolean; stage: Exclude<UnlockStage, 'closed'>; card: RelationCard | null; quote: UnlockQuoteVO | null; result: UnlockConfirmVO | null; submitting: boolean; sourceScene: 'likes_me' | 'recent_viewers'; onClose: () => void; onQuote: () => void; onConfirm: () => void }) {
   const success = stage === 'success'
   const quoteReady = stage === 'quote'
+  const freeUnlock = quoteReady && quote?.unitPrice === 0
   const likesScene = sourceScene === 'likes_me'
   const title = success ? '解锁成功' : quoteReady ? '确认解锁Ta' : '解锁Ta是谁'
   const subtitle = success
     ? '现在可以查看主页并继续互动'
     : quoteReady
-      ? `本次消耗 ${quote?.unitPrice ?? 0} 千寻币`
+      ? freeUnlock ? '本次免费解锁，不消耗千寻币' : `本次消耗 ${quote?.unitPrice ?? 0} 千寻币`
       : likesScene
         ? '送出喜欢，即刻开聊'
         : '看看是谁访问了你的主页'
@@ -669,7 +672,7 @@ function UnlockSheet({ visible = true, stage, card, quote, result, submitting, s
           }} style={{ height: '98rpx', margin: '18rpx 28rpx 28rpx', borderRadius: '49rpx', background: '#FFF0F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#F06C83', fontSize: '28rpx' }}>查看主页</Text></View>
         ) : (
           <View style={{ margin: `${quoteReady ? 8 : 18}rpx 28rpx 28rpx`, display: 'flex', gap: '20rpx' }}>
-            <View id="unlock-one-button" onClick={submitting ? undefined : (quoteReady ? onConfirm : onQuote)} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: submitting ? 0.6 : 1 }}><Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '处理中...' : quoteReady ? `确认解锁 ${quote?.unitPrice ?? 0} 千寻币` : '只看ta'}</Text></View>
+            <View id="unlock-one-button" onClick={submitting ? undefined : (quoteReady ? onConfirm : onQuote)} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#E3F1FE', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: submitting ? 0.6 : 1 }}><Text style={{ color: '#2876FF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '处理中...' : quoteReady ? freeUnlock ? '免费解锁' : `确认解锁 ${quote?.unitPrice ?? 0} 千寻币` : '只看ta'}</Text></View>
             <View onClick={() => !submitting && Taro.navigateTo({ url: '/pages/heart/membership-unlock' })} style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: '#211F20', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#EAD8B6', fontSize: '28rpx' }}>解锁全部</Text></View>
           </View>
         )}

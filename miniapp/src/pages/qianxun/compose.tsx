@@ -152,7 +152,7 @@ export default function QianxunComposePage() {
     if (choosingImagesRef.current) return
     const configuredMax = Number(config?.postMaxImages || MAX_COMMUNITY_IMAGES)
     const maxCount = Number.isFinite(configuredMax)
-      ? Math.min(MAX_COMMUNITY_IMAGES, Math.max(MAX_COMMUNITY_IMAGES, configuredMax))
+      ? Math.min(MAX_COMMUNITY_IMAGES, Math.max(1, Math.floor(configuredMax)))
       : MAX_COMMUNITY_IMAGES
     const remaining = maxCount - images.length
     if (remaining <= 0) return
@@ -275,7 +275,7 @@ export default function QianxunComposePage() {
 
   const configuredMaxImages = Number(config?.postMaxImages || MAX_COMMUNITY_IMAGES)
   const maxImages = Number.isFinite(configuredMaxImages)
-    ? Math.min(MAX_COMMUNITY_IMAGES, Math.max(MAX_COMMUNITY_IMAGES, configuredMaxImages))
+    ? Math.min(MAX_COMMUNITY_IMAGES, Math.max(1, Math.floor(configuredMaxImages)))
     : MAX_COMMUNITY_IMAGES
   const hasIncompleteImage = images.some(item => item.uploadStatus !== 'success')
   const canPublish = Boolean(content.trim() && !publishing && !hasIncompleteImage)

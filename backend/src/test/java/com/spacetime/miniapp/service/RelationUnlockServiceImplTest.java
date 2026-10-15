@@ -135,6 +135,60 @@ class RelationUnlockServiceImplTest {
     }
 
     @Test
+    void zeroPriceLikesUnlockRecordsAccessWithoutConsumptionAndRetriesIdempotently() {
+        AppUser current = activeUser(7L, "当前用户");
+        AppUser target = activeUser(8L, "被解锁用户");
+        UserAsset emptyWallet = asset(7L, 0);
+        CoinSceneConfig config = new CoinSceneConfig();
+        config.setSceneCode("likes_unlock_one");
+        config.setUnitPrice(0);
+        config.setStatus("ENABLED");
+        Page<CoinSceneConfig> configPage = new Page<>(1, 1, 1);
+        configPage.setRecords(List.of(config));
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(appUserDao.selectById(8L)).thenReturn(target);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(accessProjectionService.project(target)).thenReturn("OPEN");
+        when(likeDao.selectOne(any())).thenReturn(activeLike());
+        when(unlockRecordDao.selectList(any())).thenReturn(List.of());
+        when(sceneConfigDao.selectPage(any(), any())).thenReturn(configPage);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(emptyWallet);
+        when(userAssetDao.selectByUserIdForUpdate(7L)).thenReturn(emptyWallet);
+        config.setUnitPrice(-1);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.quote(7L, likeQuote()))
+                .hasMessageContaining("场景暂不可用");
+        configPage.setRecords(List.of());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.quote(7L, likeQuote()))
+                .hasMessageContaining("场景暂不可用");
+        configPage.setRecords(List.of(config));
+        config.setUnitPrice(0);
+        UnlockQuoteVO quote = service.quote(7L, likeQuote());
+        assertThat(quote.getUnitPrice()).isZero();
+        assertThat(quote.getTargetUserId()).isNull();
+        RelationUnlockConfirmReq req = new RelationUnlockConfirmReq();
+        req.setRequestId("free-like-001");
+        req.setQuoteToken(quote.getQuoteToken());
+        config.setUnitPrice(8);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.confirm(7L, req))
+                .hasMessageContaining("价格已变化");
+        config.setUnitPrice(0);
+        UnlockConfirmVO result = service.confirm(7L, req);
+        assertThat(result.getTargetUserId()).isEqualTo(8L);
+        assertThat(result.getCoinCost()).isZero();
+        assertThat(result.getCoinBalance()).isZero();
+        assertThat(result.getCharged()).isFalse();
+        var record = org.mockito.ArgumentCaptor.forClass(UserUnlockRecord.class);
+        verify(unlockRecordDao).insert(record.capture());
+        assertThat(record.getValue().getCoinCost()).isZero();
+        when(unlockRecordDao.selectList(any())).thenReturn(List.of(record.getValue()));
+        assertThat(service.confirm(7L, req).getCharged()).isFalse();
+        verify(unlockRecordDao, org.mockito.Mockito.times(1)).insert(any());
+        verify(userAssetDao, never()).updateCoinBalance(any(), any());
+        verify(userAssetDao, never()).updateLastConsumeTime(any(), any());
+        verify(coinLogDao, never()).insert(any());
+    }
+
+    @Test
     void expiredQuoteCannotDeductBalance() {
         when(valueOperations.get(anyString())).thenReturn(null);
         RelationUnlockConfirmReq req = new RelationUnlockConfirmReq();

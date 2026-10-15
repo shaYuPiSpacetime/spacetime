@@ -510,20 +510,24 @@ class CommunityServiceImplTest {
                 .hasMessage("runtime_config_missing");
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1, 2, 9})
     @DisplayName("发布社区动态-正常")
-    void createPost_shouldSucceed() {
+    void createPost_shouldSucceed(int imageCount) {
         CommunityPostCreateReq req = new CommunityPostCreateReq();
         req.setPostType("community");
         req.setContent("测试动态");
         req.setTopicId(10L);
-        req.setImageUrls(List.of("https://static.example.com/miniapp/1/album/a.png"));
+        req.setImageUrls(java.util.stream.IntStream.range(0, imageCount)
+                .mapToObj(i -> "https://static.example.com/miniapp/1/album/a" + i + ".png").toList());
         req.setMentionUserIds(List.of(2L));
 
         when(appUserDao.selectById(1L)).thenReturn(user);
         when(contentSecurityPort.checkPost(any(), any(), any(), any())).thenReturn(CommunitySecurityResult.pass("ok"));
-        when(ossUtil.objectExists("miniapp/1/album/a.png")).thenReturn(true);
-        when(valueOperations.get("community:upload:ticket:miniapp/1/album/a.png")).thenReturn("1");
+        for (int i = 0; i < imageCount; i++) {
+            when(ossUtil.objectExists("miniapp/1/album/a" + i + ".png")).thenReturn(true);
+            when(valueOperations.get("community:upload:ticket:miniapp/1/album/a" + i + ".png")).thenReturn("1");
+        }
 
         CommunityPublishResultVO result = communityService.createPost(1L, req);
 
@@ -532,7 +536,9 @@ class CommunityServiceImplTest {
                 "community_post".equals(entity.getPostType())
                         && "published".equals(entity.getStatus())
                         && "APPROVED".equals(entity.getAuditStatus())));
-        verify(redisTemplate).delete("community:upload:ticket:miniapp/1/album/a.png");
+        for (int i = 0; i < imageCount; i++) {
+            verify(redisTemplate).delete("community:upload:ticket:miniapp/1/album/a" + i + ".png");
+        }
     }
 
     @Test

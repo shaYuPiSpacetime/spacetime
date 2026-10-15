@@ -33,3 +33,18 @@ test('自我介绍被驳回时显示中文原因并停留当前页', () => {
   assert.match(feedbackBranch, /Taro\.showToast/)
   assert.match(feedbackBranch, /return/)
 })
+
+test('自我介绍使用容器宽度与左对齐，连续标点不拉伸字间距', () => {
+  for (const file of ['src/pages/profile-edit/intro.tsx', 'src/pages/verification/intro.tsx']) {
+    const page = read(file)
+    const textarea = page.slice(page.indexOf('<Textarea'), page.indexOf('/>', page.indexOf('<Textarea')))
+    assert.match(textarea, /width: '100%'/)
+    assert.match(textarea, /textAlign: 'left'/)
+    assert.match(textarea, /wordBreak: 'break-all'/)
+    assert.match(textarea, /event\.detail\.value/)
+  }
+  const profile = read('src/pages/profile/components/ProfilePreviewPage.tsx')
+  const introduction = profile.slice(profile.indexOf('function ProfilePreviewIntroduction('), profile.indexOf('function ProfilePreviewAboutMe('))
+  assert.match(introduction, /textAlign: 'left'/)
+  assert.match(introduction, /whiteSpace: 'pre-wrap'/)
+})

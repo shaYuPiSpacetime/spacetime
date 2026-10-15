@@ -744,6 +744,8 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     @Override
     @Transactional
     public void saveCommunityConfigs(AppConfigBatchReq req) {
+        // 整批预校验，避免旧入口绕过版本配置的图片上限约束。
+        req.getItems().forEach(item -> normalizeConfigValue(item.getConfigKey(), item.getConfigValue()));
         // 1. 逐一 upsert 每项配置
         for (AppConfigBatchReq.AppConfigItem item : req.getItems()) {
             AppConfig entity = new AppConfig();
@@ -1220,6 +1222,15 @@ public class CommunityAdminServiceImpl implements CommunityAdminService {
     }
 
     private Object normalizeConfigValue(String key, Object value) {
+        if (CommunityConfigKeys.POST_MAX_IMAGES.equals(key)) {
+            try {
+                int limit = new java.math.BigDecimal(String.valueOf(value)).intValueExact();
+                if (limit >= 1 && limit <= 9) return limit;
+            } catch (NumberFormatException | ArithmeticException ignored) {
+                // 使用统一中文提示，禁止写入小程序无法支持的上限。
+            }
+            throw new BusinessException("动态图片上限必须为1至9的整数");
+        }
         if (!CommunityConfigKeys.SOULMATE_SOURCE_PHONES.equals(key)) return value;
         List<?> rawPhones;
         if (value == null || value instanceof String stringValue && StrUtil.isBlank(stringValue)) {

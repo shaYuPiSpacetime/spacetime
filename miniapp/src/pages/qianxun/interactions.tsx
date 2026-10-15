@@ -1,7 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useRetainedScroll } from '@/hooks/useRetainedScroll'
-import { refreshRetainedItems } from '@/domain/retainedList'
-import Taro, { useDidShow, useLoad } from '@tarojs/taro'
+import Taro, { useDidHide, useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
@@ -20,6 +19,7 @@ import { formatInteractionCardDate, groupCommunityInteractions, shouldDisplayMyC
 import { normalizeAvatarUrl } from '@/utils/avatar'
 import { useCommunityPersonalSummary } from '@/hooks/useCommunityPersonalSummary'
 import { replaceResubmittedPost, subscribeCommunityPostResubmitted } from '@/domain/communityPostResubmitted'
+import { subscribeCommunityPersonalChanged } from '@/domain/communityPersonalEvents'
 import {
   COMMUNITY_COPY_KEYS,
   clearCommunityViewHistory,
@@ -156,10 +156,16 @@ export default function QianxunInteractionsPage() {
 
   const [showVersion, setShowVersion] = useState(0)
   const loadedLists = useRef(new Set<string>())
+  const visibleRef = useRef(false)
   useDidShow(() => {
+    visibleRef.current = true
     void getCommunityMeta().then(setConfig).catch(() => {})
     setShowVersion(value => value + 1)
   })
+  useDidHide(() => { visibleRef.current = false })
+  useEffect(() => subscribeCommunityPersonalChanged(() => {
+    if (visibleRef.current) setShowVersion(value => value + 1)
+  }), [])
 
   // 当前栏目独立加载；慢浏览记录不会阻塞统计或其他互动筛选。
   useEffect(() => {
@@ -182,9 +188,13 @@ export default function QianxunInteractionsPage() {
         description: item.description, interactionTime: item.interactionTime, post: item.post,
       }))
       // 再次打开旧动态会更新浏览时间；保留本次列表的日期分组，避免返回时卡片跨组移动。
-      if (type === 'viewed') setHistory(current => refreshRetainedItems(current, items, item => item.id)
-        .map((item, index) => ({ ...item, interactionTime: current[index]?.interactionTime || item.interactionTime })))
-      else setRecords(current => [...current.filter(item => item.kind !== type), ...refreshRetainedItems(current.filter(item => item.kind === type), items, item => item.id)])
+      if (type === 'viewed') setHistory(current => {
+        const updates = new Map(items.map(item => [item.id, item]))
+        const previousIds = new Set(current.map(item => item.id))
+        return [...items.filter(item => !previousIds.has(item.id)), ...current.filter(item => updates.has(item.id))
+          .map(item => ({ ...updates.get(item.id)!, interactionTime: item.interactionTime }))]
+      })
+      else setRecords(current => [...current.filter(item => item.kind !== type), ...items])
       loadedLists.current.add(type)
     }).catch(error => { if (!cancelled) void showError(config, error) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -735,7 +745,7 @@ function InteractionPostCard({ post, measureKey, onDelete }: { post: CommunityPo
       </View>
       <InteractionPostExcerpt content={post.content} postId={post.id} measureKey={measureKey} color="#3D3D3D" marginTop="20rpx" />
       {post.topicName ? <Text style={{ display: 'block', color: BLUE, fontSize: '23rpx', lineHeight: '34rpx', marginTop: '12rpx' }}># {post.topicName}</Text> : null}
-      {post.imageUrls?.[0] ? <Image src={post.imageUrls[0]} mode="aspectFill" style={{ width: '100%', height: '448rpx', borderRadius: '10rpx', marginTop: '18rpx', background: '#F3F5F8' }} /> : null}
+      {post.imageUrls?.[0] ? <Image lazyLoad src={post.imageUrls[0]} mode="aspectFill" style={{ width: '100%', height: '448rpx', borderRadius: '10rpx', marginTop: '18rpx', background: '#F3F5F8' }} /> : null}
       <View style={{ marginTop: '20rpx', height: '34rpx', display: 'flex', alignItems: 'center' }}>
         <Text className="qianxun-interaction-card-date" style={{ color: '#A4A4A4', fontSize: '22rpx', lineHeight: '32rpx' }}>{formatInteractionCardDate(post.createTime)}</Text>
         <View style={{ flex: 1 }} />
@@ -779,12 +789,14 @@ function InteractionPostExcerpt({ content, postId, measureKey, color, marginTop 
 
   return (
     <View style={{ position: 'relative', marginTop: marginTop || 0 }}>
-      <Text
-        id={measureId}
-        style={{ position: 'absolute', left: 0, right: 0, top: 0, visibility: 'hidden', pointerEvents: 'none', display: 'block', fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT }}
-      >
-        {content}
-      </Text>
+      <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 0, overflow: 'hidden', visibility: 'hidden', pointerEvents: 'none' }}>
+        <Text
+          id={measureId}
+          style={{ display: 'block', fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT }}
+        >
+          {content}
+        </Text>
+      </View>
       <Text
         className="qianxun-body-text qianxun-interaction-body"
         style={{ display: '-webkit-box', color, fontSize: QIANXUN_BODY_FONT_SIZE, lineHeight: QIANXUN_BODY_LINE_HEIGHT, maxHeight: QIANXUN_BODY_PREVIEW_MAX_HEIGHT, overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: QIANXUN_BODY_PREVIEW_LINES }}

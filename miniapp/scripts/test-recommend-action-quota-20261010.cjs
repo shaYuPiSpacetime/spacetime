@@ -85,3 +85,29 @@ test('等待曝光时刷新队列，旧showNextCandidate不能跳过新队列第
   await pending
   assert.equal(advances, 0)
 })
+
+for (const succeeded of [true, false]) {
+  test(`打开回看等待当前浏览落库，结果${succeeded}时按结果导航`, async () => {
+    let resolveView
+    const pendingView = new Promise(resolve => { resolveView = resolve })
+    let navigations = 0, errors = 0
+    const deps = { candidate: { candidateNo: '10' }, state: 'ready', historyOpeningRef: { current: false },
+      candidateRequestGenerationRef: { current: 1 }, pageVisibleRef: { current: true },
+      awaitCurrentCandidateView: () => pendingView,
+      Taro: { navigateTo: async () => { navigations++ }, showToast: async () => { errors++ } },
+    }
+    const start = source.indexOf('  const openReplay =')
+    assert.ok(start >= 0, '回看入口需要等待曝光确认')
+    const snippet = ts.transpileModule(source.slice(start, source.indexOf('  const openCandidateProfile =', start)), {
+      compilerOptions: { target: ts.ScriptTarget.ES2020 },
+    }).outputText
+    const open = Function(...Object.keys(deps), snippet + ';return openReplay')(...Object.values(deps))
+    const pending = open()
+    await open()
+    assert.equal(navigations, 0)
+    resolveView(succeeded); await pending
+    assert.equal(navigations, succeeded ? 1 : 0)
+    assert.equal(errors, succeeded ? 0 : 1)
+    assert.match(source, /onHistory=\{\(\) => void openReplay\(\)\}/)
+  })
+}
