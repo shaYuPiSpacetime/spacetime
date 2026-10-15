@@ -42,6 +42,9 @@ import com.spacetime.common.enums.RelationInvalidReasonEnum;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -49,6 +52,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -668,6 +672,132 @@ class AppUserAdminServiceImplTest {
         ArgumentCaptor<AppUser> userCaptor = ArgumentCaptor.forClass(AppUser.class);
         verify(appUserDao).insert(userCaptor.capture());
         assertThat(userCaptor.getValue().getPhone()).isEqualTo("13900003333");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"户口所在地", "residence"})
+    @DisplayName("导入户口表头兼容中文及既有英文并满足配置必填")
+    void shouldRecognizeResidenceImportHeaders(String header) {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true),
+                fieldSetting("residence", "户口所在地", true, true)));
+        ImportBatchVO result = service.previewImport("residence.csv",
+                "手机号," + header + "\n13900003333,河南省郑州市");
+        assertThat(result.getImportedCount()).isEqualTo(1);
+        ArgumentCaptor<AppUserImportRow> captor = ArgumentCaptor.forClass(AppUserImportRow.class);
+        verify(importRowDao).insert(captor.capture());
+        assertThat(captor.getValue().getRawJson()).contains("\"residence\":\"河南省郑州市\"");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"裁剪后主头像", "相册/附加照片", "资料背景图", "语音介绍文件"})
+    @DisplayName("超出审核表容量的材料地址应逐行报错且不写用户")
+    void shouldRejectOversizedImportMediaUrl(String header) {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        String url = "https://media.example.com/" + "a".repeat(475);
+        assertThat(url).hasSize(501);
+        ImportBatchVO result = service.previewImport("media.csv", "手机号," + header + "\n13900003333," + url);
+        assertThat(result.getImportedCount()).isZero();
+        assertThat(result.getFailCount()).isEqualTo(1);
+        assertThat(result.getErrorSummaryJson()).contains("第2行", "500", header);
+        verify(appUserDao, never()).insert(any());
+        verifyNoInteractions(auditRecordDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"裁剪后主头像", "相册/附加照片", "资料背景图", "语音介绍文件"})
+    @DisplayName("刚好500字符材料地址应保留完整地址")
+    void shouldPreserveImportMediaUrlAtStorageBoundary(String header) {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        String url = "https://media.example.com/" + "a".repeat(474);
+        assertThat(url).hasSize(500);
+        ImportBatchVO result = service.previewImport("media.csv", "手机号," + header + "\n13900003333," + url);
+        assertThat(result.getImportedCount()).isEqualTo(1);
+        ArgumentCaptor<AppUserAuditRecord> captor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditRecordDao).insert(captor.capture());
+        assertThat(captor.getValue().getMediaUrl()).isEqualTo(url);
+    }
+
+    @Test
+    @DisplayName("多张相册按独立地址校验而非拼接总长度")
+    void shouldValidateEachImportAlbumUrlSeparately() {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        String first = "https://media.example.com/" + "a".repeat(300);
+        String second = "https://media.example.com/" + "b".repeat(300);
+        ImportBatchVO result = service.previewImport("album.csv",
+                "手机号,相册/附加照片\n13900003333," + first + "|" + second);
+        assertThat(result.getImportedCount()).isEqualTo(1);
+        ArgumentCaptor<AppUserAuditRecord> captor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditRecordDao, times(2)).insert(captor.capture());
+        assertThat(captor.getAllValues()).extracting(AppUserAuditRecord::getMediaUrl).containsExactly(first, second);
+    }
+
+    @Test
+    @DisplayName("媒体地址异常不影响同批其他有效行")
+    void shouldImportValidRowsAlongsideOversizedMediaRows() {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        String oversized = "https://media.example.com/" + "a".repeat(475);
+        ImportBatchVO result = service.previewImport("mixed.csv", String.join("\n",
+                "手机号,裁剪后主头像,相册/附加照片,资料背景图,语音介绍文件",
+                "13900003331," + oversized + ",,,",
+                "13900003332,,https://media.example.com/a.jpg|" + oversized + ",,",
+                "13900003333,,," + oversized + ",",
+                "13900003334,,,," + oversized,
+                "13900003335,https://media.example.com/valid.jpg,,,"));
+        assertThat(result.getImportedCount()).isEqualTo(1);
+        assertThat(result.getFailCount()).isEqualTo(4);
+        assertThat(result.getErrorSummaryJson()).contains("第2行", "第3行", "第4行", "第5行");
+        verify(appUserDao).insert(any());
+        verify(auditRecordDao).insert(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "99"})
+    @DisplayName("导入年龄为空或与生日不符时以生日计算周岁")
+    void shouldDeriveImportedAgeFromBirthday(String age) {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        LocalDate birthday = LocalDate.now().minusYears(30).minusDays(1);
+        service.previewImport("age.csv", "手机号,出生日期,年龄\n13900003333," + birthday + "," + age);
+        ArgumentCaptor<AppUser> captor = ArgumentCaptor.forClass(AppUser.class);
+        verify(appUserDao).insert(captor.capture());
+        assertThat(captor.getValue().getAge()).isEqualTo(30);
+    }
+
+    @Test
+    @DisplayName("无生日的历史导入保持年龄字段兼容")
+    void shouldPreserveImportedAgeWithoutBirthday() {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        service.previewImport("age.csv", "手机号,年龄\n13900003333,29");
+        ArgumentCaptor<AppUser> captor = ArgumentCaptor.forClass(AppUser.class);
+        verify(appUserDao).insert(captor.capture());
+        assertThat(captor.getValue().getAge()).isEqualTo(29);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"STUDENT,STUDENT_CARD,student", "MAINLAND_GRADUATE,DIPLOMA_NO,diploma"})
+    @DisplayName("两类学历材料同时填写时按人群选择审核材料")
+    void shouldSelectEducationMaterialsForImportedUserType(String userType, String method, String expected) {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        service.previewImport("education.csv", String.join("\n",
+                "手机号,学历人群,认证方式,学生证/在读证明,毕业证/学位证材料",
+                "13900003333," + userType + "," + method + ",https://media.example.com/student.jpg,https://media.example.com/diploma.jpg"));
+        ArgumentCaptor<AppUserAuditRecord> captor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditRecordDao).insert(captor.capture());
+        assertThat(cn.hutool.json.JSONUtil.parseObj(captor.getValue().getMaterialJson()).getStr("materialUrls"))
+                .isEqualTo("https://media.example.com/" + expected + ".jpg");
+        assertThat(captor.getValue().getStatus()).isEqualTo("PENDING");
+    }
+
+    @Test
+    @DisplayName("已有规范学历材料字段不被兼容别名覆盖")
+    void shouldPreserveExplicitEducationMaterialUrls() {
+        mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true)));
+        service.previewImport("education.csv", String.join("\n",
+                "手机号,学历人群,认证方式,educationMaterialUrls,毕业证/学位证材料",
+                "13900003333,MAINLAND_GRADUATE,DIPLOMA_NO,https://media.example.com/explicit.jpg,https://media.example.com/diploma.jpg"));
+        ArgumentCaptor<AppUserAuditRecord> captor = ArgumentCaptor.forClass(AppUserAuditRecord.class);
+        verify(auditRecordDao).insert(captor.capture());
+        assertThat(cn.hutool.json.JSONUtil.parseObj(captor.getValue().getMaterialJson()).getStr("materialUrls"))
+                .isEqualTo("https://media.example.com/explicit.jpg");
     }
 
     @Test

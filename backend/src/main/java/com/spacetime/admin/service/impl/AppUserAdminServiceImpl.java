@@ -56,6 +56,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -155,6 +156,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             Map.entry("hometownCity", "hometownCity"),
             Map.entry("家乡区县", "hometownDistrict"),
             Map.entry("hometownDistrict", "hometownDistrict"),
+            Map.entry("户口所在地", "residence"),
             Map.entry("脱单目标", "datingGoal"),
             Map.entry("datingGoal", "datingGoal"),
             Map.entry("婚姻状况", "maritalStatus"),
@@ -1165,6 +1167,9 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
                 error = "手机号已存在";
                 duplicate++;
             }
+            if (error == null) {
+                error = validateImportMediaUrls(rowData);
+            }
             String rawJson = toJsonObject(rowData);
             if (error == null) {
                 success++;
@@ -1175,6 +1180,30 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             }
         }
         return new ImportCounter(lines.size() - 1, success, errors.size(), duplicate, errors, rows);
+    }
+
+    /** 审核表 media_url/thumb_url 为 varchar(500)，写库前逐张检查，不能截断原始地址。 */
+    private String validateImportMediaUrls(Map<String, String> rowData) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("avatarUrl", "裁剪后主头像");
+        fields.put("albumPhotoUrls", "相册/附加照片");
+        fields.put("profileBgImageUrl", "资料背景图");
+        fields.put("voiceIntroUrl", "语音介绍文件");
+        for (Map.Entry<String, String> field : fields.entrySet()) {
+            String raw = value(rowData, field.getKey());
+            if (StrUtil.isBlank(raw)) {
+                continue;
+            }
+            List<String> urls = "albumPhotoUrls".equals(field.getKey()) ? splitUrlList(raw) : List.of(raw);
+            for (int index = 0; index < urls.size(); index++) {
+                String url = urls.get(index);
+                if (url.codePointCount(0, url.length()) > 500) {
+                    return field.getValue() + "第" + (index + 1)
+                            + "个地址超过500字符，请上传至素材存储并填写短地址（不要截断原地址）";
+                }
+            }
+        }
+        return null;
     }
 
     private List<String> parseCsvLine(String line) {
@@ -1232,8 +1261,6 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         mirrorImportField(rowData, "avatarImage", "avatarUrl");
         mirrorImportField(rowData, "photos", "albumPhotoUrls");
         mirrorImportField(rowData, "profileBgImage", "profileBgImageUrl");
-        mirrorImportField(rowData, "studentMaterials", "educationMaterialUrls");
-        mirrorImportField(rowData, "certificateMaterials", "educationMaterialUrls");
         mirrorImportField(rowData, "favoriteSong", "favoriteSongName");
         mirrorImportField(rowData, "favoriteSongName", "favoriteSong");
         mirrorImportField(rowData, "profileQaJson", "profileQa");
@@ -1288,7 +1315,30 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             rowData.put("tags", normalizeMultiDictValues(ProfileDictType.PROFILE_TAG, tags));
         }
         applyImportFieldCompatibility(rowData);
+        resolveImportEducationMaterials(rowData);
         return null;
+    }
+
+    /** 规范字段优先；两类材料都有值时按学历人群/已规范化的认证方式选择，不按列顺序抢占。 */
+    private void resolveImportEducationMaterials(Map<String, String> rowData) {
+        if (StrUtil.isNotBlank(rowData.get("educationMaterialUrls"))) {
+            return;
+        }
+        String userType = value(rowData, "educationUserType");
+        String method = value(rowData, "educationMethod");
+        if ("STUDENT".equals(userType) || "在校学生".equals(userType) || "在校生".equals(userType)) {
+            mirrorImportField(rowData, "studentMaterials", "educationMaterialUrls");
+        } else if ("MAINLAND_GRADUATE".equals(userType) || "中国大陆毕业生".equals(userType)) {
+            mirrorImportField(rowData, "certificateMaterials", "educationMaterialUrls");
+        } else if ("STUDENT_CARD".equals(method)) {
+            mirrorImportField(rowData, "studentMaterials", "educationMaterialUrls");
+        } else if ("CHSI".equals(method) || "DIPLOMA_NO".equals(method) || "MATERIAL_UPLOAD".equals(method)) {
+            mirrorImportField(rowData, "certificateMaterials", "educationMaterialUrls");
+        } else {
+            // 未提供人群及认证方式的历史文件保持原兼容顺序。
+            mirrorImportField(rowData, "studentMaterials", "educationMaterialUrls");
+            mirrorImportField(rowData, "certificateMaterials", "educationMaterialUrls");
+        }
     }
 
     private String normalizeDictValue(String dictType, String value) {
@@ -1364,7 +1414,11 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         user.setNickname(value(rowData, "nickname"));
         user.setGender(value(rowData, "gender"));
         user.setBirthday(parseDate(value(rowData, "birthday")));
-        user.setAge(parseInt(value(rowData, "age")));
+        if (user.getBirthday() == null) {
+            user.setAge(parseInt(value(rowData, "age")));
+        } else {
+            user.setAge(Period.between(user.getBirthday(), LocalDate.now()).getYears());
+        }
         user.setHeight(parseInt(value(rowData, "height")));
         user.setWeight(parseInt(value(rowData, "weight")));
         user.setIdentity(value(rowData, "identity"));

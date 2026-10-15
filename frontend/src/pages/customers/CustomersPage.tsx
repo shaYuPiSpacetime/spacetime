@@ -71,6 +71,7 @@ import {
 import { getTwoLevelRegions, type RegionTreeVO } from '@/api/dict';
 import { usePermission } from '@/hooks/usePermission';
 import { formatProfileRegion } from './customerProfileLocation';
+import { buildImportTemplateCsv } from './appUserImportTemplate';
 
 type BadgeVariant = 'success' | 'destructive' | 'warning' | 'secondary';
 type TagTone = 'orange' | 'purple' | 'blue' | 'green';
@@ -242,21 +243,6 @@ const ACCESS_OPTIONS = [
 ];
 
 const APP_USER_PAGE_SIZE = 9;
-const APP_USER_IMPORT_TEMPLATE_COLUMNS = [
-  '登录方式', '手机号', '短信验证码', '微信授权信息', '登录协议/隐私协议同意',
-  'openid', 'unionid', '昵称', '性别', '出生日期', '年龄', '身高', '体重',
-  '身份', '行业', '职业', '公司', '年收入',
-  '现居省份', '现居城市', '现居区县', '家乡省份', '家乡城市', '家乡区县',
-  '婚姻状况', '脱单目标', '感情状态', '是否想要孩子', '子女计划',
-  '学校', '专业', '最高学历', '个人标签', '微信号',
-  '爱听的歌曲', '爱听歌曲ID', '爱听歌曲名称', '爱听歌曲歌手', '爱听歌曲封面URL', 'MBTI', '星座',
-  '头像来源', '裁剪后主头像', '相册/附加照片', '资料背景图', '语音介绍文件', '语音介绍时长',
-  '自我介绍', '资料问答', '见面偏好', '喜欢的见面活动', '住房情况', '购车情况',
-  '有无子女', '结婚计划', '宗教信仰', '吸烟情况', '饮酒情况', '宠物态度',
-  '真实姓名', '身份证号', '单身承诺/认证协议勾选',
-  '学历人群', '学校名称', '学生证/在读证明', '认证方式', '学信网在线验证码',
-  '毕业证或学位证书编号', '证书姓名', '毕业证/学位证材料', '学历协议勾选',
-];
 
 function responseData<T>(res: unknown, fallback: T): T {
   return (res as any)?.data ?? fallback;
@@ -277,32 +263,6 @@ function downloadTextFile(filename: string, content: string, mime = 'text/csv;ch
 function csvCell(value: unknown) {
   const text = value == null ? '' : String(value);
   return `"${text.replace(/"/g, '""')}"`;
-}
-
-function buildImportTemplateCsv() {
-  const sample = [
-    '手机号登录', '13800000001', '123456', '已授权', '是',
-    'openid_demo_01', 'unionid_demo_01', '导入示例用户', '女', '1997-03-06', '29', '168', '50',
-    '职场人', 'IT/互联网', '设计师', '星河科技', '30-50万',
-    '浙江省', '杭州市', '西湖区', '河南省', '郑州市', '中原区',
-    '未婚', '1-2年内结婚', '正在寻觅', '想要', '以后考虑',
-    '浙江工商管理大学', '设计学', '本科', 'IT文娱|户外旅行', 'wx_demo_01',
-    '告白气球', 'song_001', '告白气球', '周杰伦', 'https://example.com/song-cover.jpg', 'INFJ', '双鱼座',
-    '相册选择', 'https://example.com/avatar.jpg', 'https://example.com/album-a.jpg|https://example.com/album-b.jpg',
-    'https://example.com/profile-bg.jpg', 'https://example.com/voice.mp3', '18',
-    '我是一个真诚稳定的人。', '希望你也认真对待关系。',
-    '[{"questionKey":"meetingPreference","title":"见面偏好","answer":"周末咖啡或展览"}]',
-    '周末咖啡或展览', '看电影/逛展', '已购房', '已购车', '无子女', '1-2年内结婚', '无宗教信仰',
-    '不吸烟', '偶尔饮酒', '喜欢宠物',
-    '张三', '330106199703060011', '是',
-    '职场人', '浙江工商管理大学', 'https://example.com/student-card.jpg',
-    '证书编号', 'ABCD12345678', 'DIPLOMA20260001', '张三',
-    'https://example.com/edu-a.jpg|https://example.com/edu-b.jpg', '是',
-  ];
-  return [
-    APP_USER_IMPORT_TEMPLATE_COLUMNS.map(csvCell).join(','),
-    sample.map(csvCell).join(','),
-  ].join('\n');
 }
 
 function parseImportErrors(errorSummaryJson?: string): string[] {
@@ -3452,7 +3412,10 @@ function WorkflowDialog({
               <strong className="text-[#1F2433]">全字段模板</strong>
               <span>支持填写：账号资料、基础资料、认证资料、头像/相册/背景图 URL、开放文本、语音 URL、歌曲、微信号等字段。</span>
               <span>必填：按后台字段配置校验；资料图片类字段填写对应图片 URL，多个 URL 用英文竖线 | 分隔。</span>
-              <span>步骤：1 下载模板 / 2 上传 Excel / 3 预校验 / 4 确认导入</span>
+              <span>示例仅说明格式，导入前请替换为真实手机号、本人资料和可访问的材料 URL；example.com 地址不是实际材料。</span>
+              <span>单张头像、相册、背景图和语音地址不得超过 500 字符；超长地址请先上传至素材存储，不要截断原地址。</span>
+              <span>手机号已存在时该行失败，不覆盖已有用户；年龄和星座可留空，以出生日期为准。</span>
+              <span>步骤：1 下载模板 / 2 替换示例资料 / 3 选择 Excel/CSV / 4 确认导入（校验通过的行将直接入库）</span>
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>下载模板</Button>
                 <Button variant="outline" size="sm" onClick={handleDownloadErrorReport}>下载错误报告</Button>
