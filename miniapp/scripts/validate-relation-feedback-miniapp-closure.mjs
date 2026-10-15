@@ -100,7 +100,8 @@ assert.ok(
   userPage.indexOf('const data = await getPublicProfile') < userPage.indexOf('await reportRelationVisit'),
   '用户主页必须在公开资料加载成功后上报访问',
 )
-assert.match(userPage, /private-chat\?conversationNo=/, '匹配用户必须跳转真实私聊页面')
+assert.match(userPage, /resolveConversationByPeerUserId\(profile\.userId\)/, '匹配用户必须解析真实会话号')
+assert.match(userPage, /await openPrivateChat\(conversation\.conversationNo, sessionVersion\)/, '匹配用户必须通过统一导航复用真实私聊页面')
 
 assert.match(requestService, /class ApiBusinessError/, '统一请求错误必须保留业务错误类型')
 assert.match(requestService, /this\.code = code/, '统一请求错误必须保留后端业务码')
