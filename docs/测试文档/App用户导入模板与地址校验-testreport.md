@@ -95,6 +95,22 @@ mvn -o -Dtest=AppUserAdminServiceImplTest,AppUserControllerTest,AppUserControlle
 
 女性文件增量证据：`female-analysis.json`、`female-db-check.json` 与真实预校验重放输出，仅保留在本机忽略目录。
 
+### 真实导入准备核验（2026-10-15，用户授权测试环境）
+
+- 用户授权将该女性文件实际导入测试环境，并指定每行相册复用该行头像；不授权使用默认头像替换原图。
+- 对9行原始头像地址执行 GET 并检查跳转后的图片内容：全部返回同一张“图片生成中”占位图，不是可恢复的原始人物照片。未修改原表、截断链接或上传占位图。
+- 按 `frontend/e2e-tests/.env` 的 `http://127.0.0.1:8080` 启动临时 dev API，禁用该进程的定时任务和固定登录会话；`GET /health` 返回业务码200、`data=ok`。
+- 使用用户本次提供的账密，经正常 `POST /admin/login` 尝试一次：业务码5001；日志确认账号存在但密码校验失败。没有获得或伪造Token，没有继续猜测密码或绕过RBAC。
+- `POST /admin/users/app/import` 发送次数为0。真实导入及最终修复文件仍等待有效原图、可登录的测试环境；不能把本次健康检查或离线校验当作入库成功。
+- 账密不写入脚本、配置或报告；仅记录上述去敏结果。临时运行器与日志保存在忽略目录，不修改正式认证实现。
+
+#### 更正密码后的复核
+
+- 用户随后更正密码，使用正常登录接口再次核验成功；`GET /admin/permissions` 返回业务码200，包含 `user:app:import` 和 `user:app:list`，登录与权限前置条件已解除。
+- 使用该会话只读查询原表9个手机号，每个查询总数均为0；只记录Excel行号2～10及数量，不保存完整业务响应或Token。
+- 核验结束调用正常退出接口成功。导入接口仍未调用，原图依然缺失，因此不声称已经导入或输出修复完成的文件。
+- 本次运行日志为忽略目录中的 `local-readiness-corrected.stdout.log`、`local-readiness-corrected.stderr.log`；后者为0字节，无启动或请求错误。
+
 只读代码审查已复核：无 Critical/Important 残留，Ready。
 
 ## 7. 交付记录
