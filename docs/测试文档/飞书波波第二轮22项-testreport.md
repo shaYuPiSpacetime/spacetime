@@ -4,7 +4,7 @@
 
 ## 当前结论
 
-代码和自动化验证已完成，发布核验及飞书写回完成后补记本报告。同步基础为 `origin/master` 的 `19dda7d2`，保留该版本新合入的评论异常转人工与私信复用。
+代码、自动化验证、生产后端部署、小程序体验版上传与飞书写回已完成。本轮 22 项 E 列均为“已处理”，H 列有逐项修复和发布说明；F 验收列保留。同步基础为 `origin/master` 的 `19dda7d2`，保留该版本新合入的评论异常转人工与私信复用。
 
 ## 验证结果
 
@@ -60,4 +60,32 @@
 
 - 忽略目录 `.runtime/feishu-bobo-20261015-round2/` 保存附件、红灯日志、最终回归、类型基线对比及构建日志。
 - `backend-final-summary.json`：295 项后端结果；`build-weapp.txt`：466 项前置测试及生产构建；`typecheck-comparison.json`：与基础代码相同的 15 项错误。
-- 全新发布目录、SHA-256 核对、preview/upload 分包字节数、后端部署与飞书回读在发布完成后补记。
+- 发布原始证据见下节及 `.runtime/feishu-bobo-20261015-round2/feishu-writeback-summary.json`。
+
+## 发布和飞书回读结果
+
+- 修复提交：`6021f30fc36a5a6420add9e807dcaa2e43e5e21e`，已 Push `master`；上传前 `git ls-remote` 与该提交一致。
+- 体验版：`1.0.20261015.2309`。全新目录 `.runtime/weapp-release-20261015-230936-6021f30f`；复制 `442` 个文件 SHA-256 一致，预览后上传前再次核对一致。
+- 微信 preview/upload 均成功，主包和 13 个分包逐项同名同字节，总包 2,893,634 字节。
+- 后端 [Actions 38757754291](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/38757754291) 的 build/deploy 成功，源码为修复提交；新容器于 `2026-10-15T15:12:48Z` 启动，镜像 `sha256:9a04589740746a38d0f17fb1d7444538450544fee4433b6d0081829e3edbdc3f`，状态 running。
+- 公网 `/api/health` 返回 HTTP 200、业务 code=200、data=ok。生产 `community.copy.comment_pending` 和 `community_comment_status=pending` 均为启用，文案为“评论已提交，等待人工审核”和“待人工审核”。
+- 飞书 CLI 写入 44 个单元格、0 失败；逐条回读 22 项 E/H 全部一致，F 和其他单元格未变化。revision `3476` → `3477`；回读范围内波波剩余待处理 `0` 项。
+- 此处“已处理”表示修复和发布完成；未把本轮未执行的逐项真机验收标记为通过，微信外部 45009 也未标记为恢复。
+
+| 包名 | preview/upload 字节数（相同） |
+| --- | ---: |
+| `TOTAL` | 2,893,634 |
+| `main` | 1,398,841 |
+| `/pages/assessment/` | 4,199 |
+| `/pages/coins/` | 46,436 |
+| `/pages/featured/` | 80,918 |
+| `/pages/heart/` | 56,011 |
+| `/pages/membership/` | 39,115 |
+| `/pages/message/` | 442,013 |
+| `/pages/prd08/` | 87,724 |
+| `/pages/profile-edit/` | 33,515 |
+| `/pages/promotion/` | 364,357 |
+| `/pages/qianxun/` | 136,140 |
+| `/pages/search/` | 19,920 |
+| `/pages/settings/` | 58,193 |
+| `/pages/verification/` | 126,252 |
