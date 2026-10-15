@@ -233,8 +233,9 @@ test('匹配弹窗进入私信必须解析真实会话号，禁止用匹配号�
   const community = read('src/components/MatchPopupHost.tsx')
 
   assert.match(community, /resolveConversationByPeerUserId\(current\.matchedUserId\)/)
-  assert.match(community, /conversationNo=\$\{encodeURIComponent\(conversation\.conversationNo\)\}/)
-  assert.doesNotMatch(community, /conversationNo=\$\{popup\.matchNo\}/)
+  assert.match(community, /import \{ openPrivateChat \} from '@\/utils\/privateChatNavigation'/)
+  assert.match(community, /await openPrivateChat\(conversation\.conversationNo, sessionVersion\)/)
+  assert.doesNotMatch(community, /openPrivateChat\((?:current|popup)\.matchNo/)
 })
 
 test('公开资料必须成功加载后才上报访问', () => {
