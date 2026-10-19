@@ -3,7 +3,7 @@
 > **执行日期**：2026-10-19
 > **关联用例**：`docs/测试文档/学历拍照选择闪烁-20261019-testcase.md`
 > **测试范围**：学历认证材料选择、取消、重复点击、上传状态与认证流程回归
-> **结论**：第三轮定位到学历页在系统选择器返回时额外触发 `didShow` 状态刷新；最小修复的红绿回归、认证组合回归、完整发布构建与产物门禁均通过
+> **结论**：第三轮定位到学历页在系统选择器返回时额外触发 `didShow` 状态刷新；最小修复的红绿回归、认证组合回归、完整发布构建、产物门禁及独立目录体验版上传均通过
 
 ## 1. 修复验证
 
@@ -58,6 +58,14 @@
 - 发布目录共 442 个文件，复制前后及上传后 SHA-256 均一致；未复制 `project.private.config.json`。
 - 微信 CLI preview 与 upload 均成功，15 项包统计逐项一致：总包 `2,898,051` 字节、主包 `1,401,654` 字节、学历认证分包 `127,100` 字节。
 - 原始证据保存在发布目录上级的 `manifest.json`、`preview-info.json`、`upload-info.json`、`package-audit.json` 与 `preview-qr.png`。
+
+### 4.1 第三轮体验版
+
+- 业务源码提交：`50b70006a55098117e4f8ae9881d5c9a80b12a7f`，上传前本地 HEAD、远端 `origin/master` 与发布清单提交完全一致。
+- 体验版版本：`1.0.20261019.1826`，描述为“修复学历拍照相册返回时重复刷新闪烁”。
+- 独立发布目录：`.runtime/weapp-release-education-picker-flicker-20261019-182624-50b70006/project`，共校验 442 个文件，未复制 `project.private.config.json`。
+- CLI preview 与 upload 的 15 项包统计逐项一致：总包 `2,898,074` 字节、主包 `1,401,654` 字节、学历认证分包 `127,123` 字节；上传后文件 SHA-256 复核一致。
+- 原始证据保存在独立目录上级的 `copy-manifest.json`、`preview-info.json`、`upload-info.json`、`package-audit.json` 与 `preview-qr.png`。
 
 ## 5. 待复核项
 
