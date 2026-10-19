@@ -23,4 +23,14 @@ node --test scripts/test-municipality-region-compatibility.cjs scripts/test-reco
 ## 限制及发布
 
 - 模拟器已打开，但当前为未登录页；缺少对应账号的已登录态，未进行生产账号操作或 iPhone 真机验收。
-- 构建门禁、生产构建和独立目录上传结果将在本报告补记；当前不将本地回归写作已发布。
+- 修复源码 `a7309b475f5004600ff6d16ad5becd7cfe12fb07` 已 Push 到 `master`。
+
+## 发布结果
+
+- 体验版 `1.0.20261019.2131` 上传成功。
+- 当次已重新 fetch 并同步 `origin/master`；上传前再次读取远端 SHA，与构建源码完全一致。
+- 本机忽略的后端开发配置未满足固定登录静态门禁；未改动该文件，从已提交源码快照构建。干净源码的完整 `npm run build:weapp`（包含 prebuild、Taro 编译和 postbuild）通过。开发固定登录与 E2E 均关闭。
+- 全新发布目录：`.runtime/weapp-release-20261019-213142-a7309b47/project`。442 个文件复制前后及上传后 SHA-256 一致，未复制私有项目配置。
+- preview/upload 的全部 15 项（含 TOTAL）包名与字节数完全一致：总包 2,902,160 字节，主包 1,402,606 字节，推荐分包 87,710 字节，认证分包 131,138 字节。
+- 原始证据位于同一发布根目录：`build.log`、`hash-audit.json`、`preview-info.json`、`upload-info.json`、`remote-before-upload.txt`、`release-verification.json`。
+- 本次仅修改小程序，无后端部署事项；上传成功及包校验不替代 iPhone 真机业务验收。
