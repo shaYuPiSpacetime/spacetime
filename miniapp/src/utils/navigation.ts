@@ -56,3 +56,12 @@ export async function navigateBackOrRedirect(fallbackUrl = PROFILE_EDIT_FALLBACK
   }
   await Taro.redirectTo({ url: fallbackUrl })
 }
+
+/** 返回上一页；分享单页或返回失败时进入指定底部页面。 */
+export async function navigateBackOrSwitchTab(fallbackUrl: string) {
+  if (Taro.getCurrentPages().length > 1) {
+    try { await Taro.navigateBack(); return } catch { /* 页面栈已变化时继续兜底。 */ }
+  }
+  try { await Taro.switchTab({ url: fallbackUrl }) }
+  catch { await Taro.reLaunch({ url: fallbackUrl }) }
+}

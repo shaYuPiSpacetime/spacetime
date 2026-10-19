@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { navigateBackOrRedirect } from '@/utils/navigation'
 import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 import bg from '@/assets/lanhu/verification/verification-bg.webp'
 
@@ -28,7 +28,7 @@ export default function VerificationSubShell({
       onBack()
       return
     }
-    Taro.redirectTo({ url: '/pages/verification/triple' })
+    return navigateBackOrRedirect('/pages/profile/edit')
   }
 
   const content = (

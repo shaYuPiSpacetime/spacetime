@@ -27,7 +27,7 @@ assert.match(nativeNavigation, /getMenuButtonBoundingClientRect/, '导航组件�
 assert.match(nativeNavigation, /MiniappBackIcon/, '导航组件必须提供统一返回箭头')
 assert.match(nativeNavigation, /iconUnit\s*=\s*isWeapp\s*\?\s*['"]rpx['"]\s*:\s*['"]px['"]/, '统一返回箭头必须兼容微信与 H5 的尺寸单位')
 assert.match(nativeNavigation, /iconMetric\(size\)/, '统一返回箭头尺寸必须经过双端单位换算')
-assert.doesNotMatch(nativeNavigation, /•••|胶囊/, '导航组件不得绘制微信原生胶囊')
+assert.doesNotMatch(nativeNavigation.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, ''), /•••|胶囊/, '导航组件不得绘制微信原生胶囊，定位说明注释不属于绘制')
 
 assert.match(header, /QIANXUN_SECONDARY_TAB_OFFSET/, '千寻主副 Tab 间距必须使用明确设计常量')
 assert.doesNotMatch(header, /Math\.max\(176,\s*primaryTop/, '千寻二级 Tab 不得再被固定最小高度拉远')
@@ -59,7 +59,8 @@ assert.match(family, /qianxun_requested_scene/, '千寻首页必须消费跨页�
 assert.match(myPosts, /interactions\?section=history/, '旧我的动态页“浏览记录”必须进入对应互动 Tab')
 assert.match(myPosts, /interactions\?roster=following/, '旧我的动态页“关注”必须进入关注列表态')
 assert.match(myPosts, /interactions\?roster=followers/, '旧我的动态页“粉丝”必须进入粉丝列表态')
-assert.match(myPosts, /interactions\?likes=1/, '旧我的动态页“获赞”必须进入获赞说明态')
+assert.match(myPosts, /<CommunityLikeSummary\s+visible=\{likeSummaryVisible\}/, '我的动态页“获赞”必须使用本页说明弹窗')
+assert.doesNotMatch(myPosts, /interactions\?likes=1/, '获赞弹窗不得通过新建互动页面实现')
 
 assert.match(customNav, /NativeNavigation/, '通用自定义导航必须复用统一导航和返回箭头')
 assert.doesNotMatch(customNav, />\s*‹\s*</, '通用自定义导航不得使用字体返回符号')

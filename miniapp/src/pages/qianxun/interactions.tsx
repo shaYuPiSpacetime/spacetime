@@ -3,6 +3,7 @@ import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import Taro, { useDidHide, useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
+import CommunityLikeSummary from '@/components/CommunityLikeSummary'
 import { QianxunActionStat, QianxunGenderIcon } from '@/components/QianxunCommunityIcons'
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
 import QianxunPublishFailureDialog from '@/components/QianxunPublishFailureDialog'
@@ -157,13 +158,19 @@ export default function QianxunInteractionsPage() {
   const [showVersion, setShowVersion] = useState(0)
   const loadedLists = useRef(new Set<string>())
   const visibleRef = useRef(false)
+  const rosterRequest = useRef(0)
   useDidShow(() => {
     visibleRef.current = true
     void getCommunityMeta().then(setConfig).catch(() => {})
     setShowVersion(value => value + 1)
   })
-  useDidHide(() => { visibleRef.current = false })
-  useEffect(() => subscribeCommunityPersonalChanged(() => {
+  useDidHide(() => { visibleRef.current = false; rosterRequest.current++ })
+  useEffect(() => subscribeCommunityPersonalChanged(change => {
+    // 隐藏的列表同样清理已拉黑对象，并使操作前的慢请求失效。
+    if (change.kind === 'block' && change.authorId) {
+      rosterRequest.current++
+      setRosterUsers(users => users.filter(user => user.userId !== change.authorId))
+    }
     if (visibleRef.current) setShowVersion(value => value + 1)
   }), [])
 
@@ -202,20 +209,18 @@ export default function QianxunInteractionsPage() {
   }, [section, filter, roster, interactorPostId, likeSummaryVisible, showVersion])
 
   useEffect(() => {
-    if (!roster) return
-    setRosterLoading(true)
-    void getCommunityFollowRelations(roster, 1, 50).then(page => {
-      setRosterUsers(page.records || [])
-    }).catch(error => showError(config, error)).finally(() => setRosterLoading(false))
-  }, [roster])
-
-  useEffect(() => {
-    if (!interactorPostId) return
-    setRosterLoading(true)
-    void getCommunityPostInteractors(interactorPostId, interactorType, 1, 50).then(page => {
-      setRosterUsers(page.records || [])
-    }).catch(error => showError(config, error)).finally(() => setRosterLoading(false))
-  }, [interactorPostId, interactorType])
+    if (!roster && !interactorPostId) return
+    const request = ++rosterRequest.current
+    setRosterLoading(rosterUsers.length === 0)
+    const loading = interactorPostId
+      ? getCommunityPostInteractors(interactorPostId, interactorType, 1, 50)
+      : getCommunityFollowRelations(roster!, 1, 50)
+    void loading.then(page => {
+      if (request === rosterRequest.current) setRosterUsers(page.records || [])
+    }).catch(error => { if (request === rosterRequest.current) void showError(config, error) })
+      .finally(() => { if (request === rosterRequest.current) setRosterLoading(false) })
+    return () => { if (request === rosterRequest.current) rosterRequest.current++ }
+  }, [roster, interactorPostId, interactorType, showVersion])
 
   const myPostsRequest = useRef(0)
   useEffect(() => subscribeCommunityPostResubmitted(replacement => {
@@ -368,7 +373,7 @@ export default function QianxunInteractionsPage() {
   }
 
   if (interactorPostId) {
-    return <View id="qianxun-interactors-page" style={{ minHeight: '100vh', background: '#FFFFFF' }}><SimpleHeader title="互动" onBack={() => void Taro.navigateBack()} /><View style={{ height: '88rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', borderBottom: '1rpx solid #EFF2F6' }}>{(['liked', 'commented'] as const).map(type => <View key={type} onClick={() => setInteractorType(type)} style={{ position: 'relative', width: '150rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: interactorType === type ? NAVY : '#999999', fontSize: '27rpx', fontWeight: interactorType === type ? 600 : 400 }}>{type === 'liked' ? '点赞' : '评论'}</Text>{interactorType === type ? <View style={{ position: 'absolute', bottom: 0, width: '54rpx', height: '6rpx', borderRadius: '3rpx', background: BLUE }} /> : null}</View>)}</View>{rosterLoading ? <LoadingRows /> : rosterUsers.length ? <RosterList users={rosterUsers} onChanged={() => void getCommunityPostInteractors(interactorPostId, interactorType, 1, 50).then(page => setRosterUsers(page.records || [])).catch(error => showError(config, error))} config={config} /> : <InteractorEmpty type={interactorType} config={config} />}</View>
+    return <View id="qianxun-interactors-page" style={{ minHeight: '100vh', background: '#FFFFFF' }}><SimpleHeader title="互动" onBack={() => void Taro.navigateBack()} /><View style={{ height: '88rpx', padding: '0 30rpx', display: 'flex', alignItems: 'center', borderBottom: '1rpx solid #EFF2F6' }}>{(['liked', 'commented'] as const).map(type => <View key={type} onClick={() => setInteractorType(type)} style={{ position: 'relative', width: '150rpx', height: '88rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: interactorType === type ? NAVY : '#999999', fontSize: '27rpx', fontWeight: interactorType === type ? 600 : 400 }}>{type === 'liked' ? '点赞' : '评论'}</Text>{interactorType === type ? <View style={{ position: 'absolute', bottom: 0, width: '54rpx', height: '6rpx', borderRadius: '3rpx', background: BLUE }} /> : null}</View>)}</View>{rosterLoading ? <LoadingRows /> : rosterUsers.length ? <RosterList users={rosterUsers} onChanged={() => setShowVersion(value => value + 1)} config={config} /> : <InteractorEmpty type={interactorType} config={config} />}</View>
   }
 
   if (roster) {
@@ -380,7 +385,7 @@ export default function QianxunInteractionsPage() {
             {roster === 'following' ? `我关注的（${profile.followingCount}人）` : `我的粉丝（${profile.followerCount}人）`}
           </Text>
         </View>
-        {rosterLoading ? <LoadingRows /> : rosterUsers.length ? <RosterList users={rosterUsers} onChanged={() => void getCommunityFollowRelations(roster, 1, 50).then(page => setRosterUsers(page.records || [])).catch(error => showError(config, error))} config={config} /> : <RosterEmpty kind={roster} config={config} />}
+        {rosterLoading ? <LoadingRows /> : rosterUsers.length ? <RosterList users={rosterUsers} onChanged={() => setShowVersion(value => value + 1)} config={config} /> : <RosterEmpty kind={roster} config={config} />}
       </View>
     )
   }
@@ -419,7 +424,7 @@ export default function QianxunInteractionsPage() {
           <MinePanel loading={myPostsLoading} posts={myPosts} likingPostIds={likingPostIds} config={config} onLike={item => void toggleMyPostLike(item)} onManagePost={item => void manageMyPost(item)} onFailure={setFailurePost} onManageHiddenAuthors={() => void openHiddenAuthors()} />
         </View>
       </View>
-      {likeSummaryVisible ? <LikeSummary count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} /> : null}
+      <CommunityLikeSummary visible={likeSummaryVisible} count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} />
       {hiddenAuthorsVisible ? <HiddenAuthorsSheet users={hiddenAuthors} loading={hiddenAuthorsLoading} restoringUserIds={restoringAuthorIds} onRestore={user => void restoreHiddenAuthor(user)} onClose={() => setHiddenAuthorsVisible(false)} /> : null}
       <QianxunPublishFailureDialog visible={failurePost !== undefined} failureMessage={failurePost?.failureMessage} config={config} onClose={() => setFailurePost(undefined)} />
     </View>
@@ -860,20 +865,6 @@ function RosterList({ users, onChanged, config }: { users: CommunityRelationUser
   return <ScrollView scrollY style={{ height: 'calc(100vh - 260rpx)' }} showScrollbar={false}><View style={{ padding: '16rpx 28rpx 40rpx' }}>{users.map(user => <View key={user.userNo || user.userId} style={{ height: '126rpx', display: 'flex', alignItems: 'center' }}><Image onClick={() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} src={normalizeAvatarUrl(user.avatar, defaultAvatar)} mode="aspectFill" style={{ width: '82rpx', height: '82rpx', borderRadius: '41rpx', background: '#EEF1F5' }} /><View onClick={() => void Taro.navigateTo({ url: `/pages/heart/user?userId=${user.userId}` })} style={{ marginLeft: '18rpx', minWidth: 0, flex: 1 }}><Text style={{ display: 'block', color: '#292929', fontSize: '28rpx', lineHeight: '40rpx', fontWeight: 600 }}>{user.nickname}</Text><Text style={{ display: 'block', color: '#A1A1A1', fontSize: '23rpx', lineHeight: '33rpx', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.description}</Text></View><View onClick={() => void changeFollow(user)} style={{ minWidth: '126rpx', height: '58rpx', borderRadius: '29rpx', padding: '0 18rpx', border: `1rpx solid ${user.following ? '#A8ADB5' : BLUE}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}><Text style={{ color: user.following ? '#999999' : BLUE, fontSize: '24rpx' }}>{user.following ? '已关注' : '关注'}</Text></View></View>)}</View></ScrollView>
 }
 
-function LikeSummary({ count, nickname, onClose }: { count: number; nickname: string; onClose: () => void }) {
-  return (
-    <View onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(20,28,38,.34)', zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <View onClick={event => event.stopPropagation()} style={{ width: '620rpx', borderRadius: '32rpx', background: '#FFFFFF', padding: '46rpx 50rpx 28rpx', boxSizing: 'border-box' }}>
-        <View style={{ height: '126rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {[0, 1, 2, 3, 4].map(index => <Image key={index} src={miniappOssIcons.qianxunLikeActive} mode="aspectFit" style={{ width: index === 2 ? '42rpx' : '32rpx', height: index === 2 ? '42rpx' : '32rpx', margin: index === 2 ? '0 10rpx' : '0 5rpx', marginTop: index % 2 ? '-20rpx' : '14rpx' }} />)}
-        </View>
-        <Text style={{ display: 'block', color: '#222222', fontSize: '30rpx', lineHeight: '44rpx', fontWeight: 600, textAlign: 'center' }}>“{nickname}”共获得{count}个赞</Text>
-        <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx', lineHeight: '39rpx', textAlign: 'center', marginTop: '14rpx' }}>获赞数含动态、日常、诚意帖点赞，重复点赞仅累计一次</Text>
-        <View onClick={onClose} style={{ height: '70rpx', borderRadius: '7rpx', background: BLUE, marginTop: '38rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '27rpx' }}>我知道了</Text></View>
-      </View>
-    </View>
-  )
-}
 
 function toMyPostSnapshot(post: CommunityPostVO): MyPostSnapshot {
   return {

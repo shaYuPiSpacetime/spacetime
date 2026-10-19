@@ -1,6 +1,9 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useRetainedScroll } from '@/hooks/useRetainedScroll'
+import { useAuthStore } from '@/stores/authStore'
+import { subscribeCommunityPersonalChanged } from '@/domain/communityPersonalEvents'
 import NativeNavigation from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { getIdealUnlocks, type IdealUnlockRecordVO } from '@/services/ideal'
@@ -12,37 +15,62 @@ export default function IdealUnlocksPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [message, setMessage] = useState('')
   const loadVersion = useRef(0)
+  const loadInFlight = useRef(false)
+  const loaded = useRef(false)
+  const blockedUserIds = useRef(new Set<number>())
+  const userId = useAuthStore(state => state.userId)
+  const scroll = useRetainedScroll(`ideal-unlocks:${userId}`)
 
   const load = async (cursor?: string, append = false) => {
+    if (append && loadInFlight.current) return
     const version = ++loadVersion.current
+    loadInFlight.current = true
     if (append) setLoadingMore(true)
     else {
-      setLoading(true)
+      setLoading(items.length === 0)
       setMessage('')
-      setItems([])
+      blockedUserIds.current.clear()
     }
     try {
       const data = await getIdealUnlocks('all', cursor)
       if (version !== loadVersion.current) return
-      const visibleItems = (data.items || []).filter(item => item.unavailableReason !== 'blocked')
-      setItems(current => (append ? [...current, ...visibleItems] : visibleItems))
+      const visibleItems = (data.items || []).filter(item => item.unavailableReason !== 'blocked'
+        && !blockedUserIds.current.has(item.profile?.userId || 0))
+      setItems(current => {
+        const combined = append ? [...current, ...visibleItems] : visibleItems
+        return [...new Map(combined.map(item => [item.unlockNo, item])).values()]
+      })
       setNextCursor(data.nextCursor || null)
+      loaded.current = true
     } catch (error) {
       if (version !== loadVersion.current) return
       setMessage(error instanceof Error ? error.message : '历史解锁加载失败')
     } finally {
       if (version === loadVersion.current) {
+        loadInFlight.current = false
         setLoading(false)
         setLoadingMore(false)
       }
     }
   }
 
-  // 从用户主页拉黑后返回，重新查询列表，不继续展示旧的历史解锁卡片。
-  useDidShow(() => {
+  useEffect(() => {
+    loaded.current = false
+    setItems([])
+    setNextCursor(null)
     void load()
+    return () => { loadVersion.current++; loadInFlight.current = false }
+  }, [userId])
+  useEffect(() => subscribeCommunityPersonalChanged(change => {
+    if (change.kind !== 'block' || !change.authorId) return
+    blockedUserIds.current.add(change.authorId)
+    setItems(current => current.filter(item => item.profile?.userId !== change.authorId))
+  }), [])
+  // 主页返回复用当前页实例，保留已加载分页和滚动位置；失败重试与主动下拉独立触发。
+  useDidShow(() => {
+    if (!loaded.current && !loadInFlight.current) void load()
   })
-  usePullDownRefresh(() => void load().finally(() => Taro.stopPullDownRefresh()))
+  usePullDownRefresh(() => void load().then(() => scroll.reset()).finally(() => Taro.stopPullDownRefresh()))
 
   return (
     <View style={{ minHeight: '100vh', background: '#FFFFFF' }}>
@@ -52,7 +80,10 @@ export default function IdealUnlocksPage() {
       {!loading && !message && !items.length ? <EmptyState text="暂无数据" /> : null}
       {items.length ? (
         <ScrollView
+          id="ideal-unlocks-scroll"
           scrollY
+          scrollTop={scroll.scrollTop}
+          onScroll={scroll.onScroll}
           showScrollbar={false}
           onScrollToLower={() => {
             if (nextCursor && !loadingMore) void load(nextCursor, true)

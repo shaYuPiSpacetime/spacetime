@@ -43,6 +43,7 @@ import {
   quoteRecommendReplayProfile,
   unlockRecommendReplayProfile,
 } from '@/services/recommend'
+import { navigateBackOrSwitchTab } from '@/utils/navigation'
 import { settingsApi } from '@/services/settings'
 
 const background = 'linear-gradient(90deg, rgba(233,253,251,0.6), rgba(234,238,249,0.6) 48.5%, rgba(248,250,239,0.6))'
@@ -98,10 +99,10 @@ export default function HeartUserPage() {
     await Taro.navigateTo({ url: '/pages/login/index' })
   }
 
-  const goBack = () => {
-    if (Taro.getCurrentPages().length > 1) void Taro.navigateBack()
-    else if (isLoggedIn) void Taro.switchTab({ url: '/pages/index/index' })
-    else void openLogin()
+  const goBack = async () => {
+    if (isLoggedIn) await navigateBackOrSwitchTab('/pages/index/index')
+    else if (Taro.getCurrentPages().length > 1) await Taro.navigateBack()
+    else await openLogin()
   }
 
   const runCertifiedAction = (action: () => void) => {
@@ -339,14 +340,14 @@ export default function HeartUserPage() {
           requestId: createRequestId('profile-never', targetUserId),
         })
         await Taro.showToast({ title: '已设置不再推荐', icon: 'success' })
-        await Taro.navigateBack()
+        await goBack().catch(() => { /* 操作已成功，导航失败不应误报为拉黑失败。 */ })
         return
       }
       const confirm = await Taro.showModal({ title: '拉黑该用户', content: '拉黑后双方将无法继续互动，可在隐私设置中解除。' })
       if (!confirm.confirm) return
       await settingsApi.addBlacklist(targetUserId, sourceScene)
       await Taro.showToast({ title: '已拉黑', icon: 'success' })
-      await Taro.navigateBack()
+      await goBack().catch(() => { /* 操作已成功，导航失败不应误报为拉黑失败。 */ })
     } catch (error) {
       if (!String((error as { errMsg?: string })?.errMsg || error).includes('cancel')) {
         await Taro.showToast({ title: error instanceof Error ? error.message : '操作失败，请重试', icon: 'none' })

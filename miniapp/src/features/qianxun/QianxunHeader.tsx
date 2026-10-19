@@ -1,5 +1,5 @@
 import { Image, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { getWindowMetrics } from '@/utils/system'
 
 const BLUE = '#2876FF'
@@ -7,7 +7,6 @@ const NAVY = '#0C285A'
 const QIANXUN_SECONDARY_TAB_OFFSET = 70
 const PROFILE_TOUCH_SIZE = 64
 const PROFILE_MENU_GAP = 12
-const PROFILE_MIN_LEFT = 379
 
 export type QianxunPrimaryTab = 'FAMILY' | 'KINDRED' | 'CAREER'
 
@@ -23,25 +22,14 @@ export interface QianxunHeaderMetrics {
 export function getQianxunHeaderMetrics(): QianxunHeaderMetrics {
   const system = getWindowMetrics()
   const scale = system.windowWidth ? 750 / system.windowWidth : 2
-  let menu: ReturnType<typeof Taro.getMenuButtonBoundingClientRect> | undefined
-  try {
-    if (Taro.getEnv() === Taro.ENV_TYPE.WEAPP) menu = Taro.getMenuButtonBoundingClientRect()
-  } catch {
-    // 胶囊 API 暂不可用时使用安全位置，避免遮挡一级导航。
-  }
-  const menuLeft = menu ? menu.left * scale : 598
-  const validMenu = menu && Number.isFinite(menu.top) && menu.top >= 0 &&
-    Number.isFinite(menu.height) && menu.height > 0 && menu.width > 0 &&
-    Number.isFinite(menu.left) && menu.left < system.windowWidth && menu.right > menu.left &&
-    menuLeft >= PROFILE_MIN_LEFT + PROFILE_TOUCH_SIZE + PROFILE_MENU_GAP
-  if (!validMenu) menu = undefined
-  const primaryTop = menu ? menu.top * scale + (menu.height * scale - 45) / 2 : 90
-  const avatarLeft = (menu ? menuLeft : 598) - PROFILE_TOUCH_SIZE - PROFILE_MENU_GAP
+  const menu = getNativeNavigationMetrics()
+  const primaryTop = menu.menuTop + (menu.menuHeight - 45) / 2
+  const avatarLeft = menu.menuLeft - PROFILE_TOUCH_SIZE - PROFILE_MENU_GAP
   const secondaryTop = primaryTop + QIANXUN_SECONDARY_TAB_OFFSET
   return {
     primaryTop, avatarLeft, secondaryTop, contentTop: secondaryTop + 82,
-    avatarAnchorLeft: menu?.left,
-    avatarCenterTop: menu ? menu.top + menu.height / 2 : undefined,
+    avatarAnchorLeft: menu.menuLeft / scale,
+    avatarCenterTop: (menu.menuTop + menu.menuHeight / 2) / scale,
   }
 }
 

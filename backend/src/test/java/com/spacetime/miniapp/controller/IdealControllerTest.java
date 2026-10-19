@@ -29,6 +29,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -115,7 +116,9 @@ class IdealControllerTest {
                 .andExpect(jsonPath("$.data.payableCost").value(10));
         mockMvc.perform(post("/miniapp/ideal/unlock-all/quote")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"snapshotNo\":\"IDS-001\"}"))
+                        .content("""
+                                {"snapshotNo":"IDS-001","itemNos":["IDI-001","IDI-002"]}
+                                """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.quoteToken").value("iuq_all"))
                 .andExpect(jsonPath("$.data.discountPercent").value(10));
@@ -127,6 +130,17 @@ class IdealControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.paidCost").value(18))
                 .andExpect(jsonPath("$.data.newBalance").value(82));
+    }
+
+    @Test
+    void currentPageQuoteRequiresExplicitPeople() throws Exception {
+        mockMvc.perform(post("/miniapp/ideal/unlock-all/quote")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"snapshotNo\":\"IDS-001\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty())
+                .andExpect(jsonPath("$.msg").value("参数：请更新小程序后，按当前页重新解锁"));
+        verifyNoInteractions(idealUnlockService);
     }
 
     @Test

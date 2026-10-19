@@ -187,7 +187,9 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         if (candidates.isEmpty()) {
             throw new BusinessException(409, "当前没有需要解锁的理想型用户");
         }
-        int discount = unlockAll ? intConfig(BATCH_DISCOUNT_KEY, DEFAULT_DISCOUNT, 0, 100) : 0;
+        // 优惠按实际解锁人数判断，手动勾选多人和本页批量使用同一口径。
+        int discount = unlockAll || candidates.size() > 1
+                ? intConfig(BATCH_DISCOUNT_KEY, DEFAULT_DISCOUNT, 0, 100) : 0;
         CoinSceneConfig scene = enabledUnitScene();
         int retentionDays = retentionDays(scene);
         int original = Math.multiplyExact(scene.getUnitPrice(), candidates.size());
@@ -336,7 +338,7 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
 
     private void requireQuoteConfigUnchanged(QuotePayload quote) {
         CoinSceneConfig scene = enabledUnitScene();
-        int discount = quote.isUnlockAll()
+        int discount = quote.isUnlockAll() || quote.getItemNos().size() > 1
                 ? intConfig(BATCH_DISCOUNT_KEY, DEFAULT_DISCOUNT, 0, 100) : 0;
         int retentionDays = retentionDays(scene);
         int expectedOriginal = Math.multiplyExact(scene.getUnitPrice(), quote.getItemNos().size());

@@ -368,9 +368,14 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
           </View>
           <View
             onClick={() => { if (selectedItemNos.length) void handleQuote(() => quoteIdealUnlock(snapshotNo, selectedItemNos)) }}
-            style={{ flex: 1, height: '98rpx', borderRadius: '49rpx', background: selectedItemNos.length ? BLUE : '#CCD5E2', opacity: unlocking ? 0.62 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ flex: 1, position: 'relative', height: '98rpx', borderRadius: '49rpx', background: selectedItemNos.length ? BLUE : '#CCD5E2', opacity: unlocking ? 0.62 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <View style={{ color: '#FFFFFF', fontSize: '30rpx', fontWeight: 600 }}>解锁选中{selectedItemNos.length ? `（${selectedItemNos.length}）` : ''}</View>
+            {selectedItemNos.length > 1 && page.pricing.discountPercent > 0 ? (
+              <View style={{ position: 'absolute', right: '12rpx', top: '-22rpx', padding: '8rpx 16rpx', borderRadius: '6rpx', background: '#F52C61' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: '19rpx' }}>优惠{page.pricing.discountPercent}%</Text>
+              </View>
+            ) : null}
           </View>
           </View>
         </View>

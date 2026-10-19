@@ -1810,7 +1810,11 @@ function AboutMeSection({ value, onEdit }: { value: string; onEdit: () => void }
       <Text
         style={{
           display: 'block',
-          width: '648rpx',
+          width: '100%',
+          minWidth: 0,
+          wordBreak: 'break-all',
+          overflowWrap: 'anywhere',
+          whiteSpace: 'pre-wrap',
           minHeight: '142rpx',
           color: '#333333',
           fontSize: '26rpx',

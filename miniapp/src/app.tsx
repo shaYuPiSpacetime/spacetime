@@ -41,7 +41,8 @@ function App({ children }: PropsWithChildren<object>) {
   const { setLogin, checkLogin } = useAuthStore()
   const bootstrapPrd01 = usePrd01Store(state => state.bootstrap)
   const loginRedirectingRef = useRef(false)
-  const legacyShareRedirectingRef = useRef(false)
+  const shareEntryVersionRef = useRef(0)
+  const shareNavigationRef = useRef<Promise<void>>(Promise.resolve())
 
   useLaunch((options) => {
     captureEntryPromotionSource(options.query)
@@ -68,6 +69,7 @@ function App({ children }: PropsWithChildren<object>) {
   })
 
   useDidShow((options) => {
+    const entryVersion = ++shareEntryVersionRef.current
     captureEntryPromotionSource(options?.query)
 
     if (MOCK_ENABLED) return
@@ -91,13 +93,23 @@ function App({ children }: PropsWithChildren<object>) {
       loginRedirectingRef.current = false
       checkLogin()
       void messagePlatformRuntime.onForeground()
-      const legacyTarget = String(options?.path || '').replace(/^\//, '').split('?')[0] === 'pages/index/index'
+      // 微信单聊、群聊与带 shareTicket 的分享入口；普通切回应用保留用户当前页面。
+      const shareTarget = [1007, 1008, 1044].includes(Number(options?.scene))
         ? resolvePendingShareRoute(options?.path, options?.query) : null
-      if (legacyTarget && !legacyShareRedirectingRef.current) {
-        legacyShareRedirectingRef.current = true
-        // 旧卡片可能唤醒已缓存的首页，统一从应用入口导航到该动态详情。
+      if (shareTarget) {
+        // 等原生路由就绪再核对，连续分享串行执行且以最后一次入口为准。
         setTimeout(() => {
-          void Taro.reLaunch({ url: legacyTarget }).catch(() => { void Taro.showToast({ title: '动态打开失败，请重新打开分享卡片', icon: 'none' }) }).finally(() => { legacyShareRedirectingRef.current = false })
+          shareNavigationRef.current = shareNavigationRef.current.then(async () => {
+            if (entryVersion !== shareEntryVersionRef.current || !Taro.getStorageSync(TOKEN_KEY)) return
+            const pages = Taro.getCurrentPages()
+            const page = pages[pages.length - 1]
+            if (resolvePendingShareRoute(page?.route, page?.options) === shareTarget) return
+            await Taro.reLaunch({ url: shareTarget })
+          }).catch(() => {
+            if (entryVersion === shareEntryVersionRef.current) {
+              void Taro.showToast({ title: '分享内容打开失败，请重新打开分享卡片', icon: 'none' })
+            }
+          })
         }, 0)
       }
       return
@@ -133,6 +145,7 @@ function App({ children }: PropsWithChildren<object>) {
   })
 
   useDidHide(() => {
+    shareEntryVersionRef.current += 1
     messagePlatformRuntime.onBackground()
     Taro.eventCenter.trigger(MESSAGE_RUNTIME_BACKGROUND_EVENT)
   })

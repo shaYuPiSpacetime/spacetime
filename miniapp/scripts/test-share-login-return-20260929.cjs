@@ -69,3 +69,71 @@ test('热启动旧分享卡片直达对应动态，未登录时新卡片优先�
   show({ path: 'pages/qianxun/post-detail', query: { id: '43' }, scene: 1007 })
   assert.equal(writes.get(domain.PENDING_SHARE_ROUTE_KEY), '/pages/qianxun/post-detail?id=43')
 })
+
+async function shareApp(currentPage) {
+  const ts = require('typescript')
+  const domainSource = fs.readFileSync(path.join(root, 'src/domain/pendingShareRoute.js'), 'utf8')
+  const domain = await import(`data:text/javascript;base64,${Buffer.from(domainSource).toString('base64')}`)
+  const routes = [], timers = []
+  let show, hide
+  const taro = {
+    getStorageSync: () => 'logged-in', getCurrentPages: () => [currentPage],
+    reLaunch: async opts => { routes.push(opts.url) }, showToast: async () => {},
+    eventCenter: { trigger() {} }, useLaunch() {}, useDidShow: fn => { show = fn }, useDidHide: fn => { hide = fn },
+  }
+  const mocks = {
+    react: { useRef: value => ({ current: value }) },
+    '@tarojs/taro': { __esModule: true, default: taro, ...taro },
+    './stores/authStore': { useAuthStore: () => ({ checkLogin() {}, setLogin() {} }) },
+    './stores/prd01Store': { usePrd01Store: selector => selector({ bootstrap: async () => {} }) },
+    './constants/config': { DEV_FIXED_LOGIN: { enabled: false }, MOCK_ENABLED: false, TOKEN_KEY: 'token' },
+    './services/promotionAttribution': { capturePromotionSource: async () => {} },
+    './services/messagePlatformRuntime': { messagePlatformRuntime: { onForeground: async () => {}, onBackground() {}, stop() {} } },
+    './domain/pendingShareRoute': domain,
+    './domain/publicReadingRoute': { isPublicReadingRoute: () => false },
+  }
+  const source = fs.readFileSync(path.join(root, 'src/app.tsx'), 'utf8')
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
+  const mod = { exports: {} }
+  Function('module', 'exports', 'require', 'setTimeout', compiled)(mod, mod.exports, name => mocks[name] || {}, fn => timers.push(fn))
+  mod.exports.default({ children: null })
+  return { routes, show: options => show(options), hide: () => hide(), flush: async () => {
+    while (timers.length) timers.shift()()
+    await new Promise(resolve => setImmediate(resolve))
+  } }
+}
+
+for (const scene of [1007, 1008, 1044]) {
+  test(`分享场景 ${scene} 热启动从缓存详情进入本次分享的动态`, async () => {
+    const app = await shareApp({ route: 'pages/qianxun/post-detail', options: { id: '41' } })
+    app.show({ path: 'pages/qianxun/post-detail', query: { id: '42' }, scene })
+    await app.flush()
+    assert.deepEqual(app.routes, ['/pages/qianxun/post-detail?id=42'])
+  })
+}
+
+test('连续点击不同分享卡片时，尚未执行的旧跳转不能覆盖最新目标', async () => {
+  const app = await shareApp({ route: 'pages/index/index', options: {} })
+  app.show({ path: 'pages/index/index', query: { postId: '41' }, scene: 1007 })
+  app.show({ path: 'pages/qianxun/post-detail', query: { id: '42' }, scene: 1007 })
+  await app.flush()
+  assert.deepEqual(app.routes, ['/pages/qianxun/post-detail?id=42'])
+})
+
+test('原生已打开对应动态时不重复重建页面', async () => {
+  const app = await shareApp({ route: 'pages/qianxun/post-detail', options: { id: '42' } })
+  app.show({ path: 'pages/index/index', query: { postId: '42' }, scene: 1007 })
+  await app.flush()
+  assert.deepEqual(app.routes, [])
+})
+
+test('普通前后台恢复和已进入后台时不强行跳回旧分享', async () => {
+  const app = await shareApp({ route: 'pages/index/index', options: {} })
+  app.show({ path: 'pages/index/index', query: { postId: '41' }, scene: 1089 })
+  await app.flush()
+  assert.deepEqual(app.routes, [])
+  app.show({ path: 'pages/qianxun/post-detail', query: { id: '42' }, scene: 1007 })
+  app.hide()
+  await app.flush()
+  assert.deepEqual(app.routes, [])
+})

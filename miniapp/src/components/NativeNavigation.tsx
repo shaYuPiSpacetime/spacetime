@@ -19,20 +19,30 @@ export interface NativeNavigationMetrics {
   navigationHeight: number
 }
 
+let lastValidMenu: { windowWidth: number; statusBarHeight: number; left: number; top: number; height: number } | undefined
+
 export function getNativeNavigationMetrics(): NativeNavigationMetrics {
   const system = getWindowMetrics()
-  const scale = system.windowWidth ? 750 / system.windowWidth : 2
-  const menu = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
-    ? Taro.getMenuButtonBoundingClientRect()
-    : undefined
-  const menuTop = menu ? menu.top * scale : 88
-  const menuHeight = menu ? menu.height * scale : 64
-  const menuLeft = menu ? menu.left * scale : 598
-
+  const scale = 750 / system.windowWidth
+  let menu: { left: number; top: number; height: number } | undefined
+  try {
+    const rect = Taro.getEnv() === Taro.ENV_TYPE.WEAPP ? Taro.getMenuButtonBoundingClientRect() : undefined
+    if (rect && [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite)
+      && rect.width > 0 && rect.height > 0 && rect.left >= system.windowWidth / 2
+      && rect.left + rect.width <= system.windowWidth + 1 && rect.top >= system.statusBarHeight) {
+      menu = rect
+      lastValidMenu = { windowWidth: system.windowWidth, statusBarHeight: system.statusBarHeight, left: rect.left, top: rect.top, height: rect.height }
+    }
+  } catch {
+    // 冷启动和部分机型会短暂返回零值或抛错，不能把操作区放到标题上。
+  }
+  if (!menu && lastValidMenu?.windowWidth === system.windowWidth && lastValidMenu.statusBarHeight === system.statusBarHeight) menu = lastValidMenu
+  // 预留较宽胶囊及右侧间距，避免降级时头像覆盖原生菜单；下次渲染重新读取真实矩形。
+  const menuTop = (menu?.top ?? system.statusBarHeight + 6) * scale
+  const menuHeight = (menu?.height ?? 32) * scale
+  const menuLeft = (menu?.left ?? system.windowWidth - 114) * scale
   return {
-    menuTop,
-    menuHeight,
-    menuLeft,
+    menuTop, menuHeight, menuLeft,
     titleTop: menuTop + (menuHeight - 45) / 2,
     navigationHeight: Math.max(164, menuTop + menuHeight + 24),
   }

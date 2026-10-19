@@ -42,7 +42,7 @@ assert.match(page, /config\?\.reportEntryEnabled === false|onReport=\{selectedPo
 assert.match(page, /config\?\.reportReasons/, '举报原因必须来自接口字典')
 assert.match(page, /navigateToPendingVerification/, '立即认证必须使用共享路由解析下一未完成步骤')
 assert.match(page, /hideCommunityAuthor/, '不看动态必须通过服务端作者偏好持久化')
-assert.match(header, /getMenuButtonBoundingClientRect/, '共享千寻头部必须读取微信原生胶囊位置')
+assert.match(header, /getNativeNavigationMetrics/, '共享千寻头部必须复用包含原生胶囊读取与异常兼容的统一位置计算')
 assert.doesNotMatch(header, /width: '152rpx'.*letterSpacing: '5rpx'/s, '禁止在原生胶囊位置重复绘制假胶囊')
 assert.match(header, /fontSize: selected \? '32rpx' : '28rpx'/, '成家、知音、立业一级导航字号必须按蓝湖选中态切换')
 assert.match(page, /width: '462rpx'/, '四个二级 Tab 必须横向容纳关注、同城、同校、热门')

@@ -255,8 +255,10 @@ test('三天回看与偏好设置均由真实接口和会员态驱动', () => {
   const preference = read('src/pages/prd08/recommend/preference/index.tsx')
 
   assert.match(replay, /getRecommendReplay/, '三天回看必须读取真实接口')
-  assert.match(replay, /getApiErrorCode\(error\) === 403/, '非会员必须按后端 403 展示会员门禁')
-  assert.match(replay, /dateGroup/, '回看必须使用真实日期分组')
+  assert.match(replay, /resolveReplayProfileStep/, '回放列表向非会员开放，查看主页使用独立权限和报价')
+  assert.match(replay, /quoteRecommendReplayProfile/, '非会员查看主页前必须读取服务端报价')
+  assert.match(replay, /unlockRecommendReplayProfile/, '付费解锁必须调用服务端接口')
+  assert.match(replay, /buildReplayGroups/, '回看必须使用真实日期分组')
   assert.doesNotMatch(replay, /2026-08-02/, '回看日期不得写死设计数据')
 
   assert.match(preference, /getRecommendPreferences/, '偏好页必须加载真实偏好')
@@ -388,7 +390,8 @@ test('理想型结果页重新显示时刷新已解锁候选', () => {
   const results = read('src/pages/prd08/ideal/results/index.tsx')
   const onShow = results.slice(results.indexOf('useDidShow(() => {'), results.indexOf('const confirmQuote ='))
 
-  assert.match(onShow, /void load\(\)/, '从其他页面返回后必须重新读取服务端结果，不能保留已解锁的旧卡片')
+  assert.match(onShow, /if \(active\) refreshResults\(\)/, '返回当前活动结果页时必须刷新已解锁状态')
+  assert.match(results, /const refreshResults = \(\) =>[\s\S]*?load\(/, '刷新方法必须连接真实结果加载')
 })
 
 test('理想型结果首卡不被原生滚动容器裁剪且筛选面板尺寸对齐设计稿', () => {
@@ -481,9 +484,10 @@ test('理想型充值成功只回到结果页，不会再叠加支付结果页',
   assert.match(useCoins, /navigateOnSuccess/, '通用支付流程必须允许来源页接管成功后的导航')
   assert.match(
     recharge,
-    /idealScene\s*\?\s*\{\s*navigateOnSuccess:\s*false\s*\}\s*:\s*undefined/,
-    '只有理想型充值覆盖默认成功导航'
+    /returnAfterRecharge\s*\?\s*\{\s*navigateOnSuccess:\s*false\s*\}\s*:\s*undefined/,
+    '需要回到解锁页的充值场景接管成功导航'
   )
+  assert.match(recharge, /const returnAfterRecharge = idealScene \|\| replayScene/, '理想型和回放都回到来源页继续解锁')
 })
 
 test('取消喜欢后必须使用服务端权限降级为悄悄话', () => {
@@ -514,7 +518,7 @@ test('筛选记录和历史解锁支持真实游标分页', () => {
     assert.match(source, /onScrollToLower/, `${name}必须在滚动到底时加载下一页`)
     assert.match(
       source,
-      /\.\.\.current,\s*\.\.\.\(data\.items/,
+      /\.\.\.current,\s*\.\.\.(?:\(data\.items|visibleItems)/,
       `${name}翻页必须追加而不是覆盖现有记录`
     )
   }

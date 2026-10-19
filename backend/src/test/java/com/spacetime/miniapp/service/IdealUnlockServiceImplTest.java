@@ -29,6 +29,8 @@ import com.spacetime.miniapp.dto.response.IdealUnlockQuoteVO;
 import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.service.impl.IdealUnlockServiceImpl;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -125,7 +127,7 @@ class IdealUnlockServiceImplTest {
     }
 
     @Test
-    void selectedQuoteOnlyIncludesSelectedPeopleWithoutLegacyLimitOrAllDiscount() {
+    void selectedQuoteOnlyIncludesSelectedPeopleAndAppliesBatchDiscount() {
         givenOpenSnapshotWithCandidates(8);
         givenScene(7, 30);
         when(userAssetDao.selectByUserId(7L)).thenReturn(asset(1000));
@@ -137,11 +139,109 @@ class IdealUnlockServiceImplTest {
         IdealUnlockQuoteVO result = service.quote(7L, req);
 
         assertThat(result.getCandidateCount()).isEqualTo(6);
-        assertThat(result.getPayableCost()).isEqualTo(42);
-        assertThat(result.getDiscountPercent()).isZero();
+        assertThat(result.getPayableCost()).isEqualTo(38);
+        assertThat(result.getDiscountPercent()).isEqualTo(10);
         ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
         verify(valueOperations).set(anyString(), payload.capture(), eq(Duration.ofMinutes(5)));
         assertThat(payload.getValue()).contains("IDI-008").doesNotContain("IDI-002", "IDI-007");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 20, 40})
+    void selectedQuoteUsesConfiguredBatchDiscountForActualPeople(int count) {
+        givenOpenSnapshotWithCandidates(count);
+        givenScene(10, 30);
+        if (count > 1) givenCommercialConfig(0, 10);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset(1000));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        IdealUnlockQuoteReq req = new IdealUnlockQuoteReq();
+        req.setSnapshotNo("IDS-001");
+        req.setItemNos(currentPageItemNos);
+
+        IdealUnlockQuoteVO result = service.quote(7L, req);
+
+        assertThat(result.getCandidateCount()).isEqualTo(count);
+        assertThat(result.getDiscountPercent()).isEqualTo(count > 1 ? 10 : 0);
+        assertThat(result.getPayableCost()).isEqualTo(count > 1 ? count * 9 : 10);
+    }
+
+    @Test
+    void selectedBatchConfirmUsesSameDiscountAndAllocatesExactCost() {
+        givenOpenSnapshotWithCandidates(20);
+        givenScene(10, 30);
+        givenCommercialConfig(0, 10);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset(1000), asset(820));
+        when(userAssetDao.selectByUserIdForUpdate(7L)).thenReturn(asset(1000));
+        when(userAssetDao.updateCoinBalance(7L, -180)).thenReturn(1);
+        IdealUnlockQuoteReq selected = new IdealUnlockQuoteReq();
+        selected.setSnapshotNo("IDS-001");
+        selected.setItemNos(currentPageItemNos);
+        IdealUnlockQuoteVO quote = service.quote(7L, selected);
+        assertThat(quote.getPayableCost()).isEqualTo(180);
+        ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
+        verify(valueOperations).set(anyString(), payload.capture(), eq(Duration.ofMinutes(5)));
+        when(valueOperations.get("miniapp:ideal-unlock:quote:" + quote.getQuoteToken())).thenReturn(payload.getValue());
+        IdealUnlockConfirmReq req = new IdealUnlockConfirmReq();
+        req.setQuoteToken(quote.getQuoteToken());
+        req.setRequestId("selected-batch-20");
+
+        IdealUnlockConfirmVO result = service.confirm(7L, req);
+
+        assertThat(result.getPaidCost()).isEqualTo(180);
+        assertThat(result.getNewBalance()).isEqualTo(820);
+        assertThat(result.getUnlockedItems()).hasSize(20);
+        ArgumentCaptor<UserCoinLog> logs = ArgumentCaptor.forClass(UserCoinLog.class);
+        verify(coinLogDao, org.mockito.Mockito.times(20)).insert(logs.capture());
+        assertThat(logs.getAllValues().stream().mapToInt(UserCoinLog::getChangeAmount).sum()).isEqualTo(-180);
+    }
+
+    @Test
+    void selectedQuoteDeduplicatesAndExcludesUnlockedBeforeDeterminingDiscount() {
+        givenOpenSnapshotWithCandidates(2);
+        when(unlockRecordDao.selectList(any())).thenReturn(List.of(confirmedRecord(900L, "OLD-ITEM", 8L, 10)));
+        givenCommercialConfig(0, 10);
+        givenScene(10, 30);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset(1000));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        IdealUnlockQuoteReq req = new IdealUnlockQuoteReq();
+        req.setSnapshotNo("IDS-001");
+        req.setItemNos(List.of("IDI-001", "IDI-002", "IDI-002"));
+
+        IdealUnlockQuoteVO result = service.quote(7L, req);
+
+        assertThat(result.getCandidateCount()).isEqualTo(1);
+        assertThat(result.getDiscountPercent()).isZero();
+        assertThat(result.getPayableCost()).isEqualTo(10);
+    }
+
+    @Test
+    void selectedBatchRejectsChangedDiscountWithoutCharging() {
+        givenOpenSnapshotWithCandidates(2);
+        givenScene(10, 30);
+        givenCommercialConfig(0, 10);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset(100));
+        when(userAssetDao.selectByUserIdForUpdate(7L)).thenReturn(asset(100));
+        IdealUnlockQuoteReq selected = new IdealUnlockQuoteReq();
+        selected.setSnapshotNo("IDS-001");
+        selected.setItemNos(currentPageItemNos);
+        IdealUnlockQuoteVO quote = service.quote(7L, selected);
+        assertThat(quote.getPayableCost()).isEqualTo(18);
+        ArgumentCaptor<String> payload = ArgumentCaptor.forClass(String.class);
+        verify(valueOperations).set(anyString(), payload.capture(), eq(Duration.ofMinutes(5)));
+        when(valueOperations.get("miniapp:ideal-unlock:quote:" + quote.getQuoteToken())).thenReturn(payload.getValue());
+        when(appConfigDao.selectByKey("commercial.ideal.batch.discount.percent"))
+                .thenReturn(config("commercial.ideal.batch.discount.percent", "20"));
+        IdealUnlockConfirmReq req = new IdealUnlockConfirmReq();
+        req.setQuoteToken(quote.getQuoteToken());
+        req.setRequestId("changed-selected-discount");
+
+        assertThatThrownBy(() -> service.confirm(7L, req))
+                .isInstanceOf(BusinessException.class).hasMessageContaining("配置已变化");
+        verify(userAssetDao, never()).updateCoinBalance(any(), any());
+        verify(unlockRecordDao, never()).insert(any());
+        verify(coinLogDao, never()).insert(any());
     }
 
     @Test
@@ -273,7 +373,7 @@ class IdealUnlockServiceImplTest {
     private void givenCommercialConfig(int max, int discount) {
         lenient().when(appConfigDao.selectByKey("commercial.ideal.batch.max"))
                 .thenReturn(config("commercial.ideal.batch.max", String.valueOf(max)));
-        when(appConfigDao.selectByKey("commercial.ideal.batch.discount.percent"))
+        lenient().when(appConfigDao.selectByKey("commercial.ideal.batch.discount.percent"))
                 .thenReturn(config("commercial.ideal.batch.discount.percent", String.valueOf(discount)));
     }
 

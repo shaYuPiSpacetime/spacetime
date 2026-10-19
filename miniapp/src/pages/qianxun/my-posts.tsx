@@ -3,6 +3,7 @@ import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import NativeNavigation from '@/components/NativeNavigation'
+import CommunityLikeSummary from '@/components/CommunityLikeSummary'
 import { QianxunActionStat } from '@/components/QianxunCommunityIcons'
 import QianxunPostStatusBadge from '@/components/QianxunPostStatusBadge'
 import QianxunPublishFailureDialog from '@/components/QianxunPublishFailureDialog'
@@ -80,6 +81,7 @@ export default function QianxunMyPostsPage() {
   const scroll = useRetainedScroll(String(auth.userId))
   const [receipts, setReceipts] = useState<MyPostReceipt[]>([])
   const [loading, setLoading] = useState(true)
+  const [likeSummaryVisible, setLikeSummaryVisible] = useState(false)
   const [selected, setSelected] = useState<MyPostReceipt>()
   const [sheetVisible, setSheetVisible] = useState(false)
   const [failureReceipt, setFailureReceipt] = useState<MyPostReceipt>()
@@ -174,7 +176,7 @@ export default function QianxunMyPostsPage() {
 
   return (
     <View id="qianxun-my-posts-page" style={{ height: '100vh', background: 'linear-gradient(105deg, #EEFFFC 0%, #F2F6FF 55%, #FEFFF4 100%)', overflow: 'hidden' }}>
-      <ProfileHeader profile={profile} statsReady={Boolean(summary)} />
+      <ProfileHeader profile={profile} statsReady={Boolean(summary)} onLikes={() => setLikeSummaryVisible(true)} />
       <View style={{ position: 'absolute', left: '25rpx', right: '25rpx', top: '430rpx', bottom: 0, borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', overflow: 'hidden' }}>
         <MainTabs />
         <ScrollView scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ height: 'calc(100% - 104rpx)' }} showScrollbar={false}>
@@ -187,6 +189,7 @@ export default function QianxunMyPostsPage() {
           </View>
         </ScrollView>
       </View>
+      <CommunityLikeSummary visible={likeSummaryVisible} count={profile.receivedLikeCount} nickname={profile.nickname} onClose={() => setLikeSummaryVisible(false)} />
       <PostActionSheet visible={sheetVisible && selected !== undefined} editable={selected ? selected.status === 'rejected' : false} onEdit={() => void editSelected()} onDelete={requestDeleteSelected} onClose={() => setSheetVisible(false)} />
       <DeleteConfirmDialog visible={deleteReceipt !== undefined} onCancel={() => setDeleteReceipt(undefined)} onConfirm={() => void confirmDelete()} />
       <QianxunPublishFailureDialog visible={failureReceipt !== undefined} failureMessage={failureReceipt?.failureMessage} config={config} onClose={() => setFailureReceipt(undefined)} />
@@ -194,7 +197,7 @@ export default function QianxunMyPostsPage() {
   )
 }
 
-function ProfileHeader({ profile, statsReady }: { profile: ProfileSummary; statsReady: boolean }) {
+function ProfileHeader({ profile, statsReady, onLikes }: { profile: ProfileSummary; statsReady: boolean; onLikes: () => void }) {
   const openOwnProfile = () => {
     const currentUserId = useAuthStore.getState().userId
     if (!currentUserId) {
@@ -208,7 +211,7 @@ function ProfileHeader({ profile, statsReady }: { profile: ProfileSummary; stats
     { label: '动态', value: profile.postCount, onClick: undefined },
     { label: '关注', value: profile.followingCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions?roster=following' }) },
     { label: '粉丝', value: profile.followerCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions?roster=followers' }) },
-    { label: '获赞', value: profile.receivedLikeCount, onClick: () => void Taro.navigateTo({ url: '/pages/qianxun/interactions?likes=1' }) },
+    { label: '获赞', value: profile.receivedLikeCount, onClick: onLikes },
   ]
   return (
     <View style={{ height: '430rpx', position: 'relative' }}>
