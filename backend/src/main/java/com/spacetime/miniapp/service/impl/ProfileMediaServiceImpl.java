@@ -18,6 +18,7 @@ import com.spacetime.common.provider.ProviderCheckResult;
 import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.Prd01RuntimeConfigResolver;
 import com.spacetime.common.service.ProfileDictionaryService;
+import com.spacetime.common.util.ProfileAlbumOrder;
 import com.spacetime.miniapp.dto.request.AvatarSubmitReq;
 import com.spacetime.miniapp.dto.request.ProfileMediaSubmitReq;
 import com.spacetime.miniapp.dto.response.AvatarSubmitVO;
@@ -34,8 +35,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * 移动端资料媒体服务实现。
@@ -48,7 +47,6 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
 
     private static final DateTimeFormatter DISPLAY_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final Set<String> ALLOWED_TYPES = Set.of("ALBUM", "PROFILE_BG");
-    private static final Pattern SORT_ORDER_PATTERN = Pattern.compile("\\\"sortOrder\\\"\\s*:\\s*(-?\\d+)");
 
     private final AppUserDao appUserDao;
     private final AppUserAuditRecordDao auditRecordDao;
@@ -112,8 +110,8 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
                         .orderByAsc(AppUserAuditRecord::getSubmitTime)
                         .orderByAsc(AppUserAuditRecord::getId))
                 .stream()
+                .sorted(ProfileAlbumOrder.COMPARATOR)
                 .map(record -> toVo(record, "ALBUM"))
-                .sorted(java.util.Comparator.comparingInt(vo -> vo.getSortOrder() == null ? 0 : vo.getSortOrder()))
                 .toList();
     }
 
@@ -397,29 +395,11 @@ public class ProfileMediaServiceImpl implements ProfileMediaService {
         vo.setMediaType(mediaType);
         vo.setMediaUrl(record.getMediaUrl());
         vo.setThumbUrl(record.getThumbUrl());
-        vo.setSortOrder(readSortOrder(record.getMaterialJson()));
+        vo.setSortOrder(ProfileAlbumOrder.readSortOrder(record.getMaterialJson()));
         vo.setAuditStatus(record.getStatus());
         vo.setAuditSource(record.getAuditSource());
         vo.setRejectReason(reason(record));
         return vo;
-    }
-
-    /**
-     * 相册槽位保存在审核材料中；历史脏数据或非相册材料缺失时回退到首位。
-     */
-    private int readSortOrder(String materialJson) {
-        if (StrUtil.isBlank(materialJson)) {
-            return 0;
-        }
-        Matcher matcher = SORT_ORDER_PATTERN.matcher(materialJson);
-        if (!matcher.find()) {
-            return 0;
-        }
-        try {
-            return Math.max(0, Integer.parseInt(matcher.group(1)));
-        } catch (NumberFormatException ignored) {
-            return 0;
-        }
     }
 
     private String json(String value) {

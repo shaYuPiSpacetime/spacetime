@@ -8,6 +8,7 @@ import com.spacetime.common.enums.AppUserAuditStatusEnum;
 import com.spacetime.common.enums.AppUserAuditTypeEnum;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.AppUserAuditService;
+import com.spacetime.common.util.ProfileAlbumOrder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -93,6 +94,7 @@ public class AppUserAuditContentServiceImpl implements AppUserAuditContentServic
                         .orderByAsc(AppUserAuditRecord::getSubmitTime)
                         .orderByAsc(AppUserAuditRecord::getId))
                 .stream()
+                .sorted(ProfileAlbumOrder.COMPARATOR)
                 .map(AppUserAuditRecord::getMediaUrl)
                 .filter(StrUtil::isNotBlank)
                 .toList();
@@ -111,7 +113,7 @@ public class AppUserAuditContentServiceImpl implements AppUserAuditContentServic
                         .orderByAsc(AppUserAuditRecord::getSubmitTime)
                         .orderByAsc(AppUserAuditRecord::getId));
         Map<Long, List<String>> result = new LinkedHashMap<>();
-        for (AppUserAuditRecord record : records) {
+        for (AppUserAuditRecord record : records.stream().sorted(ProfileAlbumOrder.COMPARATOR).toList()) {
             if (StrUtil.isBlank(record.getMediaUrl())) {
                 continue;
             }
@@ -125,6 +127,7 @@ public class AppUserAuditContentServiceImpl implements AppUserAuditContentServic
     public List<String> publicAlbumPhotos(Long userId) {
         return auditService.effectiveRecords(userId, AppUserAuditTypeEnum.ALBUM_PHOTO)
                 .stream()
+                .sorted(ProfileAlbumOrder.COMPARATOR)
                 .map(AppUserAuditRecord::getMediaUrl)
                 .filter(StrUtil::isNotBlank)
                 .toList();
@@ -143,7 +146,7 @@ public class AppUserAuditContentServiceImpl implements AppUserAuditContentServic
                         .orderByAsc(AppUserAuditRecord::getSubmitTime)
                         .orderByAsc(AppUserAuditRecord::getId));
         Map<Long, List<String>> result = new LinkedHashMap<>();
-        for (AppUserAuditRecord record : records) {
+        for (AppUserAuditRecord record : records.stream().sorted(ProfileAlbumOrder.COMPARATOR).toList()) {
             if (StrUtil.isBlank(record.getMediaUrl())) {
                 continue;
             }

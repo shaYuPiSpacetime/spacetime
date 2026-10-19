@@ -20,11 +20,11 @@ public interface CommunityPersonalQueryMapper {
             """)
     long countFollowing(@Param("userId") Long userId);
 
-    /** 实时计数，保留原有动态与评论获赞口径。 */
+    /** 动态数仅统计发布成功的内容，获赞口径保持不变。 */
     @Select("""
             SELECT
               (SELECT COUNT(*) FROM community_post p WHERE p.author_id=#{userId}
-                 AND p.deleted=0 AND p.status NOT IN ('deleted','blocked')) AS post_count,
+                 AND p.deleted=0 AND p.status='published') AS post_count,
               (SELECT COUNT(*) FROM community_follow f WHERE f.follower_id=#{userId}
                  AND f.deleted=0 AND f.status='FOLLOW' AND NOT EXISTS (SELECT 1 FROM app_user_relation_block b
                    WHERE b.deleted=0 AND b.status='ENABLED' AND b.block_type='BLACKLIST'
@@ -89,6 +89,11 @@ public interface CommunityPersonalQueryMapper {
                 SELECT i.unlock_no AS id, NULL AS post_id, i.target_user_id,
                        NULL AS description, i.effective_time AS interaction_time
                 FROM app_user_unlock_record i WHERE i.user_id=#{userId} AND i.deleted=0
+                  AND NOT EXISTS (
+                    SELECT 1 FROM app_user_relation_block b WHERE b.deleted=0 AND b.status='ENABLED'
+                      AND b.block_type='BLACKLIST'
+                      AND ((b.user_id=#{userId} AND b.target_user_id=i.target_user_id)
+                        OR (b.target_user_id=#{userId} AND b.user_id=i.target_user_id)))
                 ORDER BY i.effective_time DESC, i.id DESC
               </otherwise>
             </choose>

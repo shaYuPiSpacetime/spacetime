@@ -168,12 +168,17 @@ public class WhisperServiceImpl implements WhisperService {
         result.setFreeWhisperRemain(payment.freeRemain());
         result.setFreeWhisperDailyQuota(payment.quotaSnapshot() > 0
                 ? payment.quotaSnapshot() : configuredDailyFreeQuota());
+        boolean freeExhausted = payment.quotaSnapshot() > 0 && payment.freeRemain() == 0;
+        result.setFreeWhisperExhausted(freeExhausted);
         result.setQuoteToken(quoteToken);
         result.setQuoteExpireTime(canSend ? quoteExpireAt : null);
         result.setWhisperExpireDays(rule.getWhisperExpireDays());
         result.setCooldownDays(rule.getWhisperCooldownDays());
         result.setConfirmText(PAY_VIP_FREE.equals(payment.payType())
                 ? "本次使用会员今日免费悄悄话"
+                : freeExhausted
+                ? "今日免费次数已用完（" + payment.quotaSnapshot() + "/" + payment.quotaSnapshot()
+                        + "），本次消耗 " + payment.coinAmount() + " 千寻币"
                 : "确认消耗 " + payment.coinAmount() + " 千寻币发送悄悄话");
         result.setTargetUserNo(req.getTargetUserNo());
         result.setTargetNickname(target.receiver().getNickname());
@@ -208,6 +213,7 @@ public class WhisperServiceImpl implements WhisperService {
         result.setCoinBalance(coinBalance(asset));
         result.setFreeWhisperRemain(0);
         result.setFreeWhisperDailyQuota(configuredDailyFreeQuota());
+        result.setFreeWhisperExhausted(false);
         result.setQuoteToken(null);
         result.setQuoteExpireTime(null);
         result.setWhisperExpireDays(0);

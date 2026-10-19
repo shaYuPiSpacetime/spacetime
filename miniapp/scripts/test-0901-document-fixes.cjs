@@ -240,7 +240,7 @@ test('热门动态悄悄话弹层常驻，开关时不重建信息流', () => {
   const sheet = read('src/components/CommunityWhisperSheet.tsx')
 
   assert.match(family, /<WhisperComposeSheet visible=\{whisperTarget !== null\} target=\{whisperTarget\}/, '热门列表必须常驻挂载悄悄话流程组件，仅切换可见性')
-  assert.match(compose, /<CommunityWhisperSheet[\s\S]*visible=\{visible && target != null\}/, '流程组件必须常驻挂载统一弹层，仅切换可见性')
+  assert.match(compose, /<CommunityWhisperSheet[\s\S]*visible=\{visible && target != null && [^\n]+\}/, '流程组件必须常驻挂载统一弹层，仅切换可见性')
   assert.match(sheet, /visibility: visible \? 'visible' : 'hidden'/, '弹层根节点必须通过 visibility 切换展示状态')
   assert.match(sheet, /pointerEvents: visible \? 'auto' : 'none'/, '隐藏弹层不得拦截底层交互')
   assert.match(compose, /const close = async \(\) =>[\s\S]*await Taro\.hideKeyboard\(\)[\s\S]*onClose\(\)/, '全局流程组件关闭时必须先收起键盘')
@@ -269,5 +269,5 @@ test('悄悄话每次重新发起时清空旧输入，充值返回时保留当�
     '同一目标从后台恢复时不得清空当前草稿')
   assert.doesNotMatch(recharge, /setContent\(/, '跳转充值页时不得清空当前尚未发送的输入')
   assert.match(submit, /await createWhisper\([\s\S]*setContent\(''\)[\s\S]*onClose\(\)/, '发送成功后必须清空已发送内容再关闭弹层')
-  assert.match(compose, /<CommunityWhisperSheet[\s\S]*visible=\{visible && target != null\}/, '修复草稿状态时不得破坏常驻弹层方案')
+  assert.match(compose, /<CommunityWhisperSheet[\s\S]*visible=\{visible && target != null && [^\n]+\}/, '修复草稿状态时不得破坏常驻弹层方案')
 })

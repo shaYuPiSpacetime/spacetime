@@ -28,6 +28,7 @@ interface WhisperComposeSheetProps {
 export default function WhisperComposeSheet({ target, visible = true, onClose }: WhisperComposeSheetProps) {
   const [content, setContent] = useState('')
   const [precheck, setPrecheck] = useState<WhisperPrecheckResponse>()
+  const [readyTargetKey, setReadyTargetKey] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const idempotencyCache = useRef(createWhisperIdempotencyCache()).current
@@ -36,6 +37,7 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
   const sourceGeneration = useRef(0)
   const preparedTargetKey = useRef('')
   const [lifecycleVersion, setLifecycleVersion] = useState(0)
+  const targetKey = target ? `${target.targetUserNo}:${target.sourceScene}:${target.sourceBizNo || ''}` : ''
 
   const closeExistingEntry = async (isActive: () => boolean) => {
     await Taro.hideKeyboard().catch(() => undefined)
@@ -85,6 +87,7 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
   })
 
   useEffect(() => {
+    setReadyTargetKey('')
     if (!target || !visible) {
       preparedTargetKey.current = ''
       return
@@ -93,7 +96,6 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
     let active = true
     const sessionVersion = getMessageAuthSessionVersion()
     const expectedGeneration = sourceGeneration.current
-    const targetKey = `${target.targetUserNo}:${target.sourceScene}:${target.sourceBizNo || ''}`
     const isActive = () => active && pageActive.current
       && expectedGeneration === sourceGeneration.current
       && sessionVersion === getMessageAuthSessionVersion()
@@ -115,6 +117,7 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
         return
       }
       setPrecheck(result)
+      setReadyTargetKey(targetKey)
     }).catch(error => {
       if (!isActive()) return
       onClose()
@@ -189,9 +192,10 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
 
   // 遮罩节点常驻：始终渲染同一根组件，仅切换 visible，避免面板开关时
   // 遮罩节点增删触发列表滚动位置重置（表现为信息流弹回顶部）。
+  // 先确认关系再展示新建面板，已匹配或待回复用户直接进入已有会话。
   return <CommunityWhisperSheet
     id="global-whisper-compose-sheet"
-    visible={visible && target != null}
+    visible={visible && target != null && pageActive.current && !loading && precheck != null && readyTargetKey === targetKey}
     avatar={target?.avatar}
     nickname={target?.nickname || ''}
     meta={target?.meta || ''}

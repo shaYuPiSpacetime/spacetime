@@ -805,6 +805,7 @@ class CommunityServiceImplTest {
 
         assertThat(result.getFollowing()).isFalse();
         verify(communityFollowDao).updateById(argThat(item -> "UNFOLLOW".equals(item.getStatus())));
+        verifyNoInteractions(relationBlockDao);
     }
 
     @Test
@@ -828,6 +829,42 @@ class CommunityServiceImplTest {
         verify(communityPostDao).selectByIdForUpdate(100L);
         verify(communityPostDao).updateById(argThat(item -> item.getCommentCount() == 1));
         verify(communityExtensionDao).insertOutbox(argThat(event -> "comment_created".equals(event.getEventType())));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"outgoing-new", "incoming-new", "outgoing-restore", "incoming-restore"})
+    @DisplayName("双向黑名单均禁止新增或恢复关注")
+    void toggleFollow_blacklisted_shouldRejectWithoutWriting(String scenario) {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(2L)).thenReturn(new AppUser());
+        boolean outgoing = scenario.startsWith("outgoing");
+        when(relationBlockDao.selectActive(anyLong(), anyLong(), eq("BLACKLIST")))
+                .thenAnswer(call -> Long.valueOf(outgoing ? 1L : 2L).equals(call.getArgument(0))
+                        ? new AppUserRelationBlock() : null);
+        if (scenario.endsWith("restore")) {
+            CommunityFollow follow = new CommunityFollow(); follow.setStatus("UNFOLLOW");
+            when(communityFollowDao.selectOne(any())).thenReturn(follow);
+        }
+
+        assertThatThrownBy(() -> communityService.toggleFollow(1L, 2L))
+                .isInstanceOf(BusinessException.class).hasMessage("content_unavailable");
+        verify(communityFollowDao, never()).insert(any());
+        verify(communityFollowDao, never()).updateById(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("无黑名单关系时可以新增或恢复关注")
+    void toggleFollow_unblocked_shouldFollow(boolean restore) {
+        when(appUserDao.selectById(1L)).thenReturn(user);
+        when(appUserDao.selectById(2L)).thenReturn(new AppUser());
+        if (restore) {
+            CommunityFollow follow = new CommunityFollow(); follow.setStatus("UNFOLLOW");
+            when(communityFollowDao.selectOne(any())).thenReturn(follow);
+        }
+        assertThat(communityService.toggleFollow(1L, 2L).getFollowing()).isTrue();
+        if (restore) verify(communityFollowDao).updateById(argThat(row -> "FOLLOW".equals(row.getStatus())));
+        else verify(communityFollowDao).insert(argThat(row -> "FOLLOW".equals(row.getStatus())));
     }
 
     @ParameterizedTest

@@ -30,7 +30,6 @@ import {
   getCommunityFollowRelations,
   getCommunityInteractions,
   getCommunityPostInteractors,
-  getCommunityComments,
   getHiddenCommunityAuthors,
   getMyCommunityPosts,
   resolveCommunityCopy,
@@ -40,7 +39,6 @@ import {
   toggleCommunityLike,
   unhideCommunityAuthor,
   type CommunityConfig,
-  type CommunityCommentVO,
   type CommunityPostVO,
   type CommunityRelationUserVO,
 } from '@/services/community'
@@ -159,17 +157,22 @@ export default function QianxunInteractionsPage() {
   const loadedLists = useRef(new Set<string>())
   const visibleRef = useRef(false)
   const rosterRequest = useRef(0)
+  const interactionRequest = useRef(0)
   useDidShow(() => {
     visibleRef.current = true
     void getCommunityMeta().then(setConfig).catch(() => {})
     setShowVersion(value => value + 1)
   })
-  useDidHide(() => { visibleRef.current = false; rosterRequest.current++ })
+  useDidHide(() => { visibleRef.current = false; rosterRequest.current++; interactionRequest.current++ })
   useEffect(() => subscribeCommunityPersonalChanged(change => {
     // 隐藏的列表同样清理已拉黑对象，并使操作前的慢请求失效。
     if (change.kind === 'block' && change.authorId) {
       rosterRequest.current++
+      interactionRequest.current++
       setRosterUsers(users => users.filter(user => user.userId !== change.authorId))
+      const keep = (item: InteractionRecord) => item.userId !== change.authorId && item.post?.authorId !== change.authorId
+      setRecords(items => items.filter(keep))
+      setHistory(items => items.filter(keep))
     }
     if (visibleRef.current) setShowVersion(value => value + 1)
   }), [])
@@ -182,13 +185,15 @@ export default function QianxunInteractionsPage() {
       return () => { myPostsRequest.current++ }
     }
     let cancelled = false
+    const requestVersion = ++interactionRequest.current
+    const isCurrent = () => !cancelled && requestVersion === interactionRequest.current
     const type = section === 'history' ? 'viewed' : filter
     setLoading(!loadedLists.current.has(type))
     const request = type === 'viewed'
       ? getCommunityInteractions('viewed', 1, 50)
       : getCommunityInteractions(type, 1, 50)
     void request.then(page => {
-      if (cancelled) return
+      if (!isCurrent()) return
       const items = (page.records || []).map(item => ({
         id: String(item.id), kind: (type === 'viewed' ? 'commented' : type) as InteractionFilter,
         userId: item.targetUserId, nickname: item.nickname, avatar: item.avatar,
@@ -203,8 +208,8 @@ export default function QianxunInteractionsPage() {
       })
       else setRecords(current => [...current.filter(item => item.kind !== type), ...items])
       loadedLists.current.add(type)
-    }).catch(error => { if (!cancelled) void showError(config, error) })
-      .finally(() => { if (!cancelled) setLoading(false) })
+    }).catch(error => { if (isCurrent()) void showError(config, error) })
+      .finally(() => { if (isCurrent()) setLoading(false) })
     return () => { cancelled = true }
   }, [section, filter, roster, interactorPostId, likeSummaryVisible, showVersion])
 
@@ -550,33 +555,19 @@ function HiddenAuthorsSheet({ users, loading, restoringUserIds, onRestore, onClo
 
 function MyPostSnapshotCard({ item, liking, config, onLike, onManage, onFailure }: { item: MyPostSnapshot; liking: boolean; config?: CommunityConfig; onLike: () => void; onManage: () => void; onFailure: () => void }) {
   const date = splitMyPostDate(item.createdAt)
-  const [expanded, setExpanded] = useState(false)
-  const [comments, setComments] = useState<CommunityCommentVO[]>([])
-  const [commentsLoading, setCommentsLoading] = useState(false)
-  const [commentsError, setCommentsError] = useState('')
-  const open = () => {
+  const open = (focusComments = false) => {
     if (isCommunityPostFailure(item.status)) {
       onFailure()
       return
     }
     if (item.postId && item.status === 'published') {
-      if (expanded) {
-        setExpanded(false)
-        return
-      }
-      setExpanded(true)
-      setCommentsLoading(true)
-      setCommentsError('')
-      void getCommunityComments(item.postId, 1, 100)
-        .then(page => setComments(page.records || []))
-        .catch(error => setCommentsError(error instanceof Error ? error.message : '评论加载失败'))
-        .finally(() => setCommentsLoading(false))
+      void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.postId}${focusComments ? '&focus=comment' : ''}` })
     } else if (item.statusName) {
       void Taro.showToast({ title: resolveCommunityStatusLabel(config, item.status, item.statusName), icon: 'none' })
     }
   }
   return (
-    <View className="qianxun-my-post-card" onClick={open} style={{ padding: '30rpx 0 24rpx', borderBottom: '2rpx solid #EEF3F8' }}>
+    <View className="qianxun-my-post-card" onClick={() => open()} style={{ padding: '30rpx 0 24rpx', borderBottom: '2rpx solid #EEF3F8' }}>
       <View style={{ display: 'flex', alignItems: 'flex-start' }}>
         <View data-role="qianxun-my-post-date-column" style={{ width: '130rpx', flexShrink: 0 }}>
           <View className="qianxun-my-post-date" data-role="qianxun-my-post-date" style={{ height: '48rpx', display: 'flex', alignItems: 'baseline' }}><Text style={{ color: '#333333', fontSize: '36rpx', lineHeight: '48rpx', fontWeight: 600 }}>{date.day}</Text><Text style={{ color: '#8F8F8F', fontSize: '24rpx', marginLeft: '8rpx' }}>{date.month}</Text></View>
@@ -594,18 +585,10 @@ function MyPostSnapshotCard({ item, liking, config, onLike, onManage, onFailure 
           <View style={{ height: '88rpx', marginTop: '16rpx', display: 'flex', alignItems: 'center' }}>
             <View className="qianxun-my-post-more" data-role="qianxun-my-post-more" onClick={event => { event.stopPropagation(); onManage() }} style={{ width: '64rpx', height: '64rpx', display: 'flex', alignItems: 'center' }}><Text style={{ color: '#999999', fontSize: '31rpx', letterSpacing: '4rpx' }}>···</Text></View>
             <View style={{ flex: 1 }} />
-            <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? open : undefined} fontSize="21rpx" />
+            <QianxunActionStat kind="comment" count={item.commentCount} onClick={item.postId && item.status === 'published' ? () => open(true) : undefined} fontSize="21rpx" />
             <View style={{ width: '30rpx' }} />
             <QianxunActionStat kind="like" count={item.likeCount} active={item.liked} onClick={item.postId && item.status === 'published' && !liking ? onLike : undefined} fontSize="21rpx" />
           </View>
-          {expanded ? <View style={{ marginTop: '8rpx', padding: '20rpx', borderRadius: '12rpx', background: '#F6F9FD' }}>
-            <Text style={{ display: 'block', color: NAVY, fontSize: '24rpx', fontWeight: 600 }}>评论 {item.commentCount}</Text>
-            {commentsLoading ? <Text style={{ display: 'block', marginTop: '14rpx', color: '#8F98A6', fontSize: '22rpx' }}>评论加载中…</Text> : null}
-            {commentsError ? <Text style={{ display: 'block', marginTop: '14rpx', color: '#D44747', fontSize: '22rpx' }}>{commentsError}</Text> : null}
-            {!commentsLoading && !commentsError && !comments.length ? <Text style={{ display: 'block', marginTop: '14rpx', color: '#8F98A6', fontSize: '22rpx' }}>暂无评论</Text> : null}
-            {comments.map(comment => <View key={comment.id} style={{ marginTop: '16rpx' }}><Text style={{ color: BLUE, fontSize: '22rpx' }}>{comment.authorName || '用户'}：</Text><Text style={{ color: '#414957', fontSize: '22rpx', lineHeight: '34rpx' }}>{comment.content}</Text></View>)}
-            {item.commentCount > comments.length && !commentsLoading && !commentsError ? <Text onClick={(event) => { event.stopPropagation(); void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${item.postId}&focus=comment` }) }} style={{ display: 'block', marginTop: '16rpx', color: BLUE, fontSize: '22rpx' }}>查看全部评论</Text> : null}
-          </View> : null}
         </View>
       </View>
     </View>

@@ -16,6 +16,8 @@ public class WhisperPrecheckVO {
     private Integer freeWhisperRemain;
     /** 后台配置的会员每日免费悄悄话总次数，未开通会员时也返回，供页面正确展示权益。 */
     private Integer freeWhisperDailyQuota;
+    /** 仅当前有效会员当天免费额度已用尽时为 true，已回复的成功发送也计入额度。 */
+    private Boolean freeWhisperExhausted;
     private String quoteToken;
     private java.time.LocalDateTime quoteExpireTime;
     private Integer whisperExpireDays;

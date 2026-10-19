@@ -15,9 +15,10 @@ class CommunityPersonalQueryMapperTest {
     void commentsAreOnePostPerPageAndAllFeedHistoryExcludesBlockedAuthors() {
         var config = new MybatisConfiguration(); config.addMapper(CommunityPersonalQueryMapper.class);
         var statement = config.getMappedStatement(CommunityPersonalQueryMapper.class.getName() + ".selectInteractions");
-        for (String type : new String[]{"commented", "liked", "viewed"}) {
+        for (String type : new String[]{"commented", "liked", "viewed", "unlocked"}) {
             String sql = statement.getBoundSql(Map.of("userId", 1L, "type", type)).getSql();
             assertThat(sql).contains("app_user_relation_block", "BLACKLIST", "NOT EXISTS");
+            if ("unlocked".equals(type)) assertThat(sql).contains("b.target_user_id=i.target_user_id", "b.user_id=i.target_user_id");
             if ("commented".equals(type)) assertThat(sql).contains("PARTITION BY i.post_id", "r.rn=1");
         }
     }
@@ -35,8 +36,18 @@ class CommunityPersonalQueryMapperTest {
             Page<?> page = new Page<>(2,50); page.setOptimizeJoinOfCountSql(false);
             String countSql = new PaginationInnerInterceptor().autoCountSql(page, sql);
             assertThat(countSql).containsIgnoringCase("COUNT(*)");
+            assertThat(countSql).contains("app_user_relation_block", "BLACKLIST", "NOT EXISTS");
             if (!"unlocked".equals(type)) assertThat(countSql).contains("community_post", "p.deleted = 0");
         }
+    }
+
+    @Test
+    void postCountIncludesOnlyPublishedPosts() {
+        var config = new MybatisConfiguration(); config.addMapper(CommunityPersonalQueryMapper.class);
+        String sql = config.getMappedStatement(CommunityPersonalQueryMapper.class.getName() + ".selectStats")
+                .getBoundSql(Map.of("userId", 1L)).getSql();
+        String postCount = sql.substring(0, sql.indexOf("AS post_count"));
+        assertThat(postCount).contains("p.deleted=0", "p.status='published'").doesNotContain("NOT IN");
     }
 
     @Test

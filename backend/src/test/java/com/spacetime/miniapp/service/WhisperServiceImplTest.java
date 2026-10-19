@@ -250,6 +250,28 @@ class WhisperServiceImplTest {
     }
 
     @Test
+    void fourthVipWhisperIsFreeAndFifthExplainsExhaustedQuota() {
+        stubEligibleUsers();
+        UserAsset asset = asset(7L, 50, "active");
+        asset.setVipExpireTime(LocalDateTime.now().plusDays(5));
+        when(userAssetDao.selectByUserId(7L)).thenReturn(asset);
+        when(vipBenefitDao.selectPage(any(), any())).thenReturn(benefitPage(4));
+        when(quoteStore.issue(any())).thenReturn("wq-boundary");
+        when(whisperDao.countPaidVipFree(eq(7L), any(LocalDate.class))).thenReturn(3L, 4L);
+
+        WhisperPrecheckVO fourth = service.precheck(7L, precheckReq());
+        assertThat(fourth.getFree()).isTrue();
+        assertThat(fourth.getCoinAmount()).isZero();
+        assertThat(fourth.getFreeWhisperRemain()).isEqualTo(1);
+
+        WhisperPrecheckVO fifth = service.precheck(7L, precheckReq());
+        assertThat(fifth.getFree()).isFalse();
+        assertThat(fifth.getFreeWhisperRemain()).isZero();
+        assertThat(fifth.getConfirmText()).contains("今日免费次数已用完", "4/4", "千寻币");
+        verify(userAssetDao, never()).updateCoinBalance(any(), any());
+    }
+
+    @Test
     void precheckRejectsReceiverWithAbnormalAccountStatus() {
         stubEligibleUsers();
         AppUser receiver = user(8L, "接收者");

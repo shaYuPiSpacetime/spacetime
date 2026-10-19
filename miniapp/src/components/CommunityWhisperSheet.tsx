@@ -47,7 +47,8 @@ export default function CommunityWhisperSheet({
       ? configuredDailyQuota > 0
         ? `今日免费 · 剩余${precheck.freeWhisperRemain}/${configuredDailyQuota}次`
         : '今日免费'
-      : `${precheck?.coinAmount ?? '--'}`
+      : `${precheck?.coinAmount ?? '--'} 千寻币`
+  const memberQuotaApplies = Boolean(precheck?.free || precheck?.freeWhisperExhausted)
 
   return (
     <View id={id} catchMove onClick={visible ? onClose : undefined} style={{ position: 'fixed', inset: 0, zIndex: 30000, background: 'rgba(21,29,38,.34)', visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none' }}>
@@ -86,10 +87,13 @@ export default function CommunityWhisperSheet({
             <Text style={{ color: '#FFFFFF', fontSize: '28rpx', fontWeight: 500 }}>{submitting ? '发送中…' : insufficientBalance ? '去充值' : '发送悄悄话'}</Text>
           </View>
         </View>
+        {precheck?.freeWhisperExhausted ? <Text style={{ display: 'block', color: '#8A6630', fontSize: '23rpx', lineHeight: '36rpx', marginTop: '14rpx' }}>{precheck.confirmText}</Text> : null}
         {precheck && !precheck.canSend && precheck.reasonText ? <Text style={{ display: 'block', color: '#E35C5C', fontSize: '22rpx', textAlign: 'center', marginTop: '14rpx' }}>{precheck.reasonText}</Text> : null}
         <View style={{ marginTop: precheck && !precheck.canSend && precheck.reasonText ? '24rpx' : '45rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <View style={{ width: '72rpx', height: '38rpx', borderRadius: '20rpx', background: '#333333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#D9A942', fontSize: '22rpx' }}>◇</Text></View>
-          <Text style={{ color: '#333333', fontSize: '26rpx', marginLeft: '12rpx' }}>开通<Text style={{ color: '#E7B64E' }}>时空邂逅会员</Text>{configuredDailyQuota > 0 ? `每天${configuredDailyQuota}个悄悄话` : '享受每日免费悄悄话'}</Text>
+          <Text style={{ color: '#333333', fontSize: '26rpx', marginLeft: '12rpx' }}>{memberQuotaApplies
+            ? `会员每日免费${configuredDailyQuota}次（含已回复）`
+            : <>开通<Text style={{ color: '#E7B64E' }}>时空邂逅会员</Text>{configuredDailyQuota > 0 ? `每天${configuredDailyQuota}个悄悄话` : '享受每日免费悄悄话'}</>}</Text>
         </View>
         </View>
       </ScrollView>

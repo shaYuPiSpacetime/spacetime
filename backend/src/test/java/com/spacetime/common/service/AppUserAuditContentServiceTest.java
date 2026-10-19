@@ -88,6 +88,49 @@ class AppUserAuditContentServiceTest {
         assertThat(result).containsEntry(8L, "https://static.example.com/8.jpg");
     }
 
+    @Test
+    @DisplayName("本人和公开相册的单人及批量查询都遵循编辑槽位，不受审核完成顺序影响")
+    void shouldKeepAlbumSlotOrderAcrossAllProjections() {
+        AppUserAuditRecord first = album(31L, 7L, 0);
+        AppUserAuditRecord second = album(33L, 7L, 1);
+        AppUserAuditRecord third = album(32L, 7L, 2);
+        List<AppUserAuditRecord> reversed = List.of(third, second, first);
+        when(auditService.effectiveRecords(7L, AppUserAuditTypeEnum.ALBUM_PHOTO)).thenReturn(reversed);
+        when(auditRecordDao.selectList(any())).thenReturn(reversed);
+        List<String> expected = List.of(first.getMediaUrl(), second.getMediaUrl(), third.getMediaUrl());
+
+        assertThat(contentService.publicAlbumPhotos(7L)).containsExactlyElementsOf(expected);
+        assertThat(contentService.ownerAlbumPhotos(7L)).containsExactlyElementsOf(expected);
+        assertThat(contentService.publicAlbumPhotos(List.of(7L)).get(7L)).containsExactlyElementsOf(expected);
+        assertThat(contentService.ownerAlbumPhotos(List.of(7L)).get(7L)).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    @DisplayName("历史缺失或重复槽位按提交时间和主键稳定排序，批量查询不混入其他用户")
+    void shouldStabilizeLegacyAlbumOrderPerUser() {
+        AppUserAuditRecord first = album(41L, 7L, 0);
+        first.setMaterialJson(null);
+        AppUserAuditRecord second = album(42L, 7L, 0);
+        second.setMaterialJson("{\"sortOrder\":999999999999999}");
+        AppUserAuditRecord other = album(43L, 8L, 0);
+        when(auditService.effectiveRecords(7L, AppUserAuditTypeEnum.ALBUM_PHOTO))
+                .thenReturn(List.of(second, first));
+        when(auditRecordDao.selectList(any())).thenReturn(List.of(other, second, first));
+
+        assertThat(contentService.publicAlbumPhotos(7L)).containsExactly(first.getMediaUrl(), second.getMediaUrl());
+        Map<Long, List<String>> result = contentService.publicAlbumPhotos(List.of(7L, 8L));
+        assertThat(result.get(7L)).containsExactly(first.getMediaUrl(), second.getMediaUrl());
+        assertThat(result.get(8L)).containsExactly(other.getMediaUrl());
+    }
+
+    private AppUserAuditRecord album(Long id, Long userId, int slot) {
+        AppUserAuditRecord record = record(id, userId, AppUserAuditTypeEnum.ALBUM_PHOTO,
+                AppUserAuditStatusEnum.APPROVED, "https://static.example.com/" + id + ".jpg");
+        record.setMaterialJson("{\"sortOrder\":" + slot + "}");
+        record.setSubmitTime(LocalDateTime.of(2026, 10, 19, 10, 0));
+        return record;
+    }
+
     private AppUserAuditRecord record(Long id, Long userId, AppUserAuditTypeEnum type,
             AppUserAuditStatusEnum status, String mediaUrl) {
         AppUserAuditRecord record = new AppUserAuditRecord();

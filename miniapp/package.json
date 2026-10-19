@@ -61,7 +61,7 @@
     "lint": "eslint src --ext .ts,.tsx",
     "format": "prettier --write src",
     "test:feishu-bobo-round2": "node --test scripts/test-feishu-bobo-round2-20261015.cjs scripts/test-coin-flow-pagination.cjs scripts/test-community-avatar.cjs scripts/test-share-login-return-20260929.cjs",
-    "test:feishu-bobo-20261019": "node --test scripts/test-feishu-bobo-20261019.cjs scripts/test-share-login-return-20260929.cjs scripts/test-prd08-recommend-ideal-closure.cjs"
+    "test:feishu-bobo-20261019": "node --test scripts/test-feishu-bobo-20261019.cjs scripts/test-share-login-return-20260929.cjs scripts/test-prd08-recommend-ideal-closure.cjs scripts/test-feishu-bobo-20261019-round2.cjs"
   },
   "browserslist": [
     "last 3 versions",

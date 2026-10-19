@@ -123,7 +123,7 @@ async function mount(t, file, options = {}) {
   const auth = selector => selector({ userId: 1, isLoggedIn: true })
   auth.getState = () => ({ userId: 1, nickname: '本人' })
   const api = {
-    getCommunityMeta: async () => ({}), getCommunityInteractions: async () => ({ records: [] }), getMyCommunityPosts: async () => ({ records: [] }),
+    getCommunityMeta: async () => ({}), getCommunityInteractions: async (...args) => options.interactions ? options.interactions(...args) : ({ records: [] }), getMyCommunityPosts: async () => ({ records: [] }),
     getCommunityFollowRelations: async () => { calls.push(['roster']); return options.roster() },
     resolveCommunityCopy: (_, key) => key || '', resolveCommunityFeedback: (_, __, e) => e.message,
     COMMUNITY_COPY_KEYS: {},
@@ -196,6 +196,25 @@ for (const roster of ['following', 'followers']) {
 }
 
 const unlocked = id => ({ unlockNo: `unlock-${id}`, available: true, profile: { userId: id, age: 20, currentCity: `城市${id}` }, unlockedAt: '2026-10-18T10:00:00' })
+test('互动解锁在隐藏时清理拉黑用户，迟到响应不能复活，解除后可重新加载', async t => {
+  const late = deferred(); let phase = 'initial'
+  const row = { id: 'unlock-8', targetUserId: 8, nickname: '解锁测试用户', description: '测试资料' }
+  const app = await mount(t, 'pages/qianxun/interactions.tsx', {
+    interactions: type => type !== 'unlocked' ? Promise.resolve({ records: [] })
+      : phase === 'late' ? late.promise : Promise.resolve({ records: phase === 'blocked' ? [] : [row] }),
+  })
+  await app.click('解锁过')
+  assert.ok(app.element.textContent.includes(row.nickname))
+  phase = 'late'; await app.fire('show'); await app.fire('hide')
+  phase = 'blocked'; await app.change({ kind: 'block', authorId: 8 })
+  assert.ok(!app.element.textContent.includes(row.nickname), '页面隐藏时也立即清理旧卡片')
+  await act(async () => { late.resolve({ records: [row] }) })
+  assert.ok(!app.element.textContent.includes(row.nickname), '拉黑之前的响应应失效')
+  await app.fire('show')
+  assert.ok(!app.element.textContent.includes(row.nickname))
+  phase = 'unblocked'; await app.change({ kind: 'content' })
+  assert.ok(app.element.textContent.includes(row.nickname), '解除拉黑后以服务器最新结果为准')
+})
 test('历史解锁从主页返回保留两页数据、游标和滚动位置', async t => {
   const app = await mount(t, 'pages/prd08/ideal/unlocks/index.tsx', { unlocks: async (_, cursor) => ({ items: [unlocked(cursor ? 9 : 8)], nextCursor: cursor ? null : 'page2' }) })
   await act(async () => { app.nativeProps.ScrollView.onScrollToLower() })

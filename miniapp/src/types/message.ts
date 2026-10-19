@@ -383,6 +383,8 @@ export interface WhisperPrecheckResponse {
   coinBalance: number
   freeWhisperRemain: number
   freeWhisperDailyQuota: number
+  /** 当前会员当天免费次数已用尽，已回复的成功发送也计入次数。 */
+  freeWhisperExhausted?: boolean
   quoteToken: string | null
   quoteExpireTime: string | null
   whisperExpireDays: number

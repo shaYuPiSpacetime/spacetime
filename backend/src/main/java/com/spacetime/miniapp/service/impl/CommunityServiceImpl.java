@@ -831,6 +831,11 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(CommunityFollow::getFollowerId, userId)
                 .eq(CommunityFollow::getTargetUserId, targetUserId));
 
+        // 双向黑名单禁止新增或恢复关注，遗留关注仍允许取消。
+        if (follow == null || !CommunityFollowStatusEnum.FOLLOW.getCode().equals(follow.getStatus())) {
+            requireNotBlockedFromPosts(userId, targetUserId);
+        }
+
         // 5. 三态切换逻辑
         boolean following;
         if (follow == null) {
@@ -1119,7 +1124,7 @@ public class CommunityServiceImpl implements CommunityService {
         return reasons;
     }
 
-    /** 黑名单任一方都不能通过动态列表或详情读取对方动态。 */
+    /** 黑名单任一方都不能读取对方动态或新建关注关系。 */
     private void requireNotBlockedFromPosts(Long currentUserId, Long authorId) {
         if (currentUserId == null || authorId == null || Objects.equals(currentUserId, authorId)) {
             return;

@@ -135,8 +135,11 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
       // 时空邂逅与千寻共用原生页面，通过共享点亮态切换内容，不重复导航。
       if (tab.key === 'kindred' || tab.key === 'index') updateActive(tab.key)
       if (tab.key === 'community') Taro.eventCenter.trigger('heartTabReselect')
+      if (tab.key === 'recommend') Taro.eventCenter.trigger('recommendTabReselect')
       return
     }
+    // 底部推荐是明确的推荐入口；子页返回仍由推荐页保留原面板。
+    if (tab.key === 'recommend') Taro.setStorageSync('prd08RecommendTab', 'recommend')
     tabSwitchInFlight = true
     tabSwitchSourceRoute = currentRoute
     const generation = ++tabSwitchGeneration

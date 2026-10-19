@@ -53,9 +53,7 @@ function createRequestId(prefix: string, candidateNo: string) {
 export default function RecommendPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<RecommendTab>(() =>
-    router.params.tab === 'ideal' ? 'ideal'
-      : router.params.tab === 'recommend' ? 'recommend'
-        : Taro.getStorageSync('prd08RecommendActiveTab') === 'ideal' ? 'ideal' : 'recommend'
+    router.params.tab === 'ideal' ? 'ideal' : 'recommend'
   )
   const [page, setPage] = useState<RecommendCandidatePageVO | null>(null)
   const [idealSnapshotNo, setIdealSnapshotNo] = useState<string | null>(null)
@@ -97,8 +95,13 @@ export default function RecommendPage() {
   const candidate = candidates[candidateIndex] || null
 
   useEffect(() => {
-    Taro.setStorageSync('prd08RecommendActiveTab', activeTab)
-  }, [activeTab])
+    const reselectRecommend = () => {
+      activeTabRef.current = 'recommend'
+      setActiveTab('recommend')
+    }
+    Taro.eventCenter.on('recommendTabReselect', reselectRecommend)
+    return () => { Taro.eventCenter.off('recommendTabReselect', reselectRecommend) }
+  }, [])
 
   useLayoutEffect(() => {
     const userId = useAuthStore.getState().userId

@@ -300,7 +300,7 @@ export default function QianxunPostDetailPage() {
                 </View>
               ) : null}
               <View style={{ height: '92rpx', borderTop: '1rpx solid #EEF1F5', marginTop: '24rpx', display: 'flex', alignItems: 'center' }}>
-                {post.authorId !== currentUserId ? <View onClick={() => void openWhisper()} style={{ height: '88rpx', display: 'flex', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunWhisper} mode="aspectFit" style={{ width: '42rpx', height: '42rpx' }} /><Text style={{ color: '#448BEE', fontSize: '24rpx', marginLeft: '10rpx' }}>悄悄话</Text></View> : null}
+                {post.authorId !== currentUserId ? <View onClick={() => void openWhisper()} style={{ height: '88rpx', display: 'flex', alignItems: 'center' }}><Image src={miniappOssIcons.qianxunWhisper} mode="aspectFit" style={{ width: '42rpx', height: '42rpx' }} /><Text style={{ color: '#448BEE', fontSize: '24rpx', marginLeft: '10rpx' }}>{post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '悄悄话'}</Text></View> : null}
                 <View style={{ flex: 1 }} />
                 <QianxunActionStat kind="comment" count={post.commentCount || 0} onClick={() => void Taro.navigateTo({ url: `/pages/qianxun/interactions?postId=${post.id}&interactionType=commented` })} fontSize="25rpx" />
                 <QianxunActionStat kind="like" count={post.likeCount || 0} active={post.liked} onClick={() => void likePost()} fontSize="25rpx" />
@@ -354,7 +354,7 @@ function AuthorRow({ post, isSelf, onAuthor, onMore, onApply }: { post: Communit
   return <View style={{ display: 'flex', alignItems: 'center' }}>
     <Image onClick={onAuthor} src={post.authorAvatar || miniappOssIcons.qianxunTopicAvatar} mode="aspectFill" style={{ width: '72rpx', height: '72rpx', borderRadius: '36rpx', background: '#EFF3F7', flexShrink: 0 }} />
     <View onClick={onAuthor} style={{ flex: 1, minWidth: 0, marginLeft: '16rpx' }}><View style={{ display: 'flex', alignItems: 'center' }}><Text style={{ color: '#26354A', fontSize: '26rpx', lineHeight: '36rpx', fontWeight: 600 }}>{post.authorName || '用户'}</Text><View style={{ marginLeft: '12rpx', display: 'flex' }}><QianxunGenderIcon gender={post.authorGender} /></View></View>{meta ? <Text style={{ display: 'block', color: BLUE, fontSize: '21rpx', lineHeight: '30rpx', marginTop: '4rpx' }}>{meta}</Text> : null}</View>
-    {!isSelf ? <View id="qianxun-post-apply-whisper" onClick={onApply} style={{ width: '106rpx', height: '44rpx', borderRadius: '22rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '21rpx' }}>申请认识</Text></View> : null}
+    {!isSelf ? <View id="qianxun-post-apply-whisper" onClick={onApply} style={{ width: '106rpx', height: '44rpx', borderRadius: '22rpx', background: BLUE, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#FFFFFF', fontSize: '21rpx' }}>{post.contactAction === 'PRIVATE_MESSAGE' ? '私信' : '申请认识'}</Text></View> : null}
     <View onClick={event => { event.stopPropagation(); onMore() }} style={{ width: '72rpx', height: '72rpx', marginLeft: '7rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#A5A9B1', fontSize: '34rpx' }}>⋮</Text></View>
   </View>
 }
