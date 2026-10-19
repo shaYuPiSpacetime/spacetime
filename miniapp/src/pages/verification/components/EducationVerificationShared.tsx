@@ -263,6 +263,16 @@ export function CustomerServiceLink({ id, top, flow = false, text }: { id?: stri
   )
 }
 
+export function EducationUploadCameraIcon({ size = '64rpx' }: { size?: string }) {
+  return (
+    <Image
+      src={miniappOssIcons.verificationUploadCamera}
+      mode="aspectFit"
+      style={{ width: size, height: size, display: 'block', flexShrink: 0 }}
+    />
+  )
+}
+
 export function UploadProofBox({
   id,
   uploadPath,
@@ -297,7 +307,7 @@ export function UploadProofBox({
         <Image src={uploadPath} mode="aspectFill" style={{ width: '100%', height: '100%' }} />
       ) : (
         <View style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <Image src={miniappOssIcons.verificationUploadCamera} mode="widthFix" style={{ width: '64rpx' }} />
+          <EducationUploadCameraIcon />
           <Text style={{ color: '#999999', fontSize: '28rpx', fontWeight: 600, lineHeight: '40rpx', marginTop: '22rpx' }}>
             {text}
           </Text>

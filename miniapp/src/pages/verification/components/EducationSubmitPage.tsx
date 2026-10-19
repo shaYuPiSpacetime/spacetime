@@ -13,7 +13,7 @@ import VerificationRuntimeBoundary from './VerificationRuntimeBoundary'
 import VerificationSubShell from './VerificationSubShell'
 import EducationCameraOverlay from './EducationCameraOverlay'
 import { LanhuOptionSheet } from './LanhuPickerSheet'
-import { AgreementRow, CustomerServiceLink, EducationHero, EducationTabs, SubmitButton, UploadProofBox, VerificationStatusTabs } from './EducationVerificationShared'
+import { AgreementRow, CustomerServiceLink, EducationHero, EducationTabs, EducationUploadCameraIcon, SubmitButton, UploadProofBox, VerificationStatusTabs } from './EducationVerificationShared'
 
 const EDUCATION_RETRY_COPY_KEYS = [
   'education_school_invalid', 'education_school_selection_required', 'education_level_required',
@@ -230,7 +230,7 @@ function MaterialUploadArea({ methodCode, materials, maxMaterialCount, uploading
         </View>
       </View>)}
       {materials.length < maxMaterialCount ? <View id={`${id}-more`} onClick={busy ? undefined : () => onUpload()} style={{ width: '196rpx', height: '148rpx', border: '2rpx dashed #D9D9D9', borderRadius: '12rpx', boxSizing: 'border-box', textAlign: 'center', paddingTop: '24rpx' }}>
-        <Image src={miniappOssIcons.verificationUploadCamera} mode="widthFix" style={{ width: '52rpx' }} /><View style={{ color: '#999999', fontSize: '22rpx' }}>{copy('education_upload_action')}</View>
+        <View style={{ display: 'flex', justifyContent: 'center' }}><EducationUploadCameraIcon size="52rpx" /></View><View style={{ color: '#999999', fontSize: '22rpx' }}>{copy('education_upload_action')}</View>
       </View> : null}
     </View>
   </>

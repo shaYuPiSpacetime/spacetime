@@ -209,6 +209,18 @@ test('E16：学历拍照使用页内黑色相机承载层，避免白页与系�
   assert.doesNotMatch(hookSource, /sourceType:\s*\['album',\s*'camera'\]/, '学历拍照不应再走 chooseImage 的系统相机切换')
 })
 
+test('E17：原生相册切入前上传图标固定宽高，不能在过渡帧被纵向拉伸', () => {
+  const sharedSource = fs.readFileSync(path.join(root, 'pages/verification/components/EducationVerificationShared.tsx'), 'utf8')
+  const pageSource = fs.readFileSync(path.join(root, 'pages/verification/components/EducationSubmitPage.tsx'), 'utf8')
+
+  assert.match(sharedSource, /export function EducationUploadCameraIcon/, '学历上传入口应复用同一固定尺寸图标组件')
+  assert.match(sharedSource, /mode="aspectFit"/, '上传图标应在固定容器内等比缩放')
+  assert.match(sharedSource, /width:\s*size[\s\S]*height:\s*size/, '上传图标必须同时约束宽高，避免原生选择器切入时图片高度失控')
+  assert.doesNotMatch(sharedSource, /verificationUploadCamera[^\n]*mode="widthFix"/, '主上传入口不得再使用只有宽度的 widthFix')
+  assert.doesNotMatch(pageSource, /verificationUploadCamera[^\n]*mode="widthFix"/, '追加材料入口不得再使用只有宽度的 widthFix')
+  assert.match(pageSource, /<EducationUploadCameraIcon size="52rpx"/, '追加材料入口也必须复用固定尺寸图标')
+})
+
 test('E08：预览失败不阻断表单，删除后晚返回不能复活', async () => {
   const preview = deferred()
   const h = harness('MATERIAL_UPLOAD', { api: { getEducation: async () => detail({ educationMethod: 'MATERIAL_UPLOAD', materialUrls: ['a'] }) }, preview: () => preview.promise })

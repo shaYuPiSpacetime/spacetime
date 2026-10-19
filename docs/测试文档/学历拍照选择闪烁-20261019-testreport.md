@@ -3,7 +3,7 @@
 > **执行日期**：2026-10-19
 > **关联用例**：`docs/测试文档/学历拍照选择闪烁-20261019-testcase.md`
 > **测试范围**：学历认证材料选择、取消、重复点击、上传状态与认证流程回归
-> **结论**：第四轮视频确认返回页刷新已稳定，剩余闪烁来自系统相机启动时“白色学历页 -> 黑色相机”的原生切换。学历拍照现改为当前页自绘来源菜单与固定黑色相机承载层，相册仍沿用系统选择器；红绿回归、认证组合回归、完整发布构建及独立目录体验版上传均通过
+> **结论**：第五轮视频逐帧确认，用户看到的最后一次闪烁不是页面刷新或相机黑屏，而是来源弹层关闭、原生相册切入前，只有宽度约束的上传相机图标被瞬间纵向拉伸。现已统一为固定宽高的 `aspectFit` 图标组件；红绿回归和真实账号 H5 流程验证通过，小程序构建及发布结果见后续记录。
 
 ## 1. 修复验证
 
@@ -23,6 +23,10 @@
 | 第四轮来源菜单门禁 | `node --test scripts/test-education-verification-hook.cjs` | 14/15 通过；使用系统 `showActionSheet` 时仍可能在菜单关闭和相机层挂载之间露出白页 |
 | 第四轮认证组合回归 | `node --test scripts/test-education-verification-hook.cjs scripts/test-verification-onboarding-flow.cjs scripts/test-prd01-runtime.cjs` | 59/59 通过 |
 | 第四轮完整发布构建 | `npm run build:weapp` | 全量发布前置门禁通过，Webpack 编译成功（45.06 秒），构建后页面注册、运行模式与包体门禁通过 |
+| 第五轮失败复现 | `node --test scripts/test-education-verification-hook.cjs` | 15/16 通过；固定宽高图标门禁失败，证明两个材料入口仍使用仅约束宽度的 `widthFix` |
+| 第五轮 Hook 修复验证 | `node --test scripts/test-education-verification-hook.cjs` | 16/16 通过 |
+| 第五轮 H5 编译 | `npm run build:h5` | 编译成功；仅保留项目既有 Webpack 包体积建议告警 |
+| 第五轮 H5 真实账号验证 | 本地 H5 连接生产 API，手机号验证码登录后进入上传证书页 | 登录成功，学校与学历资料正常加载；来源弹层正常关闭并生成文件选择控件；切换前后图标尺寸稳定在约 96×94px |
 
 ## 2. 用例结果
 
@@ -36,6 +40,8 @@
 | EDU-CAMERA-P1-06 | 通过 | 既有替换失败用例保持通过，旧材料可恢复；新增材料使用同一乐观条目回滚路径 |
 | EDU-CAMERA-P0-07 | 通过 | 上传操作锁持有期间忽略系统选择器触发的 `didShow`，学历详情读取保持 1 次；正常页面返回刷新仍由 E11 覆盖 |
 | EDU-CAMERA-P0-08 | 通过 | 拍照使用当前页自绘来源菜单和固定黑色 `Camera` 承载层；初始化前不露出白色学历页，系统选择器仅保留相册路径 |
+| EDU-CAMERA-P0-09 | 通过 | 主上传入口和追加材料入口复用 `EducationUploadCameraIcon`；同时约束宽高并使用 `aspectFit`，不再存在 `verificationUploadCamera + widthFix` |
+| EDU-CAMERA-P1-10 | 通过 | 真实账号 H5 登录、资料加载、来源弹层关闭及相册选择控件生成均正常；切换前后图标宽高未跳变 |
 
 ## 2.1 第二轮失败复现与修复结果
 
