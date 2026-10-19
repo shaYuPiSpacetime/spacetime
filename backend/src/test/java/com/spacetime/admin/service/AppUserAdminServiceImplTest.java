@@ -59,6 +59,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -368,6 +369,46 @@ class AppUserAdminServiceImplTest {
         verify(appUserDao).selectPage(any(), captor.capture());
         assertThat(captor.getValue().getSqlSegment())
                 .containsPattern("(^|\\s|\\()phone LIKE");
+    }
+
+    @Test
+    @DisplayName("用户列表关键词应支持精确用户ID并保留手机号搜索")
+    void shouldSearchExactUserIdFromKeyword() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), AppUser.class);
+        Page<AppUser> page = new Page<>(1, 9, 0);
+        page.setRecords(List.of());
+        when(appUserDao.selectPage(any(), any())).thenReturn(page);
+
+        AppUserPageReq req = new AppUserPageReq();
+        req.setPage(1);
+        req.setSize(9);
+        req.setKeyword("1882");
+
+        service.getUserPage(req);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<AppUser>> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(appUserDao).selectPage(any(), captor.capture());
+        assertThat(captor.getValue().getSqlSegment())
+                .containsPattern("(^|\\s|\\()id =")
+                .containsPattern("(^|\\s|\\()phone LIKE");
+        assertThat(captor.getValue().getParamNameValuePairs()).containsValue(1882L);
+    }
+
+    @Test
+    @DisplayName("用户列表超长数字关键词不应触发用户ID解析异常")
+    void shouldIgnoreOverflowingUserIdKeyword() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), AppUser.class);
+        Page<AppUser> page = new Page<>(1, 9, 0);
+        page.setRecords(List.of());
+        when(appUserDao.selectPage(any(), any())).thenReturn(page);
+
+        AppUserPageReq req = new AppUserPageReq();
+        req.setPage(1);
+        req.setSize(9);
+        req.setKeyword("999999999999999999999999999999");
+
+        assertThatCode(() -> service.getUserPage(req)).doesNotThrowAnyException();
     }
 
     @Test

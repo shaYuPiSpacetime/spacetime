@@ -1261,7 +1261,7 @@ export default function CustomersPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="姓名/昵称/手机号/身份证/标签"
+                  placeholder="用户ID/姓名/昵称/手机号/身份证/标签"
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   onKeyDown={(event) => {

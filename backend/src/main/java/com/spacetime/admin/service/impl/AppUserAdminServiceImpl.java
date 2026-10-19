@@ -359,18 +359,23 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
 
     private LambdaQueryWrapper<AppUser> buildUserQueryWrapper(AppUserPageReq req) {
         String safeKeyword = StrUtil.blankToDefault(req.getKeyword(), "").replace("'", "''");
+        Long keywordUserId = parsePositiveUserId(req.getKeyword());
         LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
-                .and(StrUtil.isNotBlank(req.getKeyword()), w -> w
-                        .like(AppUser::getNickname, req.getKeyword())
-                        .or().like(AppUser::getSchool, req.getKeyword())
-                        .or().like(AppUser::getTags, req.getKeyword())
-                        .or().like(AppUser::getPhone, req.getKeyword())
-                        .or().like(AppUser::getOpenid, safeKeyword)
-                        .or().exists("SELECT 1 FROM app_user_audit_record ar WHERE ar.user_id = app_user.id"
+                .and(StrUtil.isNotBlank(req.getKeyword()), w -> {
+                    w.like(AppUser::getNickname, req.getKeyword())
+                            .or().like(AppUser::getSchool, req.getKeyword())
+                            .or().like(AppUser::getTags, req.getKeyword())
+                            .or().like(AppUser::getPhone, req.getKeyword())
+                            .or().like(AppUser::getOpenid, safeKeyword)
+                            .or().exists("SELECT 1 FROM app_user_audit_record ar WHERE ar.user_id = app_user.id"
                                 + " AND ar.deleted = 0"
                                 + " AND (ar.real_name LIKE '%" + safeKeyword + "%'"
                                 + " OR ar.bound_phone LIKE '%" + safeKeyword + "%'"
-                                + " OR ar.id_card LIKE '%" + safeKeyword + "%')"))
+                                + " OR ar.id_card LIKE '%" + safeKeyword + "%')");
+                    if (keywordUserId != null) {
+                        w.or().eq(AppUser::getId, keywordUserId);
+                    }
+                })
                 .like(StrUtil.isNotBlank(req.getNickname()), AppUser::getNickname, req.getNickname())
                 .like(StrUtil.isNotBlank(req.getSchool()), AppUser::getSchool, req.getSchool())
                 .eq(StrUtil.isNotBlank(req.getAccountStatus()), AppUser::getAccountStatus, req.getAccountStatus())
@@ -415,6 +420,22 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             }
         }
         return wrapper;
+    }
+
+    private Long parsePositiveUserId(String keyword) {
+        if (StrUtil.isBlank(keyword)) {
+            return null;
+        }
+        String normalized = keyword.trim();
+        if (!normalized.matches("\\d+")) {
+            return null;
+        }
+        try {
+            long userId = Long.parseLong(normalized);
+            return userId > 0 ? userId : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     @Override

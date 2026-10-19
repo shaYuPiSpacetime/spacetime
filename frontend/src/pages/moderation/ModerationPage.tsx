@@ -288,7 +288,7 @@ export default function ModerationPage() {
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <QueryField label="用户搜索">
               <Input
-                placeholder="姓名/昵称/手机号/身份证/标签"
+                placeholder="用户ID/姓名/昵称/手机号/身份证/标签"
                 value={keyword}
                 onChange={(event) => { setKeyword(event.target.value); setPage(1); }}
               />

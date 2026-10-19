@@ -12,7 +12,8 @@
     "test:zhiyin-config": "node scripts/test-zhiyin-phone-config-closure.mjs",
     "test:0914-admin-focus": "node scripts/test-0914-admin-focus-closure.mjs",
     "test:community-report-detail": "node scripts/test-community-report-detail-closure.mjs",
-    "test:app-user-import": "node --test scripts/test-app-user-import-template.mjs"
+    "test:app-user-import": "node --test scripts/test-app-user-import-template.mjs",
+    "test:admin-user-id-search": "node --test scripts/test-admin-user-id-search.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",

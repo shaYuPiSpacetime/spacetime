@@ -113,6 +113,28 @@ class ModerationAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("资料图片和文字审核用户搜索应支持精确用户ID")
+    void shouldSearchModerationUsersByExactUserId() {
+        when(appUserDao.selectList(any())).thenReturn(List.of());
+        when(auditRecordDao.selectList(any())).thenReturn(List.of());
+        when(auditRecordDao.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenReturn(new Page<>(1, 20, 0));
+        VerificationPageReq req = new VerificationPageReq();
+        req.setPage(1);
+        req.setSize(20);
+        req.setKeyword("1882");
+
+        service.getPhotoPage(req);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<AppUserAuditRecord>> captor =
+                ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(auditRecordDao).selectPage(any(Page.class), captor.capture());
+        assertThat(captor.getValue().getSqlSegment()).contains("user_id IN");
+        assertThat(captor.getValue().getParamNameValuePairs()).containsValue(1882L);
+    }
+
+    @Test
     @DisplayName("资料图片详情包含原图和审核历史分页")
     void shouldReturnPhotoDetailWithHistoryPage() {
         AppUserAuditRecord record = auditRecord(31L, 41L, AppUserAuditTypeEnum.ALBUM_PHOTO);
