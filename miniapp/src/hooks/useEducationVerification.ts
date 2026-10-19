@@ -123,18 +123,17 @@ export function useEducationVerification(method: EducationMethod, userType: stri
     updateMaterials(current => current.filter(item => item.id !== id))
   }
 
-  async function upload(replaceId?: string) {
+  async function uploadSelectedPaths(selectedPaths: string[], replaceId?: string) {
     if (!isEducationSubmissionAllowed(detailRef.current) || statusErrorRef.current || operations.current.uploading || operations.current.submitting) return
     const existing = replaceId ? materialsRef.current.find(item => item.id === replaceId) : undefined
     if (replaceId && !existing) return
     const remaining = existing ? 1 : Math.max(0, maxMaterialCount - materialsRef.current.length)
     if (!remaining) { await Taro.showToast({ title: copy('education_upload_limit_reached'), icon: 'none' }); return }
+    const acceptedPaths = selectedPaths.filter(Boolean).slice(0, remaining)
+    if (acceptedPaths.length === 0) return
     operations.current.uploading = true
     try {
-      const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album', 'camera'] })
-      const selectedPaths = result.tempFilePaths.slice(0, remaining)
-      if (!alive.current || selectedPaths.length === 0) return
-      const optimisticItems: EducationMaterial[] = selectedPaths.map((filePath, index) => ({
+      const optimisticItems: EducationMaterial[] = acceptedPaths.map((filePath, index) => ({
         id: existing && index === 0 ? existing.id : `education-material-${++itemSequence.current}`,
         serverUrl: '', previewUrl: filePath, previewStatus: 'ready', uploadStatus: 'uploading',
       }))
@@ -165,12 +164,31 @@ export function useEducationVerification(method: EducationMethod, userType: stri
         throw error
       }
     } catch (error) {
-      if (!alive.current) return
-      const message = error && typeof error === 'object' && 'errMsg' in error ? String(error.errMsg) : ''
-      if (!/chooseImage:fail cancel/i.test(message)) await Taro.showToast({ title: resolveCommunityImageUploadError(error), icon: 'none' })
+      if (alive.current) await Taro.showToast({ title: resolveCommunityImageUploadError(error), icon: 'none' })
     } finally {
       operations.current.uploading = false
       if (alive.current) setUploading(false)
+    }
+  }
+
+  async function upload(replaceId?: string) {
+    if (!isEducationSubmissionAllowed(detailRef.current) || statusErrorRef.current || operations.current.uploading || operations.current.submitting) return
+    const existing = replaceId ? materialsRef.current.find(item => item.id === replaceId) : undefined
+    if (replaceId && !existing) return
+    const remaining = existing ? 1 : Math.max(0, maxMaterialCount - materialsRef.current.length)
+    if (!remaining) { await Taro.showToast({ title: copy('education_upload_limit_reached'), icon: 'none' }); return }
+    operations.current.uploading = true
+    try {
+      // 相册仍使用系统选择器；拍照由当前页 Camera 承载，避免白色表单与黑色系统相机之间闪切。
+      const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album'] })
+      const selectedPaths = result.tempFilePaths.slice(0, remaining)
+      operations.current.uploading = false
+      await uploadSelectedPaths(selectedPaths, replaceId)
+    } catch (error) {
+      operations.current.uploading = false
+      if (!alive.current) return
+      const message = error && typeof error === 'object' && 'errMsg' in error ? String(error.errMsg) : ''
+      if (!/chooseImage:fail cancel/i.test(message)) await Taro.showToast({ title: resolveCommunityImageUploadError(error), icon: 'none' })
     }
   }
 
@@ -213,7 +231,7 @@ export function useEducationVerification(method: EducationMethod, userType: stri
 
   return {
     detail, draft, materials, issues, canEdit, uploading, submitting, statusError, maxMaterialCount,
-    setField, loadDetail, refreshStatus, upload, removeMaterial, submit,
+    setField, loadDetail, refreshStatus, upload, uploadCaptured: (filePath: string, replaceId?: string) => uploadSelectedPaths([filePath], replaceId), removeMaterial, submit,
     retryPreview: (id: string) => { const item = materialsRef.current.find(value => value.id === id); if (item) void previewMaterial(item) },
   }
 }

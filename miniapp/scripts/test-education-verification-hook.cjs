@@ -194,6 +194,21 @@ test('E15：取消拍照或相册选择不展示上传态和错误提示', async
   assert.deepEqual(h.toasts, [])
 })
 
+test('E16：学历拍照使用页内黑色相机承载层，避免白页与系统相机启动动画闪切', () => {
+  const hookSource = fs.readFileSync(path.join(root, 'hooks/useEducationVerification.ts'), 'utf8')
+  const pageSource = fs.readFileSync(path.join(root, 'pages/verification/components/EducationSubmitPage.tsx'), 'utf8')
+  const cameraSource = fs.readFileSync(path.join(root, 'pages/verification/components/EducationCameraOverlay.tsx'), 'utf8')
+
+  assert.match(pageSource, /education-material-source-sheet/, '学历页应在当前渲染树中区分拍照和相册')
+  assert.doesNotMatch(pageSource, /Taro\.showActionSheet/, '不得等待系统来源菜单关闭后再渲染相机，否则仍会短暂露出白色表单')
+  assert.match(pageSource, /<EducationCameraOverlay/, '拍照应留在学历页的稳定黑色承载层')
+  assert.match(cameraSource, /<Camera[\s\S]*onInitDone=/, '相机画面应等待原生 Camera 初始化完成')
+  assert.match(cameraSource, /background:\s*'#000000'/, '相机初始化前后都应由黑色底层承接，不能露出白色学历页')
+  assert.match(cameraSource, /createCameraContext\(\)/, '拍照应由页内 CameraContext 完成')
+  assert.match(hookSource, /sourceType:\s*\['album'\]/, '系统选择器只负责相册，不得再次拉起带启动动画的系统相机')
+  assert.doesNotMatch(hookSource, /sourceType:\s*\['album',\s*'camera'\]/, '学历拍照不应再走 chooseImage 的系统相机切换')
+})
+
 test('E08：预览失败不阻断表单，删除后晚返回不能复活', async () => {
   const preview = deferred()
   const h = harness('MATERIAL_UPLOAD', { api: { getEducation: async () => detail({ educationMethod: 'MATERIAL_UPLOAD', materialUrls: ['a'] }) }, preview: () => preview.promise })

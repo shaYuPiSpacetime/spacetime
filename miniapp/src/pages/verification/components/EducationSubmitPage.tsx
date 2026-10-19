@@ -11,6 +11,7 @@ import { usePrd01Store } from '@/stores/prd01Store'
 import type { EducationMethod } from '@/types/prd01'
 import VerificationRuntimeBoundary from './VerificationRuntimeBoundary'
 import VerificationSubShell from './VerificationSubShell'
+import EducationCameraOverlay from './EducationCameraOverlay'
 import { LanhuOptionSheet } from './LanhuPickerSheet'
 import { AgreementRow, CustomerServiceLink, EducationHero, EducationTabs, SubmitButton, UploadProofBox, VerificationStatusTabs } from './EducationVerificationShared'
 
@@ -32,6 +33,8 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
   const methodOption = profileOptions?.educationMethod?.find(option => option.code === methodCode)
   const educationOptions = profileOptions?.educationLevel || []
   const [educationPickerVisible, setEducationPickerVisible] = useState(false)
+  const [sourceRequest, setSourceRequest] = useState<{ replaceId?: string } | null>(null)
+  const [cameraRequest, setCameraRequest] = useState<{ replaceId?: string } | null>(null)
   const [scrollTarget, setScrollTarget] = useState('')
   const [focusedField, setFocusedField] = useState<EducationField>()
   const issueText = (field: EducationField) => {
@@ -50,6 +53,10 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
     form.setField('schoolName', name)
     form.setField('schoolCode', code)
   }
+  const chooseMaterial = (replaceId?: string) => {
+    if (!form.canEdit || form.uploading || sourceRequest || cameraRequest) return
+    setSourceRequest({ replaceId })
+  }
   const statusNotice = form.statusError || form.detail?.blockedReason || form.detail?.rejectReason
   const fieldProps = {
     schoolName: form.draft.schoolName, schoolCode: form.draft.schoolCode,
@@ -64,7 +71,8 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
       if (EDUCATION_RETRY_COPY_KEYS.some(key => !runtimeCopy(key))) throw new Error(runtimeCopy('common_load_failed_message'))
       await form.loadDetail()
     }}>
-      <VerificationSubShell title={methodCode === 'STUDENT_CARD' ? copy('verification_nav_title') : methodCode === 'MATERIAL_UPLOAD' ? '上传证书' : methodOption?.label || ''} contentHeight="1678rpx" scroll scrollIntoView={scrollTarget}>
+      <>
+        <VerificationSubShell title={methodCode === 'STUDENT_CARD' ? copy('verification_nav_title') : methodCode === 'MATERIAL_UPLOAD' ? '上传证书' : methodOption?.label || ''} contentHeight="1678rpx" scroll scrollIntoView={scrollTarget}>
         {methodCode === 'STUDENT_CARD' ? <><EducationHero copy={copy} /><VerificationStatusTabs active="education" copy={copy} /><EducationTabs active="student" copy={copy} /></> : methodCode !== 'CHSI' ? (
           <Text style={{ position: 'absolute', left: '25rpx', top: '226rpx', color: '#0C285A', fontSize: '48rpx', fontWeight: 600 }}>{methodOption?.label || ''}</Text>
         ) : null}
@@ -85,7 +93,7 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
               {methodCode === 'STUDENT_CARD' || methodCode === 'MATERIAL_UPLOAD' ? (
                 <View id="education-field-materials">
                   <MaterialUploadArea methodCode={methodCode} materials={form.materials} maxMaterialCount={form.maxMaterialCount} uploading={form.uploading} disabled={!form.canEdit} copy={copy}
-                    onUpload={id => void form.upload(id)} onRemove={form.removeMaterial} onRetry={form.retryPreview} />
+                    onUpload={id => void chooseMaterial(id)} onRemove={form.removeMaterial} onRetry={form.retryPreview} />
                   <FieldError text={issueText('materials')} />
                   <Text style={{ display: 'block', color: '#999999', fontSize: '22rpx', lineHeight: '34rpx', marginTop: '18rpx' }}>{copy(methodCode === 'STUDENT_CARD' ? 'education_student_upload_notice' : 'education_upload_notice')}</Text>
                 </View>
@@ -103,8 +111,40 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
         </View>
         {educationPickerVisible ? <LanhuOptionSheet title={copy('education_level_label')} options={educationOptions.map(option => option.label)} value={optionLabel('educationLevel', form.draft.educationLevel)}
           onConfirm={label => { const option = educationOptions.find(value => value.label === label); if (option && form.canEdit) form.setField('educationLevel', option.code); setEducationPickerVisible(false) }} onClose={() => setEducationPickerVisible(false)} /> : null}
-      </VerificationSubShell>
+        </VerificationSubShell>
+        <MaterialSourceSheet visible={Boolean(sourceRequest)} onCancel={() => setSourceRequest(null)} onCamera={() => {
+          if (!sourceRequest) return
+          setCameraRequest(sourceRequest)
+          setSourceRequest(null)
+        }} onAlbum={() => {
+          const replaceId = sourceRequest?.replaceId
+          setSourceRequest(null)
+          void form.upload(replaceId)
+        }} />
+        <EducationCameraOverlay visible={Boolean(cameraRequest)} onCancel={() => setCameraRequest(null)} onCaptured={async filePath => {
+          const replaceId = cameraRequest?.replaceId
+          setCameraRequest(null)
+          await form.uploadCaptured(filePath, replaceId)
+        }} />
+      </>
     </VerificationRuntimeBoundary>
+  )
+}
+
+function MaterialSourceSheet({ visible, onCamera, onAlbum, onCancel }: {
+  visible: boolean; onCamera: () => void; onAlbum: () => void; onCancel: () => void
+}) {
+  if (!visible) return null
+  return (
+    <View id="education-material-source-sheet" onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 900, background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'flex-end' }}>
+      <View onClick={event => event.stopPropagation()} style={{ width: '750rpx', padding: '16rpx 16rpx calc(16rpx + env(safe-area-inset-bottom))', boxSizing: 'border-box' }}>
+        <View style={{ overflow: 'hidden', borderRadius: '22rpx', background: '#FFFFFF' }}>
+          <View onClick={onCamera} style={{ height: '104rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1F2530', fontSize: '30rpx', borderBottom: '1rpx solid #EDF0F5' }}>拍照</View>
+          <View onClick={onAlbum} style={{ height: '104rpx', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1F2530', fontSize: '30rpx' }}>从手机相册选择</View>
+        </View>
+        <View onClick={onCancel} style={{ height: '104rpx', marginTop: '14rpx', borderRadius: '22rpx', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2876FF', fontSize: '30rpx' }}>取消</View>
+      </View>
+    </View>
   )
 }
 
