@@ -16,6 +16,7 @@ export interface EducationMaterial {
   serverUrl: string
   previewUrl?: string
   previewStatus: 'loading' | 'ready' | 'error'
+  uploadStatus: 'uploading' | 'ready'
 }
 
 const EDUCATION_MATERIAL_MAX_COUNT = 4
@@ -56,7 +57,7 @@ export function useEducationVerification(method: EducationMethod, userType: stri
     if (!alive.current) return
     materialsRef.current = change(materialsRef.current)
     setMaterials(materialsRef.current)
-    draftRef.current = { ...draftRef.current, materialUrls: materialsRef.current.map(item => item.serverUrl) }
+    draftRef.current = { ...draftRef.current, materialUrls: materialsRef.current.map(item => item.serverUrl).filter(Boolean) }
     setDraft(draftRef.current)
   }
 
@@ -92,7 +93,7 @@ export function useEducationVerification(method: EducationMethod, userType: stri
     draftRef.current = createEducationDraft(value, method, userType)
     setDraft(draftRef.current)
     const items: EducationMaterial[] = (draftRef.current.materialUrls || []).map(serverUrl => ({
-      id: `education-material-${++itemSequence.current}`, serverUrl, previewStatus: 'loading',
+      id: `education-material-${++itemSequence.current}`, serverUrl, previewStatus: 'loading', uploadStatus: 'ready',
     }))
     updateMaterials(() => items)
     // 材料预览不参与整页加载门禁；任何一张失败都不阻止重填。
@@ -130,14 +131,35 @@ export function useEducationVerification(method: EducationMethod, userType: stri
       const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album', 'camera'] })
       const selectedPaths = result.tempFilePaths.slice(0, remaining)
       if (!alive.current || selectedPaths.length === 0) return
-      // 原生拍照/相册选择层显示期间保持底层页面稳定，选好图片后才进入可见上传态。
+      const optimisticItems: EducationMaterial[] = selectedPaths.map((filePath, index) => ({
+        id: existing && index === 0 ? existing.id : `education-material-${++itemSequence.current}`,
+        serverUrl: '', previewUrl: filePath, previewStatus: 'ready', uploadStatus: 'uploading',
+      }))
+      const optimisticIds = new Set(optimisticItems.map(item => item.id))
+      const completedIds = new Set<string>()
+      // 返回页面的第一帧直接展示本地缩略图；网络进度只绑定材料卡片，不触发整页明暗切换。
+      updateMaterials(current => existing
+        ? current.map(value => value.id === existing.id ? optimisticItems[0] : value)
+        : [...current, ...optimisticItems])
       setUploading(true)
-      for (const filePath of selectedPaths) {
-        const uploaded = await prd01Api.uploadEducation(filePath)
-        if (!alive.current) return
-        const item: EducationMaterial = { id: `education-material-${++itemSequence.current}`, serverUrl: uploaded.url, previewUrl: filePath, previewStatus: 'ready' }
-        updateMaterials(current => existing ? current.map(value => value.id === replaceId ? item : value) : [...current, item])
-        if (existing) previewGeneration.current.delete(existing.id)
+      try {
+        for (const item of optimisticItems) {
+          const uploaded = await prd01Api.uploadEducation(item.previewUrl!)
+          if (!alive.current) return
+          completedIds.add(item.id)
+          updateMaterials(current => current.map(value => value.id === item.id
+            ? { ...value, serverUrl: uploaded.url, uploadStatus: 'ready' }
+            : value))
+          if (existing) previewGeneration.current.delete(existing.id)
+        }
+      } catch (error) {
+        if (alive.current) {
+          updateMaterials(current => current.flatMap(value => {
+            if (!optimisticIds.has(value.id) || completedIds.has(value.id)) return [value]
+            return existing && value.id === existing.id ? [existing] : []
+          }))
+        }
+        throw error
       }
     } catch (error) {
       if (!alive.current) return

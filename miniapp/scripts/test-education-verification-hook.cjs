@@ -141,11 +141,22 @@ test('E15：原生拍照选择层等待期间不切换页面上传态且重复�
   picker.resolve({ tempFilePaths: ['new-proof'] })
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(h.current.uploading, true, '选好图片且网络上传开始后才展示上传状态')
+  assert.equal(h.current.materials.length, 1, '返回页面后应立即插入本地缩略图，不能先恢复旧页面再等待上传完成')
+  assert.equal(h.current.materials[0].previewUrl, 'new-proof')
+  assert.equal(h.current.materials[0].uploadStatus, 'uploading', '上传态只能绑定当前材料，不能依赖整页变灰提示进度')
 
   uploader.resolve({ url: '/miniapp/file/credential/new-proof.jpg' })
   await Promise.all([first, second])
   assert.equal(h.current.uploading, false)
   assert.equal(h.current.materials.length, 1)
+  assert.equal(h.current.materials[0].uploadStatus, 'ready')
+})
+
+test('E15：上传反馈只覆盖当前材料，不改变提交按钮亮度或插入整页错误行', () => {
+  const pageSource = fs.readFileSync(path.join(root, 'pages/verification/components/EducationSubmitPage.tsx'), 'utf8')
+  assert.match(pageSource, /item\.uploadStatus === 'uploading'/, '材料缩略图应承载自己的上传反馈')
+  assert.doesNotMatch(pageSource, /active=\{form\.canEdit && !form\.uploading\}/, '上传时不得让整页提交按钮闪成禁用色')
+  assert.doesNotMatch(pageSource, /\{form\.uploading \? <FieldError/, '上传时不得动态插入红色整页提示造成布局跳动')
 })
 
 test('E15：取消拍照或相册选择不展示上传态和错误提示', async () => {

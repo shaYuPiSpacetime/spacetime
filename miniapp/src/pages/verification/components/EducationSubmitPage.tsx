@@ -92,9 +92,8 @@ export default function EducationSubmitPage({ methodCode, userTypeCode }: { meth
               ) : null}
             </StandardForm>
           )}
-          <SubmitButton id="education-submit-button" flow active={form.canEdit && !form.uploading} disabled={!form.canEdit || form.submitting || form.uploading} submitting={form.submitting}
+          <SubmitButton id="education-submit-button" flow active={form.canEdit} disabled={!form.canEdit || form.submitting} submitting={form.submitting}
             text={copy(educationSubmitActionKey(form.detail))} submittingText={copy('common_submitting_action')} onClick={() => void submit()} />
-          {form.uploading ? <FieldError text={copy('common_uploading_action')} /> : null}
           <View id="education-field-agreement">
             <AgreementRow id="education-agreement-row" flow checked={form.draft.educationAgreementChecked} onToggle={() => { if (form.canEdit) form.setField('educationAgreementChecked', !form.draft.educationAgreementChecked) }}
               prefix={copy('agreement_read_prefix')} agreementName={copy('agreement_education_name')} agreementCode="education_verification_agreement" />
@@ -171,24 +170,27 @@ function MaterialUploadArea({ methodCode, materials, maxMaterialCount, uploading
   const gridId = methodCode === 'STUDENT_CARD' ? 'education-student-material-grid' : 'education-certificate-material-grid'
   const busy = disabled || uploading
   const countText = copy('education_upload_count_template').replace('{count}', String(materials.length)).replace('{max}', String(maxMaterialCount))
-  if (materials.length === 0) return <UploadProofBox id={id} onClick={() => { if (!busy) onUpload() }} text={uploading ? copy('common_uploading_action') : countText} />
+  if (materials.length === 0) return <UploadProofBox id={id} onClick={() => { if (!busy) onUpload() }} text={countText} />
   return <>
     <View style={{ color: '#697E9C', fontSize: '22rpx', marginTop: '20rpx' }}>{countText}</View>
     <View id={gridId} style={{ display: 'flex', flexWrap: 'wrap', gap: '12rpx', marginTop: '14rpx' }}>
       {materials.map(item => <View key={item.id} style={{ width: '196rpx' }}>
-        {item.previewStatus === 'ready' && item.previewUrl ? <Image src={item.previewUrl} mode="aspectFill" style={{ width: '196rpx', height: '148rpx', borderRadius: '12rpx' }} onClick={() => void Taro.previewImage({ current: item.previewUrl!, urls: materials.filter(value => value.previewStatus === 'ready' && value.previewUrl).map(value => value.previewUrl!) })} /> : (
-          <View onClick={() => { if (item.previewStatus === 'error') onRetry(item.id) }} style={{ height: '148rpx', background: '#F7F9FC', borderRadius: '12rpx', padding: '12rpx', boxSizing: 'border-box', textAlign: 'center', color: '#8A93A5', fontSize: '22rpx', lineHeight: '32rpx' }}>
-            {copy(item.previewStatus === 'error' ? 'education_material_preview_failed' : 'common_loading_action')}
-            {item.previewStatus === 'error' ? <View style={{ color: '#2876FF' }}>{copy('common_retry_action')}</View> : null}
-          </View>
-        )}
-        <View style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8rpx', color: busy ? '#AAB1BE' : '#2876FF', fontSize: '22rpx' }}>
+        <View style={{ position: 'relative', width: '196rpx', height: '148rpx' }}>
+          {item.previewStatus === 'ready' && item.previewUrl ? <Image src={item.previewUrl} mode="aspectFill" style={{ width: '196rpx', height: '148rpx', borderRadius: '12rpx' }} onClick={item.uploadStatus === 'uploading' ? undefined : () => void Taro.previewImage({ current: item.previewUrl!, urls: materials.filter(value => value.uploadStatus === 'ready' && value.previewStatus === 'ready' && value.previewUrl).map(value => value.previewUrl!) })} /> : (
+            <View onClick={() => { if (item.previewStatus === 'error') onRetry(item.id) }} style={{ height: '148rpx', background: '#F7F9FC', borderRadius: '12rpx', padding: '12rpx', boxSizing: 'border-box', textAlign: 'center', color: '#8A93A5', fontSize: '22rpx', lineHeight: '32rpx' }}>
+              {copy(item.previewStatus === 'error' ? 'education_material_preview_failed' : 'common_loading_action')}
+              {item.previewStatus === 'error' ? <View style={{ color: '#2876FF' }}>{copy('common_retry_action')}</View> : null}
+            </View>
+          )}
+          {item.uploadStatus === 'uploading' ? <View style={{ position: 'absolute', inset: 0, borderRadius: '12rpx', background: 'rgba(12, 40, 90, 0.46)', color: '#FFFFFF', fontSize: '22rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{copy('common_uploading_action')}</View> : null}
+        </View>
+        <View style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8rpx', color: disabled ? '#AAB1BE' : '#2876FF', fontSize: '22rpx' }}>
           <View data-role="education-material-replace" onClick={busy ? undefined : () => onUpload(item.id)} style={{ padding: '8rpx' }}>{copy('education_material_replace_action')}</View>
           <View data-role="education-material-remove" onClick={busy ? undefined : () => onRemove(item.id)} style={{ padding: '8rpx' }}>{copy('education_material_remove_action')}</View>
         </View>
       </View>)}
       {materials.length < maxMaterialCount ? <View id={`${id}-more`} onClick={busy ? undefined : () => onUpload()} style={{ width: '196rpx', height: '148rpx', border: '2rpx dashed #D9D9D9', borderRadius: '12rpx', boxSizing: 'border-box', textAlign: 'center', paddingTop: '24rpx' }}>
-        <Image src={miniappOssIcons.verificationUploadCamera} mode="widthFix" style={{ width: '52rpx' }} /><View style={{ color: '#999999', fontSize: '22rpx' }}>{copy(uploading ? 'common_uploading_action' : 'education_upload_action')}</View>
+        <Image src={miniappOssIcons.verificationUploadCamera} mode="widthFix" style={{ width: '52rpx' }} /><View style={{ color: '#999999', fontSize: '22rpx' }}>{copy('education_upload_action')}</View>
       </View> : null}
     </View>
   </>
