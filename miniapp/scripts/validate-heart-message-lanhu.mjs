@@ -36,6 +36,9 @@ assert.match(chat, /!forcedUnverified && access\.status\?\.coreAccessStatus === 
 assert.match(chat, /悄悄话/, '新版消息首页必须提供悄悄话入口')
 assert.match(chat, /私信/, '新版消息首页必须提供私信入口')
 assert.match(chat, /喜欢我的人\(119人\)/, '消息列表人数文案必须与新版蓝湖一致')
+assert.match(chat, /row\.type === 'liked' \? `blur\(\$\{designRpx\(8\)\}\)` : 'none'/, '喜欢我的人真实头像必须始终模糊')
+assert.match(chat, /data-role=\{row\.type === 'liked' \? 'message-liked-avatar'/, '喜欢我的人模糊头像必须保留运行态验收标识')
+assert.match(chat, /overflow: 'hidden'/, '模糊头像必须在圆形容器内裁切，不能污染未读红点')
 assert.match(chat, /官方小助手/, '新版消息首页必须提供官方小助手入口')
 assert.match(chat, /系统消息/, '新版消息首页必须提供系统消息入口')
 

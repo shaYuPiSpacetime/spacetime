@@ -277,7 +277,21 @@ function HomeRowAvatar({ row }: { row: HomeViewRow }) {
   const badge = formatMessageBadge(row.unreadCount)
   return (
     <View style={{ position: 'relative', width: designRpx(100), height: designRpx(100), flexShrink: 0 }}>
-      <Image src={source} mode="aspectFill" style={{ width: designRpx(100), height: designRpx(100), borderRadius: '50%' }} />
+      <View
+        data-role={row.type === 'liked' ? 'message-liked-avatar' : 'message-row-avatar'}
+        style={{ width: designRpx(100), height: designRpx(100), overflow: 'hidden', borderRadius: '50%' }}
+      >
+        <Image
+          src={source}
+          mode="aspectFill"
+          style={{
+            width: designRpx(100),
+            height: designRpx(100),
+            filter: row.type === 'liked' ? `blur(${designRpx(8)})` : 'none',
+            transform: row.type === 'liked' ? 'scale(1.12)' : 'none',
+          }}
+        />
+      </View>
       {badge ? <NotificationBadge value={badge} bordered style={{ position: 'absolute', right: designRpx(-1), top: designRpx(-1) }} /> : null}
     </View>
   )
