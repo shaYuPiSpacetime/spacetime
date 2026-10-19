@@ -40,7 +40,7 @@
 | EDU-CAMERA-P1-06 | 通过 | 既有替换失败用例保持通过，旧材料可恢复；新增材料使用同一乐观条目回滚路径 |
 | EDU-CAMERA-P0-07 | 通过 | 上传操作锁持有期间忽略系统选择器触发的 `didShow`，学历详情读取保持 1 次；正常页面返回刷新仍由 E11 覆盖 |
 | EDU-CAMERA-P0-08 | 通过 | 拍照使用当前页自绘来源菜单和固定黑色 `Camera` 承载层；初始化前不露出白色学历页，系统选择器仅保留相册路径 |
-| EDU-CAMERA-P0-09 | 通过 | 主上传入口和追加材料入口复用 `EducationUploadCameraIcon`；同时约束宽高并使用 `aspectFit`，不再存在 `verificationUploadCamera + widthFix` |
+| EDU-CAMERA-P0-09 | 通过 | 主上传入口使用固定尺寸共享图标，追加材料入口保留发布门禁可识别的显式图标；两处均同时约束宽高并使用 `aspectFit`，不再存在 `verificationUploadCamera + widthFix` |
 | EDU-CAMERA-P1-10 | 通过 | 真实账号 H5 登录、资料加载、来源弹层关闭及相册选择控件生成均正常；切换前后图标宽高未跳变 |
 
 ## 2.1 第二轮失败复现与修复结果

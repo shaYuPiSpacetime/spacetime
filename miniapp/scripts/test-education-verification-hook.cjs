@@ -218,7 +218,7 @@ test('E17：原生相册切入前上传图标固定宽高，不能在过渡帧�
   assert.match(sharedSource, /width:\s*size[\s\S]*height:\s*size/, '上传图标必须同时约束宽高，避免原生选择器切入时图片高度失控')
   assert.doesNotMatch(sharedSource, /verificationUploadCamera[^\n]*mode="widthFix"/, '主上传入口不得再使用只有宽度的 widthFix')
   assert.doesNotMatch(pageSource, /verificationUploadCamera[^\n]*mode="widthFix"/, '追加材料入口不得再使用只有宽度的 widthFix')
-  assert.match(pageSource, /<EducationUploadCameraIcon size="52rpx"/, '追加材料入口也必须复用固定尺寸图标')
+  assert.match(pageSource, /verificationUploadCamera[^\n]*mode="aspectFit"[^\n]*width:\s*'52rpx'[^\n]*height:\s*'52rpx'/, '追加材料入口必须保留发布门禁可识别的图标证据并明确固定宽高')
 })
 
 test('E08：预览失败不阻断表单，删除后晚返回不能复活', async () => {
