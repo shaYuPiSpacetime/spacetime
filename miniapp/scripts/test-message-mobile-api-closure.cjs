@@ -87,6 +87,27 @@ test('私信连续数字和无空格长文本必须限制在消息气泡内换�
   )
 })
 
+test('私信长文本头像必须与气泡顶部对齐，不能跟随整块内容垂直居中', () => {
+  const privateChat = read('src/pages/message/private-chat.tsx')
+  const styles = read('src/pages/message/message.scss')
+
+  assert.equal(
+    privateChat.match(/className="chat-avatar"/g)?.length,
+    2,
+    '收发双方头像必须共用同一顶部对齐样式'
+  )
+  assert.match(
+    styles,
+    /\.chat-avatar\s*\{[\s\S]*?align-self:\s*flex-start;/,
+    '头像必须独立贴齐消息行顶部，长气泡时保持微信式顶部对齐'
+  )
+  assert.match(
+    styles,
+    /\.chat-row\s*\{[\s\S]*?align-items:\s*center;/,
+    '消息行仍保留其他状态元素的原有居中布局'
+  )
+})
+
 test('从聊天进入用户主页后再次点私信必须复用上一层同会话页面', () => {
   const { shouldReturnToPreviousPrivateChat } = requireDomain('src/domain/messageRuntime.ts')
   const profile = read('src/pages/heart/user.tsx')
