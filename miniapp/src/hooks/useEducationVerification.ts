@@ -109,7 +109,10 @@ export function useEducationVerification(method: EducationMethod, userType: stri
     }
   }
 
-  useDidShow(() => { if (initialized.current) void refreshStatus() })
+  useDidShow(() => {
+    // 系统拍照/相册返回同样会触发 didShow；此时沿用本地材料状态，避免与上传回显并发刷新整页。
+    if (initialized.current && !operations.current.uploading) void refreshStatus()
+  })
 
   const canEdit = isEducationSubmissionAllowed(detail) && !statusError && !submitting
   const issues = attempted ? validateEducationDraft(method, draft, profileOptions, maxMaterialCount) : []

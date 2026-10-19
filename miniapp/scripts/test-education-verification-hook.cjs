@@ -152,6 +152,29 @@ test('E15：原生拍照选择层等待期间不切换页面上传态且重复�
   assert.equal(h.current.materials[0].uploadStatus, 'ready')
 })
 
+test('E15：系统拍照或相册返回页面时不并发刷新学历状态', async () => {
+  const picker = deferred()
+  let detailReads = 0
+  const h = harness('MATERIAL_UPLOAD', {
+    api: {
+      getEducation: async () => {
+        detailReads++
+        return detail({ educationMethod: 'MATERIAL_UPLOAD', materialUrls: [] })
+      },
+    },
+    taro: { chooseImage: () => picker.promise },
+  })
+  await h.load()
+  assert.equal(detailReads, 1)
+
+  const upload = h.current.upload()
+  await h.show()
+  assert.equal(detailReads, 1, '原生选择器返回触发 useDidShow 时不得刷新服务端状态并重绘页面')
+
+  picker.resolve({ tempFilePaths: [] })
+  await upload
+})
+
 test('E15：上传反馈只覆盖当前材料，不改变提交按钮亮度或插入整页错误行', () => {
   const pageSource = fs.readFileSync(path.join(root, 'pages/verification/components/EducationSubmitPage.tsx'), 'utf8')
   assert.match(pageSource, /item\.uploadStatus === 'uploading'/, '材料缩略图应承载自己的上传反馈')

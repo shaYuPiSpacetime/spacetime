@@ -3,7 +3,7 @@
 > **执行日期**：2026-10-19
 > **关联用例**：`docs/测试文档/学历拍照选择闪烁-20261019-testcase.md`
 > **测试范围**：学历认证材料选择、取消、重复点击、上传状态与认证流程回归
-> **结论**：第二轮针对性自动化、完整发布构建、产物门禁及独立目录体验版上传均通过；原生相机曝光过程仍需真机区分验证
+> **结论**：第三轮定位到学历页在系统选择器返回时额外触发 `didShow` 状态刷新；最小修复的红绿回归、认证组合回归、完整发布构建与产物门禁均通过
 
 ## 1. 修复验证
 
@@ -15,6 +15,10 @@
 | PRD01 交接门禁 | `npm run validate:prd01-handoff` | 各测试组 55/55 通过，SQL 契约与资料闭环检查通过 |
 | 微信小程序编译 | `taro build --type weapp` | 编译成功；仅保留既有包体性能警告 |
 | 构建产物门禁 | `npm run postbuild:weapp` | 页面注册、开发登录、页面能力与包体门禁全部通过 |
+| 第三轮失败复现 | `node --test scripts/test-education-verification-hook.cjs` | 13/14 通过；系统选择器返回触发第 2 次学历详情读取，证明存在并发整页重绘 |
+| 第三轮 Hook 修复验证 | `node --test scripts/test-education-verification-hook.cjs` | 14/14 通过 |
+| 第三轮认证组合回归 | `node --test scripts/test-education-verification-hook.cjs scripts/test-verification-onboarding-flow.cjs scripts/test-prd01-runtime.cjs` | 58/58 通过 |
+| 第三轮完整发布构建 | `npm run build:weapp` | 全量发布前置门禁通过，Webpack 编译成功（48.61 秒），构建后门禁通过 |
 
 ## 2. 用例结果
 
@@ -26,12 +30,19 @@
 | EDU-CAMERA-P1-04 | 通过 | 取消选择后材料、上传态与提示均保持不变 |
 | EDU-CAMERA-P1-05 | 通过 | 上传反馈仅覆盖当前材料；提交按钮不再切换禁用色，页面不再动态插入红色“上传中”行 |
 | EDU-CAMERA-P1-06 | 通过 | 既有替换失败用例保持通过，旧材料可恢复；新增材料使用同一乐观条目回滚路径 |
+| EDU-CAMERA-P0-07 | 通过 | 上传操作锁持有期间忽略系统选择器触发的 `didShow`，学历详情读取保持 1 次；正常页面返回刷新仍由 E11 覆盖 |
 
 ## 2.1 第二轮失败复现与修复结果
 
 - 修复前：`node --test scripts/test-education-verification-hook.cjs` 为 11/13 通过；缺少本地缩略图即时回显，页面仍以全局 `uploading` 状态改变按钮亮度并插入提示行。
 - 修复后：同一命令 13/13 通过；返回页面第一帧建立本地材料条目，网络上传仅更新该条目的状态。
 - 系统相机启动时的黑屏和自动曝光由微信原生 `chooseImage` 相机控制，不属于小程序页面重绘；本轮消除的是返回小程序后可控的整页闪烁。
+
+## 2.2 第三轮根因与最小改造
+
+- 对比发布动态、相册、背景图、举报附件等正常链路后确认：它们都可使用系统 `chooseImage/chooseMedia`，差异不在相机 API。
+- 学历 Hook 独有的 `useDidShow -> refreshStatus` 会在系统拍照/相册返回时，与本地缩略图回显、上传状态更新并发执行，导致材料区被服务端状态重复重绘。
+- 修复保持系统拍照/相册入口不变，仅在材料选择/上传操作进行中跳过该次 `didShow` 刷新；真实离页再返回时仍正常刷新审核资格。
 
 ## 3. 构建信息
 
