@@ -47,6 +47,7 @@ export const VERIFICATION_ROW_IDS: BasicProfileRowId[] = [
   'heightWeight',
   'hometown',
   'identity',
+  'school',
   'educationLevel',
   'occupation',
   'annualIncome',

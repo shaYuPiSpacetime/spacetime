@@ -29,3 +29,8 @@ test('手动修改学校名称会清空学校编码，兼容港澳台及海外�
   assert.match(component, /onChange\(event\.detail\.value, undefined\)/)
   assert.match(component, /onChange\(option\.name, option\.code\)/)
 })
+
+test('历史学校缺少编码时，打开基本资料学校编辑器即按原校名联想', () => {
+  const basic = read('src/pages/verification/components/BasicInfoCard.tsx')
+  assert.match(basic, /selectionRequired=\{!draftCode && Boolean\(draftName\.trim\(\)\)\}/)
+})

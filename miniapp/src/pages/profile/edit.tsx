@@ -221,6 +221,8 @@ function ProfileEditContent() {
   const [profileAvatar, setProfileAvatar] = useState('')
   const [previewAvatar, setPreviewAvatar] = useState('')
   const [previewBackground, setPreviewBackground] = useState('')
+  const [editBackground, setEditBackground] = useState('')
+  const backgroundRequestId = useRef(0)
   const [profilePhotos, setProfilePhotos] = useState(defaultPhotoSlots)
   const [nickname, setNickname] = useState('')
   useShareAppMessage(() => ({
@@ -280,7 +282,7 @@ function ProfileEditContent() {
         const basicProfilePromise = loadBasicProfile()
         await Promise.all([bootstrap(), basicProfilePromise])
         const regionTreePromise = usePrd01Store.getState().provinceCities().catch(() => [])
-        const [basicResult, home, albums, wechatId, introDetail, aboutDetail, tags, voice, regions, avatarDetail, backgroundDetail] = await Promise.all([
+        const [basicResult, home, albums, wechatId, introDetail, aboutDetail, tags, voice, regions, avatarDetail] = await Promise.all([
           basicProfilePromise,
           prd01Api.getHomeDetail(),
           prd01Api.getAlbums(),
@@ -291,12 +293,10 @@ function ProfileEditContent() {
           prd01Api.getVoiceIntro(),
           regionTreePromise,
           prd01Api.getAvatar(),
-          prd01Api.getBackground(),
         ])
         const options = usePrd01Store.getState().profileOptions
         const profile = home.profile
         const avatar = String(profile.avatar || '')
-        setPreviewBackground(String(backgroundDetail?.effectiveMediaUrl || ''))
         const nextGoalCode = String(profile.datingGoal || '')
         const nextRelationshipCode = String(profile.emotionalStatus || '')
         setNickname(String(profile.nickname || basicResult.nickname || ''))
@@ -352,8 +352,16 @@ function ProfileEditContent() {
     voiceDetailRef.current = voiceDetail
   }, [voiceDetail])
 
+  useEffect(() => () => { backgroundRequestId.current += 1 }, [])
+
   useDidShow(() => {
     void prd01Api.getVoiceIntro().then(setVoiceDetail).catch(() => undefined)
+    const requestId = ++backgroundRequestId.current
+    void prd01Api.getBackground().then(detail => {
+      if (requestId !== backgroundRequestId.current) return
+      setEditBackground(String(detail?.mediaUrl || detail?.effectiveMediaUrl || ''))
+      setPreviewBackground(String(detail?.effectiveMediaUrl || ''))
+    }).catch(() => undefined)
     // 从裁剪页返回后刷新头像展示（认证通过前展示上传中占位，与认证流程一致）。
     void prd01Api.getAvatar().then(detail => {
       setProfileAvatar(String(detail.latestAvatarUrl || ''))
@@ -749,7 +757,10 @@ function ProfileEditContent() {
         sortOrder: 0,
       })
       const backgroundUrl = saved.mediaUrl || uploaded.url
-      setPreviewBackground(backgroundUrl)
+      // 保存成功后淘汰上传前的读取；本人回显最新稿，对外预览仍遵守审核结果。
+      backgroundRequestId.current += 1
+      setEditBackground(backgroundUrl)
+      if (saved.auditStatus === 'APPROVED') setPreviewBackground(backgroundUrl)
       void refreshProfileScore()
     }, '更换背景')
   }
@@ -813,7 +824,7 @@ function ProfileEditContent() {
     basic.zodiac ? String(basic.zodiac) : '',
   ].filter(Boolean).join('丨')
   const locationText = buildBasicProfileLocationText(basic, regionTree)
-  const profileHeroImage = previewBackground || editHeroPhoto
+  const profileHeroImage = editBackground || editHeroPhoto
   const photos = profilePhotos.flatMap(item =>
     item.imageUrl && item.auditStatus === 'APPROVED' ? [item.imageUrl] : []
   )
@@ -824,7 +835,7 @@ function ProfileEditContent() {
   ]
   const previewModel: ProfilePreviewModel = {
     avatarUrl: previewAvatar || defaultAvatar,
-    heroImageUrl: profileHeroImage,
+    heroImageUrl: previewBackground || editHeroPhoto,
     nickname,
     gender: String(basic.gender || ''),
     genderAgeHeight,

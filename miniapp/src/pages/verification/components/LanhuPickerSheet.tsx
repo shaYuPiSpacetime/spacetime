@@ -1,8 +1,7 @@
-import { ScrollView, Text, View } from '@tarojs/components'
+import { PickerView, PickerViewColumn, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import type { RegionOption, RegionTreeOption } from '@/types/prd01'
-import { getWindowMetrics } from '@/utils/system'
 import { BottomPicker } from './VerificationShell'
 
 interface LanhuOptionSheetProps {
@@ -48,8 +47,6 @@ const YEARS = Array.from({ length: 39 }, (_, index) => `${1970 + index}年`)
 const MONTHS = Array.from({ length: 12 }, (_, index) => `${index + 1}月`)
 const DAYS = Array.from({ length: 31 }, (_, index) => `${index + 1}日`)
 const REGION_ROW_HEIGHT_RPX = 78
-const REGION_PROVINCE_TOP_SPACER_RPX = 78
-const REGION_WHEEL_BOTTOM_SPACER_RPX = 144
 
 export function LanhuOptionSheet({
   title,
@@ -151,59 +148,39 @@ export function LanhuRegionSheet({
   // Only recover a missing legacy province when the saved city has exactly one owner.
   // A valid but mismatched province is not silently replaced with another province.
   const cityOwners = cityCode
-    ? regions.map((item, index) => ({ item, index }))
-      .filter(({ item }) => item.children.some(city => city.code === cityCode))
+    ? regions
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.children.some(city => city.code === cityCode))
     : []
-  const resolvedProvinceIndex = storedProvinceIndex >= 0
-    ? storedProvinceIndex
-    : cityOwners.length === 1 ? cityOwners[0].index : -1
+  const resolvedProvinceIndex =
+    storedProvinceIndex >= 0
+      ? storedProvinceIndex
+      : cityOwners.length === 1
+        ? cityOwners[0].index
+        : -1
   const initialProvinceIndex = clampRegionIndex(resolvedProvinceIndex, regions.length)
   const initialProvince = regions[initialProvinceIndex]
   const initialCityIndex = clampRegionIndex(
     initialProvince?.children.findIndex(item => item.code === cityCode) ?? 0,
     initialProvince?.children.length || 0
   )
-  const staleCitySelection = (Boolean(provinceCode) && resolvedProvinceIndex < 0)
-    || (Boolean(cityCode) && !initialProvince?.children.some(item => item.code === cityCode))
+  const staleCitySelection =
+    (Boolean(provinceCode) && resolvedProvinceIndex < 0) ||
+    (Boolean(cityCode) && !initialProvince?.children.some(item => item.code === cityCode))
   const citySelectedByUser = useRef(false)
-  const provinceScrollTouched = useRef(false)
-  const cityScrollTouched = useRef(false)
+  const pickerTouched = useRef(false)
+  const pickerScrolling = useRef(false)
+  const selectionRef = useRef([initialProvinceIndex, initialCityIndex, 0])
   const [provinceIndex, setProvinceIndex] = useState(initialProvinceIndex)
   const [cityIndex, setCityIndex] = useState(initialCityIndex)
   const [districts, setDistricts] = useState<RegionOption[]>([])
   const [districtIndex, setDistrictIndex] = useState(0)
   const [districtLoading, setDistrictLoading] = useState(false)
   const [districtError, setDistrictError] = useState(false)
-  const [provinceScrollTop, setProvinceScrollTop] = useState<number | undefined>(() =>
-    regionScrollTop(initialProvinceIndex)
-  )
-  const [cityScrollTop, setCityScrollTop] = useState<number | undefined>(() =>
-    regionScrollTop(initialCityIndex)
-  )
-  const [districtScrollTop, setDistrictScrollTop] = useState<number | undefined>(0)
-  const releaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const districtRequestRef = useRef(0)
   const selectedProvince = regions[provinceIndex] || regions[0]
   const cities = selectedProvince?.children || []
   const selectedCity = cities[clampRegionIndex(cityIndex, cities.length)] || cities[0]
-  const selectedDistrict =
-    districts[clampRegionIndex(districtIndex, districts.length)] || districts[0]
-
-  const releaseControlledScroll = () => {
-    if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
-    releaseTimerRef.current = setTimeout(() => {
-      setProvinceScrollTop(undefined)
-      setCityScrollTop(undefined)
-      setDistrictScrollTop(undefined)
-    }, 240)
-  }
-
-  useEffect(() => {
-    releaseControlledScroll()
-    return () => {
-      if (releaseTimerRef.current) clearTimeout(releaseTimerRef.current)
-    }
-  }, [])
 
   useEffect(() => {
     const requestId = districtRequestRef.current + 1
@@ -230,9 +207,8 @@ export function LanhuRegionSheet({
         )
         setDistricts(options)
         setDistrictIndex(nextIndex)
-        setDistrictScrollTop(regionScrollTop(nextIndex))
+        selectionRef.current[2] = nextIndex
         setDistrictLoading(false)
-        releaseControlledScroll()
       })
       .catch(() => {
         if (requestId !== districtRequestRef.current) return
@@ -244,49 +220,69 @@ export function LanhuRegionSheet({
   }, [selectedCity?.code, cityCode, districtCode, includeDistrict, loadDistricts])
 
   const resetDistrictsForCity = (nextCityCode: string | undefined) => {
-    if (nextCityCode === selectedCity?.code) return
+    const [currentProvince, currentCity] = selectionRef.current
+    if (nextCityCode === regions[currentProvince]?.children[currentCity]?.code) return
     districtRequestRef.current += 1
     setDistricts([])
     setDistrictIndex(0)
     setDistrictLoading(includeDistrict && Boolean(nextCityCode))
     setDistrictError(false)
-    setDistrictScrollTop(regionScrollTop(0))
+  }
+
+  const updateSelection = (next: number[]) => {
+    selectionRef.current = next
+    setProvinceIndex(next[0])
+    setCityIndex(next[1])
+    setDistrictIndex(next[2])
+    citySelectedByUser.current = true
   }
 
   const selectProvince = (nextIndex: number) => {
     const normalized = clampRegionIndex(nextIndex, regions.length)
-    setProvinceIndex(normalized)
-    setCityIndex(0)
-    // An explicit province choice also chooses its displayed, valid default city.
-    citySelectedByUser.current = true
-    provinceScrollTouched.current = false
-    cityScrollTouched.current = false
     resetDistrictsForCity(regions[normalized]?.children[0]?.code)
-    setProvinceScrollTop(regionScrollTop(normalized))
-    setCityScrollTop(regionScrollTop(0))
-    releaseControlledScroll()
+    updateSelection([
+      normalized,
+      0,
+      selectionRef.current[0] === normalized && selectionRef.current[1] === 0
+        ? selectionRef.current[2]
+        : 0,
+    ])
   }
 
   const selectCity = (nextIndex: number) => {
-    const normalized = clampRegionIndex(nextIndex, cities.length)
-    setCityIndex(normalized)
-    citySelectedByUser.current = true
-    resetDistrictsForCity(cities[normalized]?.code)
-    setCityScrollTop(regionScrollTop(normalized))
-    releaseControlledScroll()
+    const current = selectionRef.current
+    const currentCities = regions[current[0]]?.children || []
+    const normalized = clampRegionIndex(nextIndex, currentCities.length)
+    resetDistrictsForCity(currentCities[normalized]?.code)
+    updateSelection([current[0], normalized, normalized === current[1] ? current[2] : 0])
   }
 
-  const selectDistrict = (nextIndex: number) => {
-    const normalized = clampRegionIndex(nextIndex, districts.length)
-    setDistrictIndex(normalized)
-    setDistrictScrollTop(regionScrollTop(normalized))
-    releaseControlledScroll()
+  const handleRegionChange = (value: number[]) => {
+    if (!pickerTouched.current) return
+    // 原生滚轮一次返回整组索引；跨省时旧城市索引不能套用到新省份。
+    // 用 ref 消费连续事件，避免同一批 React 更新中的旧闭包覆盖最新省市。
+    const current = selectionRef.current
+    const nextProvince = clampRegionIndex(value[0], regions.length)
+    const nextCities = regions[nextProvince]?.children || []
+    const provinceChanged = nextProvince !== current[0]
+    const nextCity = provinceChanged ? 0 : clampRegionIndex(value[1], nextCities.length)
+    const cityChanged = provinceChanged || nextCity !== current[1]
+    const nextDistrict = cityChanged
+      ? 0
+      : clampRegionIndex(value[2] ?? current[2], districts.length)
+    if (!cityChanged && nextDistrict === current[2]) return
+    resetDistrictsForCity(nextCities[nextCity]?.code)
+    updateSelection([nextProvince, nextCity, nextDistrict])
   }
 
   return (
     <BottomPicker
       title={title}
       onConfirm={() => {
+        if (pickerScrolling.current) {
+          void Taro.showToast({ title: '请等待地区滚动结束', icon: 'none' })
+          return
+        }
         if (staleCitySelection && !citySelectedByUser.current) {
           void Taro.showToast({ title: '地区选项已更新，请重新选择省市', icon: 'none' })
           return
@@ -299,11 +295,14 @@ export function LanhuRegionSheet({
           void Taro.showToast({ title: '区县加载失败，请重新选择城市', icon: 'none' })
           return
         }
-        if (selectedProvince && selectedCity) {
+        const [nextProvinceIndex, nextCityIndex, nextDistrictIndex] = selectionRef.current
+        const province = regions[nextProvinceIndex]
+        const city = province?.children[nextCityIndex]
+        if (province && city) {
           onConfirm(
-            selectedProvince.code,
-            selectedCity.code,
-            includeDistrict ? selectedDistrict?.code || '' : ''
+            province.code,
+            city.code,
+            includeDistrict ? districts[nextDistrictIndex]?.code || '' : ''
           )
         }
       }}
@@ -335,232 +334,136 @@ export function LanhuRegionSheet({
       </View>
 
       <View
-        style={{
-          position: 'relative',
-          width: '656rpx',
-          height: '300rpx',
-          margin: '66rpx auto 0',
-          overflow: 'hidden',
-        }}
+        style={{ position: 'relative', width: '656rpx', height: '300rpx', margin: '66rpx auto 0' }}
       >
         <View
           style={{
             position: 'absolute',
             left: 0,
-            top: '78rpx',
+            top: '111rpx',
             width: '656rpx',
             height: '78rpx',
             borderRadius: '24rpx',
             background: '#E3F1FE',
           }}
         />
-        <ScrollView
-          scrollY
-          scrollTop={provinceScrollTop}
-          scrollWithAnimation
-          enhanced
-          showScrollbar={false}
-          onTouchStart={() => { provinceScrollTouched.current = true }}
-          onScroll={event => {
-            if (!provinceScrollTouched.current) return
-            const nextIndex = regionIndexFromScrollTop(event.detail.scrollTop, regions.length)
-            if (nextIndex !== provinceIndex) {
-              setProvinceIndex(nextIndex)
-              setCityIndex(0)
-              citySelectedByUser.current = true
-              cityScrollTouched.current = false
-              resetDistrictsForCity(regions[nextIndex]?.children[0]?.code)
-              setCityScrollTop(regionScrollTop(0))
-              releaseControlledScroll()
-            }
+        <PickerView
+          data-role="region-wheel"
+          value={
+            includeDistrict ? [provinceIndex, cityIndex, districtIndex] : [provinceIndex, cityIndex]
+          }
+          indicatorStyle={`height: ${REGION_ROW_HEIGHT_RPX}rpx; border: none;`}
+          onPickStart={() => {
+            pickerTouched.current = true
+            pickerScrolling.current = true
           }}
-          style={{
-            position: 'absolute',
-            left: includeDistrict ? '8rpx' : '78rpx',
-            top: 0,
-            width: includeDistrict ? '200rpx' : '220rpx',
-            height: '300rpx',
+          onPickEnd={() => {
+            pickerScrolling.current = false
           }}
+          onChange={event => handleRegionChange(event.detail.value)}
+          style={{ width: '656rpx', height: '300rpx' }}
         >
-          <View style={{ height: `${REGION_PROVINCE_TOP_SPACER_RPX}rpx` }} />
-          {regions.map((item, index) => (
-            <View
-              key={item.code}
-              style={{
-                height: '78rpx',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={() => selectProvince(index)}
-              hoverClass="btn-hover"
-            >
-              <Text
+          <PickerViewColumn>
+            {regions.map((item, index) => (
+              <View
+                key={item.code}
+                onClick={() => selectProvince(index)}
                 style={{
-                  color:
-                    index === provinceIndex
-                      ? '#0C285A'
-                      : index < provinceIndex
-                        ? '#D7D7D7'
-                        : '#999999',
-                  fontSize: item.name.length > 7 ? '24rpx' : '28rpx',
-                  fontWeight: 500,
-                  lineHeight: '40rpx',
+                  height: '78rpx',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {trimRegionName(item.name)}
-              </Text>
-            </View>
-          ))}
-          <View style={{ height: `${REGION_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
-        </ScrollView>
-
-        <ScrollView
-          scrollY
-          scrollTop={cityScrollTop}
-          scrollWithAnimation
-          enhanced
-          showScrollbar={false}
-          onTouchStart={() => { cityScrollTouched.current = true }}
-          onScroll={event => {
-            const nextIndex = regionIndexFromScrollTop(event.detail.scrollTop, cities.length)
-            if (nextIndex !== cityIndex) resetDistrictsForCity(cities[nextIndex]?.code)
-            if (cityScrollTouched.current && nextIndex !== cityIndex) {
-              citySelectedByUser.current = true
-            }
-            setCityIndex(nextIndex)
-          }}
-          style={{
-            position: 'absolute',
-            left: includeDistrict ? '228rpx' : '358rpx',
-            top: '78rpx',
-            width: includeDistrict ? '200rpx' : '220rpx',
-            height: '222rpx',
-          }}
-        >
-          {cities.map((item, index) => (
-            <View
-              key={item.code}
-              style={{
-                height: '78rpx',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={() => selectCity(index)}
-              hoverClass="btn-hover"
-            >
-              <Text
+                <Text
+                  style={{
+                    color: index === provinceIndex ? '#0C285A' : '#999999',
+                    fontSize: item.name.length > 7 ? '24rpx' : '28rpx',
+                    fontWeight: 500,
+                    lineHeight: '40rpx',
+                  }}
+                >
+                  {trimRegionName(item.name)}
+                </Text>
+              </View>
+            ))}
+          </PickerViewColumn>
+          <PickerViewColumn key={selectedProvince?.code || 'empty-province'}>
+            {cities.map((item, index) => (
+              <View
+                key={item.code}
+                onClick={() => selectCity(index)}
                 style={{
-                  color:
-                    index === cityIndex ? '#0C285A' : index < cityIndex ? '#D7D7D7' : '#999999',
-                  fontSize: '28rpx',
-                  fontWeight: 500,
-                  lineHeight: '40rpx',
+                  height: '78rpx',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {trimRegionName(item.name)}
-              </Text>
-            </View>
-          ))}
-          <View style={{ height: `${REGION_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
-        </ScrollView>
-
-        {includeDistrict &&
-          (districtLoading || districtError || districts.length === 0 ? (
-            <View
-              style={{
-                position: 'absolute',
-                left: '448rpx',
-                top: '78rpx',
-                width: '200rpx',
-                height: '78rpx',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text
-                style={{
-                  color: districtError ? '#E35A5A' : '#999999',
-                  fontSize: '26rpx',
-                  lineHeight: '40rpx',
-                }}
-              >
-                {districtLoading ? '加载中' : districtError ? '加载失败' : '无区县'}
-              </Text>
-            </View>
-          ) : (
-            <ScrollView
-              scrollY
-              scrollTop={districtScrollTop}
-              scrollWithAnimation
-              enhanced
-              showScrollbar={false}
-              onScroll={event =>
-                setDistrictIndex(regionIndexFromScrollTop(event.detail.scrollTop, districts.length))
-              }
-              style={{
-                position: 'absolute',
-                left: '448rpx',
-                top: '78rpx',
-                width: '200rpx',
-                height: '222rpx',
-              }}
-            >
-              {districts.map((item, index) => (
+                <Text
+                  style={{
+                    color: index === cityIndex ? '#0C285A' : '#999999',
+                    fontSize: '28rpx',
+                    fontWeight: 500,
+                    lineHeight: '40rpx',
+                  }}
+                >
+                  {trimRegionName(item.name)}
+                </Text>
+              </View>
+            ))}
+          </PickerViewColumn>
+          {includeDistrict ? (
+            <PickerViewColumn key={selectedCity?.code || 'empty-city'}>
+              {districtLoading || districtError || districts.length === 0 ? (
                 <View
-                  key={item.code}
                   style={{
                     height: '78rpx',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
-                  onClick={() => selectDistrict(index)}
-                  hoverClass="btn-hover"
                 >
-                  <Text
-                    style={{
-                      color:
-                        index === districtIndex
-                          ? '#0C285A'
-                          : index < districtIndex
-                            ? '#D7D7D7'
-                            : '#999999',
-                      fontSize: '28rpx',
-                      fontWeight: 500,
-                      lineHeight: '40rpx',
-                    }}
-                  >
-                    {trimRegionName(item.label || item.name || '')}
+                  <Text style={{ color: districtError ? '#E35A5A' : '#999999', fontSize: '26rpx' }}>
+                    {districtLoading ? '加载中' : districtError ? '加载失败' : '无区县'}
                   </Text>
                 </View>
-              ))}
-              <View style={{ height: `${REGION_WHEEL_BOTTOM_SPACER_RPX}rpx` }} />
-            </ScrollView>
-          ))}
+              ) : (
+                districts.map((item, index) => (
+                  <View
+                    key={item.code}
+                    onClick={() => updateSelection([provinceIndex, cityIndex, index])}
+                    style={{
+                      height: '78rpx',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: index === districtIndex ? '#0C285A' : '#999999',
+                        fontSize: '28rpx',
+                        fontWeight: 500,
+                        lineHeight: '40rpx',
+                      }}
+                    >
+                      {trimRegionName(item.label || item.name || '')}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </PickerViewColumn>
+          ) : null}
+        </PickerView>
       </View>
     </BottomPicker>
   )
 }
 
-function regionScrollTop(index: number) {
-  return Math.max(0, regionRpxToPx(index * REGION_ROW_HEIGHT_RPX))
-}
-
-function regionIndexFromScrollTop(scrollTop: number, length: number) {
-  if (length <= 0) return 0
-  return clampRegionIndex(Math.round(scrollTop / regionRpxToPx(REGION_ROW_HEIGHT_RPX)), length)
-}
-
 function clampRegionIndex(index: number, length: number) {
-  if (length <= 0 || index < 0) return 0
-  return Math.min(index, length - 1)
-}
-
-function regionRpxToPx(value: number) {
-  return (value * getWindowMetrics().windowWidth) / 750
+  if (length <= 0 || !Number.isFinite(index)) return 0
+  return Math.min(Math.max(Math.trunc(index), 0), length - 1)
 }
 
 function trimRegionName(value: string) {

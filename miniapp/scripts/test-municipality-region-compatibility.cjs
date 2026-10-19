@@ -57,7 +57,7 @@ function loadRegionSheet(showToast) {
       return { __esModule: true, default: { showToast } }
     }
     if (specifier === '@tarojs/components') {
-      return { ScrollView: 'ScrollView', Text: 'Text', View: 'View' }
+      return { ScrollView: 'ScrollView', PickerView: 'PickerView', PickerViewColumn: 'PickerViewColumn', Text: 'Text', View: 'View' }
     }
     if (specifier === '@/utils/system') {
       return { getWindowMetrics: () => ({ windowWidth: 375 }) }
@@ -105,16 +105,15 @@ test('历史虚拟市级编码未重新选择时不可默认保存首个区县',
     onClose: () => {},
   })
 
-  const cityScroll = findNodes(sheet, node =>
-    node.type === 'ScrollView' && node.props?.style?.left === '358rpx'
-  )[0]
-  assert.ok(cityScroll, '缺少区县滚轮')
-  cityScroll.props.onScroll({ detail: { scrollTop: 0 } })
+  const picker = findNodes(sheet, node => node.type === 'PickerView')[0]
+  assert.ok(picker, '缺少原生地区滚轮')
+  picker.props.onChange({ detail: { value: [0, 0] } })
   sheet.props.onConfirm()
   assert.deepEqual(saved, [])
   assert.ok(toasts.length > 0, '应提示用户重新选择真实区县')
 
-  cityScroll.props.onTouchStart()
+  picker.props.onPickStart()
+  picker.props.onPickEnd()
   sheet.props.onConfirm()
   assert.deepEqual(saved, [], '只触摸滚轮未更换选项也不能视为已选择')
 })

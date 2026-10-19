@@ -166,6 +166,63 @@ test('SCORE-01: first show uses server score and shares the pending basic profil
   assert.equal(profile.profileScore, 92)
 })
 
+test('BG-01: editor restores latest pending background while public preview keeps approved image', async t => {
+  const h = await mount(t, { page: true, apiOverrides: {
+    getBackground: async () => ({ mediaUrl: 'new-pending.jpg', effectiveMediaUrl: 'old-approved.jpg', auditStatus: 'PENDING' }),
+  } })
+  await h.resolve(0, 92)
+  await h.show()
+  assert.equal(h.componentProps['./components/ProfileHeroImage'].src, 'new-pending.jpg')
+  await act(async () => h.componentProps['@/components/ProfilePreviewTopNav'].onTabChange('preview'))
+  assert.equal(h.componentProps['./components/ProfilePreviewPage'].model.heroImageUrl, 'old-approved.jpg')
+})
+
+test('BG-02: page return refreshes latest background without resetting editor drafts', async t => {
+  let detail = { mediaUrl: 'first.jpg', effectiveMediaUrl: 'approved.jpg' }
+  const h = await mount(t, { page: true, apiOverrides: { getBackground: async () => detail } })
+  await h.resolve(0, 92); await h.show()
+  assert.equal(h.componentProps['./components/ProfileHeroImage'].src, 'first.jpg')
+  await h.hide()
+  detail = { mediaUrl: 'second.jpg', effectiveMediaUrl: 'approved.jpg' }
+  await h.show()
+  assert.equal(h.componentProps['./components/ProfileHeroImage'].src, 'second.jpg')
+})
+
+test('BG-03: old background response cannot overwrite successful replacement', async t => {
+  const oldRead = deferred()
+  const h = await mount(t, { page: true, apiOverrides: { getBackground: () => oldRead.promise } })
+  await h.resolve(0, 92); await h.show()
+  await act(async () => h.componentProps['./components/ProfileHeroImage'].onClick())
+  assert.equal(h.componentProps['./components/ProfileHeroImage'].src, 'uploaded.jpg')
+  await act(async () => oldRead.resolve({ mediaUrl: 'stale.jpg', effectiveMediaUrl: 'stale.jpg' }))
+  assert.equal(h.componentProps['./components/ProfileHeroImage'].src, 'uploaded.jpg')
+})
+
+for (const status of ['PENDING', 'APPROVED']) {
+  test(`BG-04: ${status} background save respects editor and public visibility`, async t => {
+    const h = await mount(t, { page: true, apiOverrides: {
+      getBackground: async () => ({ mediaUrl: 'approved.jpg', effectiveMediaUrl: 'approved.jpg' }),
+      saveBackground: async () => ({ mediaUrl: 'uploaded.jpg', auditStatus: status }),
+    } })
+    await h.resolve(0, 92); await h.show()
+    await act(async () => h.componentProps['./components/ProfileHeroImage'].onClick())
+    assert.equal(h.componentProps['./components/ProfileHeroImage'].src, 'uploaded.jpg')
+    await act(async () => h.componentProps['@/components/ProfilePreviewTopNav'].onTabChange('preview'))
+    assert.equal(h.componentProps['./components/ProfilePreviewPage'].model.heroImageUrl,
+      status === 'APPROVED' ? 'uploaded.jpg' : 'approved.jpg')
+  })
+}
+
+for (const effectiveMediaUrl of ['approved.jpg', '']) {
+  test(`BG-05: missing latest background falls back to ${effectiveMediaUrl ? 'approved image' : 'default'}`, async t => {
+    const h = await mount(t, { page: true, apiOverrides: {
+      getBackground: async () => ({ mediaUrl: '', effectiveMediaUrl }),
+    } })
+    await h.resolve(0, 92); await h.show()
+    assert.equal(h.componentProps['./components/ProfileHeroImage'].src, effectiveMediaUrl || 'test-asset.jpg')
+  })
+}
+
 test('SCORE-02/06: returning refreshes and does not reuse a pre-hide pending request', async t => {
   const h = await mount(t)
   await h.show(); await h.hide(); await h.resolve(0, 92)

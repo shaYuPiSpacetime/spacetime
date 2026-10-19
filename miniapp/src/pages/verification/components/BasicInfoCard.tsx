@@ -68,7 +68,7 @@ const COMPOSITE_ROW_LABELS: Partial<Record<BasicProfileRowId, string>> = {
   location: '现居地',
   heightWeight: '身高/体重',
   hometown: '家乡',
-  school: '所属于院校',
+  school: '所属院校',
 }
 
 const PROFILE_CARD_GAP_RPX = 24
@@ -381,6 +381,9 @@ function SchoolFieldEditor({ title, value, code, placeholder, onConfirm, onClose
         <SchoolSearchInput
           value={draftName}
           placeholder={placeholder}
+          selectionRequired={!draftCode && Boolean(draftName.trim())}
+          selectionHint="请从搜索结果中重新选择所属院校"
+          reselectText="重新选择"
           onChange={(name, nextCode) => {
             setDraftName(name)
             setDraftCode(nextCode)

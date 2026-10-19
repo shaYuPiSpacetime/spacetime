@@ -299,9 +299,9 @@ test('编辑资料与主页预览共用同一背景图内容、裁切和高度',
   assert.match(hero, /mode="aspectFill"/, '编辑资料与主页预览必须使用同一 aspectFill 裁切方式')
   assert.match(edit, /<ProfileHeroImage\s+src=\{heroImageUrl\}/, '编辑资料必须复用共享主图组件')
   assert.match(preview, /<ProfileHeroImage\s+src=\{model\.heroImageUrl/, '主页预览必须复用共享主图组件')
-  assert.match(edit, /const profileHeroImage = previewBackground \|\| editHeroPhoto/, '两种状态必须解析为同一审核生效背景图来源')
-  assert.match(edit, /heroImageUrl:\s*profileHeroImage,/, '主页预览模型必须接收编辑资料当前显示的同一背景图')
-  assert.match(edit, /heroImageUrl=\{profileHeroImage\}/, '编辑资料主图必须接收与主页预览一致的背景图')
+  assert.match(edit, /const profileHeroImage = editBackground \|\| editHeroPhoto/, '编辑区必须解析最近提交的本人背景')
+  assert.match(edit, /heroImageUrl:\s*previewBackground \|\| editHeroPhoto,/, '主页预览只能读取审核生效背景')
+  assert.match(edit, /heroImageUrl=\{profileHeroImage\}/, '编辑资料主图必须读取本人最新背景')
 })
 
 test('背景图加高后更多照片卡片及头像姓名仍保持蓝湖前后层级', () => {
@@ -384,8 +384,8 @@ test('编辑资料背景图直接上传，头像进入裁剪后独立回显', ()
 
   assert.match(edit, /dataRole="hero-main-photo"[\s\S]{0,120}onClick=\{onChangeBackground\}/, '主页背景点击必须只触发背景上传')
   assert.match(edit, /data-role="hero-mini-avatar"[\s\S]{0,180}onChangeAvatar\(\)/, '圆头像点击必须只触发头像上传')
-  assert.match(edit, /const profileHeroImage = previewBackground \|\| editHeroPhoto/, '两页主图必须解析同一审核生效背景来源')
-  assert.match(edit, /heroImageUrl:\s*profileHeroImage,/, '主页预览背景必须读取当前统一主图')
+  assert.match(edit, /const profileHeroImage = editBackground \|\| editHeroPhoto/, '编辑区必须读取本人最新背景')
+  assert.match(edit, /heroImageUrl:\s*previewBackground \|\| editHeroPhoto,/, '主页预览背景必须读取审核生效图')
   assert.doesNotMatch(edit, /heroImageUrl:\s*profileHeroImage[^\n]*profileAvatar/, '头像不得作为主页背景兜底，避免修改头像时连带修改背景')
 })
 
@@ -560,6 +560,7 @@ test('基本资料严格按蓝湖组合行和两组卡片展示', () => {
     PROFILE_PRIMARY_ROW_IDS,
     PROFILE_SECONDARY_ROW_IDS,
     VERIFICATION_ROW_IDS,
+    visibleProfileRows,
   } = loadTypeScriptModule(presentationPath)
 
   assert.equal(ensureBasicProfileNickname({ userId: 7, nickname: '' }).nickname, '用户0007')
@@ -592,6 +593,9 @@ test('基本资料严格按蓝湖组合行和两组卡片展示', () => {
     'hometown',
     'identity',
   ])
+  assert.deepEqual(visibleProfileRows(VERIFICATION_ROW_IDS, [{ fieldId: 'school', visible: true }]), ['school'],
+    '认证基本资料必须提供后端仍会校验的所属院校入口')
+  assert.deepEqual(visibleProfileRows(VERIFICATION_ROW_IDS, [{ fieldId: 'school', visible: false }]), [])
 
   const card = read('src/pages/verification/components/BasicInfoCard.tsx')
   assert.doesNotMatch(
@@ -607,11 +611,9 @@ test('基本资料严格按蓝湖组合行和两组卡片展示', () => {
   assert.match(picker, /海外地区国家/, '地区选择器缺少蓝湖国内/海外页签结构')
   assert.match(picker, /width: '656rpx'/, '地区选择器缺少蓝湖双列滚轮宽度')
   assert.match(picker, /background: '#E3F1FE'/, '地区选择器缺少跨双列选中横条')
-  assert.equal(
-    (picker.match(/enhanced\s+showScrollbar=\{false\}/g) || []).length,
-    3,
-    '地区省市区滚轮必须启用增强滚动并隐藏原生滚动条'
-  )
+  const regionPart = picker.slice(picker.indexOf('export function LanhuRegionSheet'), picker.indexOf('function clampRegionIndex'))
+  assert.match(regionPart, /<PickerView/, '地区必须使用原生联动滚轮')
+  assert.doesNotMatch(regionPart, /<ScrollView|scrollTop=/, '地区不得再用独立滚动区模拟选中状态')
 })
 
 test('现居地和家乡都提交省市两级', () => {
@@ -690,7 +692,7 @@ test('现居地和家乡共用省市两级选择器', () => {
   )
   assert.match(
     picker,
-    /includeDistrict \? selectedDistrict\?\.code \|\| '' : ''/,
+    /includeDistrict \? districts\[nextDistrictIndex\]\?\.code \|\| '' : ''/,
     '关闭区县列时必须只回传省市 code'
   )
 })

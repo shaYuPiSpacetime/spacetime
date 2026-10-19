@@ -39,7 +39,7 @@ const originalLoad = Module._load
 Module._load = function(name, parent, main) {
   if (name === 'react') return hooks
   if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx }
-  if (name === '@tarojs/components') return { ScrollView: 'ScrollView', Text: 'Text', View: 'View' }
+  if (name === '@tarojs/components') return { ScrollView: 'ScrollView', PickerView: 'PickerView', PickerViewColumn: 'PickerViewColumn', Text: 'Text', View: 'View' }
   if (name === '@tarojs/taro') return { __esModule: true, default: { showToast: item => { toasts.push(item.title); return Promise.resolve() } } }
   if (name === '@/utils/system') return { getWindowMetrics: () => ({ windowWidth: 375 }) }
   if (name === './VerificationShell') return { BottomPicker: 'BottomPicker' }
@@ -84,8 +84,84 @@ function nodes(tree) {
   if (Array.isArray(tree)) return tree.flatMap(nodes)
   return [tree, ...nodes(tree.props?.children)]
 }
-const wheels = tree => nodes(tree).filter(node => node.type === 'ScrollView')
+const wheels = tree => nodes(tree).filter(node => node.type === 'PickerViewColumn')
 const options = wheel => nodes(wheel).filter(node => node.type === 'View' && node.props.onClick)
+
+const westernRegions = [
+  { code: '610000', name: '陕西省', children: [
+    { code: '610100', name: '西安市' }, { code: '610300', name: '宝鸡市' },
+  ] },
+  { code: '620000', name: '甘肃省', children: [
+    { code: '620100', name: '兰州市' }, { code: '620200', name: '嘉峪关市' },
+  ] },
+  { code: '630000', name: '青海省', children: [{ code: '630100', name: '西宁市' }] },
+]
+function nativePicker(tree) {
+  const pickers = nodes(tree).filter(node => node.type === 'PickerView')
+  assert.equal(pickers.length, 1, '省市必须使用同一个原生滚轮，避免两列位置与状态分离')
+  return pickers[0]
+}
+
+test('家乡陕西切甘肃时丢弃旧城市索引并确认甘肃兰州', () => {
+  const render = mount({ title: '家乡偏好', regions: westernRegions, provinceCode: '610000', cityCode: '610300' })
+  const picker = nativePicker(render())
+  assert.deepEqual(picker.props.value, [0, 1])
+  picker.props.onPickStart()
+  picker.props.onChange({ detail: { value: [1, 1] } })
+  picker.props.onPickEnd()
+  assert.deepEqual(nativePicker(render()).props.value, [1, 0])
+  render().props.onConfirm()
+  assert.deepEqual(confirmations, [['620000', '620100', '']])
+})
+
+test('快速跨省和城市事件使用最新选择，即使 React 尚未重新渲染', () => {
+  const render = mount({ regions: westernRegions, provinceCode: '610000', cityCode: '610100' })
+  const picker = nativePicker(render())
+  picker.props.onPickStart()
+  picker.props.onChange({ detail: { value: [1, 1] } })
+  picker.props.onChange({ detail: { value: [1, 1] } })
+  picker.props.onPickEnd()
+  render().props.onConfirm()
+  assert.deepEqual(confirmations, [['620000', '620200', '']])
+  const next = nativePicker(render())
+  next.props.onPickStart()
+  next.props.onChange({ detail: { value: [2, 99] } })
+  next.props.onPickEnd()
+  render().props.onConfirm()
+  assert.deepEqual(confirmations.at(-1), ['630000', '630100', ''])
+})
+
+test('原生滚轮未停止时禁止确认，停止后使用新选择', () => {
+  const render = mount({ regions: westernRegions, provinceCode: '610000', cityCode: '610100' })
+  const picker = nativePicker(render())
+  picker.props.onPickStart()
+  render().props.onConfirm()
+  assert.deepEqual(confirmations, [])
+  assert.equal(toasts.at(-1), '请等待地区滚动结束')
+  picker.props.onChange({ detail: { value: [1, 0] } })
+  picker.props.onPickEnd()
+  render().props.onConfirm()
+  assert.deepEqual(confirmations, [['620000', '620100', '']])
+})
+
+test('程序初始化的 change 事件不能修改地区或恢复失效编码', () => {
+  const render = mount({ regions: westernRegions, provinceCode: 'obsolete', cityCode: 'obsolete' })
+  nativePicker(render()).props.onChange({ detail: { value: [1, 1] } })
+  render().props.onConfirm()
+  assert.deepEqual(confirmations, [])
+  assert.equal(toasts.at(-1), '地区选项已更新，请重新选择省市')
+})
+
+test('只触摸而未改变原生滚轮选项不能授权失效历史编码', () => {
+  const render = mount({ provinceCode: 'obsolete', cityCode: 'obsolete' })
+  const picker = nativePicker(render())
+  picker.props.onPickStart()
+  picker.props.onChange({ detail: { value: [0, 0] } })
+  picker.props.onPickEnd()
+  render().props.onConfirm()
+  assert.deepEqual(confirmations, [])
+  assert.equal(toasts.at(-1), '地区选项已更新，请重新选择省市')
+})
 
 test('invalid legacy province is recovered only from its uniquely owned city', () => {
   const render = mount()
@@ -95,8 +171,10 @@ test('invalid legacy province is recovered only from its uniquely owned city', (
 })
 test('scrolling to a single-city municipality can confirm without extra city click', () => {
   const render = mount()
-  wheels(render())[0].props.onTouchStart()
-  wheels(render())[0].props.onScroll({ detail: { scrollTop: 39 } })
+  const picker = nativePicker(render())
+  picker.props.onPickStart()
+  picker.props.onChange({ detail: { value: [1, 0] } })
+  picker.props.onPickEnd()
   render().props.onConfirm()
   assert.deepEqual(confirmations, [['120000', '120100', '']])
 })
@@ -114,13 +192,13 @@ test('unrecoverable legacy codes cannot silently save default Beijing', () => {
 })
 test('programmatic initial scroll to same row does not authorize an unknown selection', () => {
   const render = mount({ provinceCode: 'obsolete', cityCode: 'obsolete' })
-  wheels(render())[0].props.onScroll({ detail: { scrollTop: 0 } })
+  nativePicker(render()).props.onChange({ detail: { value: [0, 0] } })
   render().props.onConfirm()
   assert.deepEqual(confirmations, [])
 })
 test('programmatic province scroll is not an explicit recovery choice', () => {
   const render = mount({ provinceCode: 'obsolete', cityCode: 'obsolete' })
-  wheels(render())[0].props.onScroll({ detail: { scrollTop: 39 } })
+  nativePicker(render()).props.onChange({ detail: { value: [1, 0] } })
   render().props.onConfirm()
   assert.deepEqual(confirmations, [])
 })
@@ -202,8 +280,10 @@ test('scrolling the city wheel starts district loading and rejects the old city 
   ] }], provinceCode: '330000', cityCode: '330100', includeDistrict: true,
     loadDistricts: code => new Promise(resolve => pending.set(code, resolve)) })
   render()
-  wheels(render())[1].props.onTouchStart()
-  wheels(render())[1].props.onScroll({ detail: { scrollTop: 39 } })
+  const picker = nativePicker(render())
+  picker.props.onPickStart()
+  picker.props.onChange({ detail: { value: [0, 1, 0] } })
+  picker.props.onPickEnd()
   render().props.onConfirm()
   assert.deepEqual(confirmations, [])
   assert.equal(toasts.at(-1), '区县加载中，请稍候')
