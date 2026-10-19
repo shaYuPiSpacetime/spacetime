@@ -94,3 +94,14 @@
 - 微信 CLI preview 与 upload 的 15 项包统计逐项一致：总包 `2,903,424` 字节、主包 `1,402,195` 字节、学历认证分包 `131,932` 字节。
 - 原始证据位于发布目录上级的 `copy-manifest.json`、`preview-info.json`、`upload-info.json`、`package-audit.json` 与 `preview-qr.png`。
 - 真机重点复核：点击“拍照”后应直接进入黑色承载层，摄像头准备完成后显示取景画面；取消、拍照完成和相册返回均不应重新闪出整页加载状态。
+
+## 6. 第五轮发布状态与 H5 实测
+
+- 根因修复源码提交：`d2fa37489d311f659554cf3965b53cb3dab8d4aa`；上传前两次同步 `origin/master`，本地构建提交与远端完全一致。
+- 使用真实账号登录本地 H5 后进入学历证书上传页，学校、学历等资料正常加载；点击材料入口后来源弹层正常打开，选择“从手机相册选择”后文件选择控件正常生成。
+- 切换前后上传图标实测尺寸约为 `96 × 94px`，未再出现纵向拉伸；H5 用于验证页面渲染与弹层切换时序，微信原生相册过渡仍需在本次体验版上真机复核。
+- 完整小程序构建通过：发布前置门禁、Webpack 编译、89 个页面注册、开发登录门禁和包体门禁均通过；仅保留既有的 `private-chat.js`、`common.js` 体积建议告警。
+- 体验版版本：`1.0.20261019.2214`，描述为“修复学历上传相册切换图标闪烁”。
+- 独立发布目录：`.runtime/weapp-release-education-upload-icon-20261019-221310-d2fa3748/project`，共校验 442 个文件，复制前后 SHA-256 全部一致，未复制 `project.private.config.json`。
+- 微信 CLI preview 与 upload 的 15 项包统计逐项一致：总包 `2,902,122` 字节、主包 `1,402,550` 字节、学历认证分包 `131,250` 字节。
+- 原始证据位于发布目录上级的 `copy-manifest.json`、`preview-info.json`、`upload-info.json`、`package-audit.json` 与 `preview-qr.png`。
