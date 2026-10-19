@@ -126,10 +126,13 @@ export function useEducationVerification(method: EducationMethod, userType: stri
     const remaining = existing ? 1 : Math.max(0, maxMaterialCount - materialsRef.current.length)
     if (!remaining) { await Taro.showToast({ title: copy('education_upload_limit_reached'), icon: 'none' }); return }
     operations.current.uploading = true
-    setUploading(true)
     try {
       const result = await Taro.chooseImage({ count: remaining, sizeType: ['original'], sourceType: ['album', 'camera'] })
-      for (const filePath of result.tempFilePaths.slice(0, remaining)) {
+      const selectedPaths = result.tempFilePaths.slice(0, remaining)
+      if (!alive.current || selectedPaths.length === 0) return
+      // 原生拍照/相册选择层显示期间保持底层页面稳定，选好图片后才进入可见上传态。
+      setUploading(true)
+      for (const filePath of selectedPaths) {
         const uploaded = await prd01Api.uploadEducation(filePath)
         if (!alive.current) return
         const item: EducationMaterial = { id: `education-material-${++itemSequence.current}`, serverUrl: uploaded.url, previewUrl: filePath, previewStatus: 'ready' }

@@ -118,6 +118,48 @@ test('E07：满4张替换失败保留旧材料，不截断历史材料', async (
   assert.equal(h.current.materials[0].id, id)
 })
 
+test('E15：原生拍照选择层等待期间不切换页面上传态且重复点击只打开一次', async () => {
+  const picker = deferred()
+  const uploader = deferred()
+  let pickerCalls = 0
+  const h = harness('MATERIAL_UPLOAD', {
+    api: {
+      getEducation: async () => detail({ educationMethod: 'MATERIAL_UPLOAD', materialUrls: [] }),
+      uploadEducation: () => uploader.promise,
+    },
+    taro: {
+      chooseImage: () => { pickerCalls++; return picker.promise },
+    },
+  })
+  await h.load()
+
+  const first = h.current.upload()
+  const second = h.current.upload()
+  assert.equal(pickerCalls, 1, '同一选择任务未结束时不得重复打开原生拍照选择层')
+  assert.equal(h.current.uploading, false, '原生选择层显示期间页面底层不得提前切换为上传中')
+
+  picker.resolve({ tempFilePaths: ['new-proof'] })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(h.current.uploading, true, '选好图片且网络上传开始后才展示上传状态')
+
+  uploader.resolve({ url: '/miniapp/file/credential/new-proof.jpg' })
+  await Promise.all([first, second])
+  assert.equal(h.current.uploading, false)
+  assert.equal(h.current.materials.length, 1)
+})
+
+test('E15：取消拍照或相册选择不展示上传态和错误提示', async () => {
+  const h = harness('MATERIAL_UPLOAD', {
+    api: { getEducation: async () => detail({ educationMethod: 'MATERIAL_UPLOAD', materialUrls: [] }) },
+    taro: { chooseImage: async () => { throw { errMsg: 'chooseImage:fail cancel' } } },
+  })
+  await h.load()
+  await h.current.upload()
+  assert.equal(h.current.uploading, false)
+  assert.equal(h.current.materials.length, 0)
+  assert.deepEqual(h.toasts, [])
+})
+
 test('E08：预览失败不阻断表单，删除后晚返回不能复活', async () => {
   const preview = deferred()
   const h = harness('MATERIAL_UPLOAD', { api: { getEducation: async () => detail({ educationMethod: 'MATERIAL_UPLOAD', materialUrls: ['a'] }) }, preview: () => preview.promise })
