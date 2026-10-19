@@ -1,0 +1,70 @@
+name: ops-audit-user-1882-20261019
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'scripts/ops/audit-user-1882-20261019.sql'
+      - '.github/workflows/ops-audit-user-1882-20261019.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spacetime-prod-data-ops
+  cancel-in-progress: false
+
+jobs:
+  audit-user-1882:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout audit files
+        uses: actions/checkout@v4
+
+      - name: Copy read-only SQL to production host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'scripts/ops/audit-user-1882-20261019.sql'
+          target: '/mnt/data/spacetime-prod'
+
+      - name: Execute read-only user audit
+        id: audit
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 112.124.59.146
+          username: root
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          capture_stdout: true
+          script: |
+            set +e
+            cd /mnt/data/spacetime-prod
+            set -a
+            . secrets/prod.env
+            set +a
+            audit_output="$(MYSQL_PWD="$DB_PASSWORD" mysql -h"$DB_HOST" -P"${DB_PORT:-3306}" \
+              -u"$DB_USER" --default-character-set=utf8mb4 --batch "$DB_NAME" \
+              < scripts/ops/audit-user-1882-20261019.sql 2>&1)"
+            audit_status=$?
+            audit_tail="$(printf '%s\n' "$audit_output" | tail -n 10 | base64 -w0)"
+            printf 'OPS_RESULT|%s|%s\n' "$audit_status" "$audit_tail"
+            exit 0
+
+      - name: Publish read-only audit result
+        if: always()
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          AUDIT_STDOUT: ${{ steps.audit.outputs.stdout }}
+        run: |
+          result_line="$(printf '%s\n' "$AUDIT_STDOUT" | grep '^OPS_RESULT|' | tail -n 1)"
+          audit_status="$(printf '%s' "$result_line" | cut -d'|' -f2)"
+          encoded_summary="$(printf '%s' "$result_line" | cut -d'|' -f3)"
+          summary="$(printf '%s' "$encoded_summary" | base64 -d 2>/dev/null | tr '\n' ' ' | cut -c1-900)"
+          if [ "$AUDIT_OUTCOME" != 'success' ] || [ "$audit_status" != '0' ]; then
+            echo "::error title=Read-only user audit failed::${summary:-no diagnostic captured}"
+            exit 1
+          fi
+          echo "::notice title=Read-only user audit completed::${summary:-completed without stdout}"
