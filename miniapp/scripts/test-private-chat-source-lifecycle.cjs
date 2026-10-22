@@ -68,6 +68,7 @@ async function mount(t) {
       createWhisper: async () => ({ payType: 'vip_free', coinAmount: 0 }),
     },
     '@/domain/messageLifecycle': { getMessageAuthSessionVersion: () => sessionVersion },
+    '@/services/request': { getApiErrorCode: error => error?.code },
     '@/utils/privateChatNavigation': {
       openPrivateChat: async (conversationNo, expectedSessionVersion) => {
         navigations.push(['chat', conversationNo, expectedSessionVersion])
