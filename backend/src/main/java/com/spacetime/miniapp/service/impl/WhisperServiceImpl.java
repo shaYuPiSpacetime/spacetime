@@ -43,6 +43,8 @@ import com.spacetime.common.enums.RelationBlockTypeEnum;
 import com.spacetime.common.enums.VipStatusEnum;
 import com.spacetime.common.exception.BusinessException;
 import com.spacetime.common.service.RelationAccessProjectionService;
+import com.spacetime.common.service.VerifiedSchoolPairService;
+import com.spacetime.common.service.VerifiedSchoolPairService.VerifiedSchoolPairResult;
 import com.spacetime.miniapp.dto.request.WhisperCreateReq;
 import com.spacetime.miniapp.dto.request.WhisperPrecheckReq;
 import com.spacetime.miniapp.dto.response.WhisperCreateVO;
@@ -91,6 +93,7 @@ public class WhisperServiceImpl implements WhisperService {
     private static final String WHISPER_SCENE = "whisper";
     private static final String PAY_COIN = "coin";
     private static final String PAY_VIP_FREE = "vip_free";
+    private static final String PAY_SCHOOL_FREE = "school_free";
     private static final Pattern USER_NO_PATTERN = Pattern.compile("^USR-(\\d{12})$");
     private static final List<String> SOURCE_SCENES = List.of(
             "recommendation", "profile", "community_post", "community_comment",
@@ -110,6 +113,7 @@ public class WhisperServiceImpl implements WhisperService {
     private final AppMessageRuleVersionDao ruleVersionDao;
     private final AppMessageRuntimeControlDao runtimeControlDao;
     private final RelationAccessProjectionService accessProjectionService;
+    private final VerifiedSchoolPairService verifiedSchoolPairService;
     private final WhisperQuoteStore quoteStore;
     private final ObjectMapper objectMapper;
 
@@ -142,10 +146,13 @@ public class WhisperServiceImpl implements WhisperService {
             throw new BusinessException(COOLDOWN_ACTIVE, "悄悄话仍在冷却期，请稍后再试");
         }
         AppMessageRuleVersion rule = requireCurrentRule();
-        CoinSceneConfig scene = enabledWhisperScene();
-        UserAsset asset = userAssetDao.selectByUserId(senderUserId);
-        PaymentChoice payment = resolvePayment(senderUserId, asset, scene.getUnitPrice(), now);
-        boolean canSend = PAY_VIP_FREE.equals(payment.payType())
+        VerifiedSchoolPairResult schoolPair = verifiedSchoolPairService.resolve(
+                target.sender(), target.receiver());
+        UserAsset asset = schoolPair.sameSchool() ? null : userAssetDao.selectByUserId(senderUserId);
+        PaymentChoice payment = schoolPair.sameSchool()
+                ? schoolPayment(schoolPair)
+                : resolveLegacyPayment(senderUserId, asset, enabledWhisperScene().getUnitPrice(), now);
+        boolean canSend = !PAY_COIN.equals(payment.payType())
                 || coinBalance(asset) >= payment.coinAmount();
         LocalDateTime quoteExpireAt = now.plus(QUOTE_TTL);
         String quoteToken = canSend ? quoteStore.issue(new WhisperQuoteSnapshot(
@@ -154,7 +161,8 @@ public class WhisperServiceImpl implements WhisperService {
                 payment.coinAmount(), payment.freeRemain(), rule.getVersionNo(),
                 requirePositive(rule.getWhisperExpireDays(), "悄悄话有效期配置不可用"),
                 requirePositive(rule.getWhisperCooldownDays(), "悄悄话冷却期配置不可用"),
-                quoteExpireAt)) : null;
+                quoteExpireAt, payment.canonicalSchoolCode(),
+                payment.qualificationFingerprint())) : null;
 
         WhisperPrecheckVO result = new WhisperPrecheckVO();
         result.setCanSend(canSend);
@@ -163,23 +171,28 @@ public class WhisperServiceImpl implements WhisperService {
         result.setContentMaxLength(CONTENT_MAX_LENGTH);
         result.setPayType(payment.payType());
         result.setCoinAmount(payment.coinAmount());
-        result.setFree(PAY_VIP_FREE.equals(payment.payType()));
+        result.setFree(!PAY_COIN.equals(payment.payType()));
         result.setCoinBalance(coinBalance(asset));
         result.setFreeWhisperRemain(payment.freeRemain());
-        result.setFreeWhisperDailyQuota(payment.quotaSnapshot() > 0
+        result.setFreeWhisperDailyQuota(PAY_SCHOOL_FREE.equals(payment.payType())
+                ? 0 : payment.quotaSnapshot() > 0
                 ? payment.quotaSnapshot() : configuredDailyFreeQuota());
-        boolean freeExhausted = payment.quotaSnapshot() > 0 && payment.freeRemain() == 0;
+        boolean freeExhausted = PAY_COIN.equals(payment.payType())
+                && payment.quotaSnapshot() > 0 && payment.freeRemain() == 0;
         result.setFreeWhisperExhausted(freeExhausted);
         result.setQuoteToken(quoteToken);
         result.setQuoteExpireTime(canSend ? quoteExpireAt : null);
         result.setWhisperExpireDays(rule.getWhisperExpireDays());
         result.setCooldownDays(rule.getWhisperCooldownDays());
-        result.setConfirmText(PAY_VIP_FREE.equals(payment.payType())
-                ? "本次使用会员今日免费悄悄话"
-                : freeExhausted
-                ? "今日免费次数已用完（" + payment.quotaSnapshot() + "/" + payment.quotaSnapshot()
-                        + "），本次消耗 " + payment.coinAmount() + " 千寻币"
-                : "确认消耗 " + payment.coinAmount() + " 千寻币发送悄悄话");
+        result.setConfirmText(switch (payment.payType()) {
+            case PAY_SCHOOL_FREE -> "同校免费，本次不消耗千寻币和会员免费次数";
+            case PAY_VIP_FREE -> "本次使用会员今日免费悄悄话";
+            default -> freeExhausted
+                    ? "今日免费次数已用完（" + payment.quotaSnapshot() + "/"
+                            + payment.quotaSnapshot() + "），本次消耗 "
+                            + payment.coinAmount() + " 千寻币"
+                    : "确认消耗 " + payment.coinAmount() + " 千寻币发送悄悄话";
+        });
         result.setTargetUserNo(req.getTargetUserNo());
         result.setTargetNickname(target.receiver().getNickname());
         return result;
@@ -249,22 +262,36 @@ public class WhisperServiceImpl implements WhisperService {
             throw new BusinessException(QUOTE_CHANGED, "悄悄话对象已变化，请重新预检");
         }
 
-        UserAsset asset = userAssetDao.selectByUserIdForUpdate(senderUserId);
-        if (asset == null) {
-            throw new BusinessException(ASSET_INSUFFICIENT, "用户资产不存在");
+        // 创建前再次读取所有可变事实；同校免费不锁资产、不消费会员额度。
+        requireGlobalSendEnabled();
+        target = requireEligiblePair(senderUserId, req.getTargetUserNo(), now);
+        AppMessageRuleVersion rule = requireCurrentRule();
+        VerifiedSchoolPairResult schoolPair = verifiedSchoolPairService.resolve(
+                target.sender(), target.receiver());
+        UserAsset asset;
+        PaymentChoice payment;
+        if (PAY_SCHOOL_FREE.equals(quote.payType())) {
+            if (!schoolPair.sameSchool()) {
+                throw new BusinessException(QUOTE_CHANGED, "同校免费资格已变化，请重新预检");
+            }
+            asset = null;
+            payment = schoolPayment(schoolPair);
+        } else {
+            asset = userAssetDao.selectByUserIdForUpdate(senderUserId);
+            if (asset == null) {
+                throw new BusinessException(ASSET_INSUFFICIENT, "用户资产不存在");
+            }
+            payment = schoolPair.sameSchool()
+                    ? schoolPayment(schoolPair)
+                    : resolveLegacyPayment(senderUserId, asset,
+                            enabledWhisperScene().getUnitPrice(), now);
         }
+        requireSameQuote(quote, payment, rule);
+
         AppMessageWhisper concurrent = whisperDao.selectBySenderRequestId(senderUserId, requestId);
         if (concurrent != null) {
             return existingResult(concurrent, req.getTargetUserNo(), content, source, senderUserId);
         }
-
-        // 资产锁内再次读取所有可变事实，禁止使用过期价格或已被消费的免费权益。
-        requireGlobalSendEnabled();
-        requireEligiblePair(senderUserId, req.getTargetUserNo(), now);
-        AppMessageRuleVersion rule = requireCurrentRule();
-        CoinSceneConfig scene = enabledWhisperScene();
-        PaymentChoice payment = resolvePayment(senderUserId, asset, scene.getUnitPrice(), now);
-        requireSameQuote(quote, payment, rule);
 
         int balanceBefore = coinBalance(asset);
         int balanceAfter = balanceBefore;
@@ -301,7 +328,8 @@ public class WhisperServiceImpl implements WhisperService {
 
         if (charged) {
             writeCoinLog(whisper, requestId, consumeFlowNo, balanceBefore, balanceAfter);
-        } else if (userAssetDao.updateFreeWhisperProjection(
+        } else if (PAY_VIP_FREE.equals(payment.payType())
+                && userAssetDao.updateFreeWhisperProjection(
                 senderUserId, Math.max(0, payment.freeRemain() - 1)) != 1) {
             throw new BusinessException(INTERNAL_ERROR, "会员免费次数投影更新失败");
         }
@@ -311,7 +339,8 @@ public class WhisperServiceImpl implements WhisperService {
         if (outbox.getId() == null) {
             throw new BusinessException(INTERNAL_ERROR, "悄悄话投递任务写入失败");
         }
-        if (userAssetDao.updateLastConsumeTime(senderUserId, now) != 1) {
+        if (!PAY_SCHOOL_FREE.equals(payment.payType())
+                && userAssetDao.updateLastConsumeTime(senderUserId, now) != 1) {
             throw new BusinessException(INTERNAL_ERROR, "资产消费时间更新失败");
         }
         return createResult(whisper, balanceAfter, charged);
@@ -401,18 +430,24 @@ public class WhisperServiceImpl implements WhisperService {
         return config;
     }
 
-    private PaymentChoice resolvePayment(Long senderUserId, UserAsset asset, int coinPrice,
-                                         LocalDateTime now) {
+    private PaymentChoice resolveLegacyPayment(Long senderUserId, UserAsset asset, int coinPrice,
+                                               LocalDateTime now) {
         int quota = dailyVipFreeQuota(asset, now);
         if (quota > 0) {
             LocalDate benefitDate = now.toLocalDate();
             long used = whisperDao.countPaidVipFree(senderUserId, benefitDate);
             int remain = Math.max(0, quota - Math.toIntExact(Math.min(used, Integer.MAX_VALUE)));
             if (remain > 0) {
-                return new PaymentChoice(PAY_VIP_FREE, 0, remain, quota, benefitDate);
+                return new PaymentChoice(PAY_VIP_FREE, 0, remain, quota, benefitDate,
+                        null, null);
             }
         }
-        return new PaymentChoice(PAY_COIN, coinPrice, 0, quota, null);
+        return new PaymentChoice(PAY_COIN, coinPrice, 0, quota, null, null, null);
+    }
+
+    private PaymentChoice schoolPayment(VerifiedSchoolPairResult schoolPair) {
+        return new PaymentChoice(PAY_SCHOOL_FREE, 0, 0, 0, null,
+                schoolPair.canonicalSchoolCode(), schoolPair.qualificationFingerprint());
     }
 
     private int dailyVipFreeQuota(UserAsset asset, LocalDateTime now) {
@@ -453,7 +488,10 @@ public class WhisperServiceImpl implements WhisperService {
                 && Objects.equals(quote.freeRemain(), payment.freeRemain())
                 && Objects.equals(quote.configVersion(), rule.getVersionNo())
                 && Objects.equals(quote.expireDays(), rule.getWhisperExpireDays())
-                && Objects.equals(quote.cooldownDays(), rule.getWhisperCooldownDays());
+                && Objects.equals(quote.cooldownDays(), rule.getWhisperCooldownDays())
+                && Objects.equals(quote.canonicalSchoolCode(), payment.canonicalSchoolCode())
+                && Objects.equals(quote.qualificationFingerprint(),
+                        payment.qualificationFingerprint());
         if (!same) {
             throw new BusinessException(QUOTE_CHANGED, "悄悄话价格已变化，请重新预检");
         }
@@ -501,7 +539,9 @@ public class WhisperServiceImpl implements WhisperService {
         whisper.setPaymentStatus("paid");
         whisper.setCoinAmount(payment.coinAmount());
         whisper.setBenefitDate(payment.benefitDate());
-        whisper.setQuotaSnapshot(payment.quotaSnapshot());
+        whisper.setQuotaSnapshot(PAY_VIP_FREE.equals(payment.payType())
+                ? payment.quotaSnapshot() : null);
+        whisper.setSchoolCodeSnapshot(payment.canonicalSchoolCode());
         whisper.setAssetConsumeFlowNo(consumeFlowNo);
         whisper.setDeliveryStatus(MessageDeliveryStatusEnum.QUEUED.getCode());
         whisper.setConfigVersion(rule.getVersionNo());
@@ -677,7 +717,9 @@ public class WhisperServiceImpl implements WhisperService {
     }
 
     private record PaymentChoice(String payType, Integer coinAmount, Integer freeRemain,
-                                 Integer quotaSnapshot, LocalDate benefitDate) {
+                                 Integer quotaSnapshot, LocalDate benefitDate,
+                                 String canonicalSchoolCode,
+                                 String qualificationFingerprint) {
     }
 
     private record SourceContext(String scene, String bizNo) {

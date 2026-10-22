@@ -377,7 +377,7 @@ export interface WhisperPrecheckResponse {
   reasonCode: string | null
   reasonText: string | null
   contentMaxLength: number
-  payType: string
+  payType: 'school_free' | 'vip_free' | 'coin'
   coinAmount: number
   free: boolean
   coinBalance: number
@@ -404,7 +404,7 @@ export interface WhisperCreateResponse {
   whisperStatus: ApiWhisperStatus | null
   paymentStatus: 'paid' | 'refunding' | 'refunded'
   targetUserNo: string
-  payType: 'vip_free' | 'coin'
+  payType: 'school_free' | 'vip_free' | 'coin'
   coinAmount: number
   coinBalance: number
   charged: boolean

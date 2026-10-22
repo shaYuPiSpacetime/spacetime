@@ -26,6 +26,7 @@ import java.util.Objects;
 public class MessageWhisperCompensationServiceImpl implements MessageWhisperCompensationService {
     private static final String PAY_COIN = "coin";
     private static final String PAY_VIP_FREE = "vip_free";
+    private static final String PAY_SCHOOL_FREE = "school_free";
 
     private final AppMessageWhisperDao whisperDao;
     private final UserAssetDao userAssetDao;
@@ -44,8 +45,10 @@ public class MessageWhisperCompensationServiceImpl implements MessageWhisperComp
                         status -> compensateOne(id, effectiveNow));
                 if (compensated != null) {
                     processed++;
-                    assetResultNotificationService.publishWhisperCompensationAfterCommit(
-                            compensated, effectiveNow);
+                    if (!PAY_SCHOOL_FREE.equals(compensated.getPayType())) {
+                        assetResultNotificationService.publishWhisperCompensationAfterCommit(
+                                compensated, effectiveNow);
+                    }
                 }
             } catch (RuntimeException ex) {
                 log.warn("Whisper compensation failed, whisperId={}", id, ex);
@@ -58,6 +61,12 @@ public class MessageWhisperCompensationServiceImpl implements MessageWhisperComp
         AppMessageWhisper whisper = whisperDao.selectByIdForUpdate(whisperId);
         if (whisper == null || !"refunding".equals(whisper.getPaymentStatus())) {
             return null;
+        }
+        if (PAY_SCHOOL_FREE.equals(whisper.getPayType())) {
+            markRefunded(whisper, null, now);
+            whisper.setPaymentStatus("refunded");
+            whisper.setUpdateTime(now);
+            return whisper;
         }
         UserAsset asset = userAssetDao.selectByUserIdForUpdate(whisper.getSenderUserId());
         if (asset == null) {

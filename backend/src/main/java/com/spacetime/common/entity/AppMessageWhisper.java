@@ -34,6 +34,8 @@ public class AppMessageWhisper extends BaseEntity {
     private Integer coinAmount;
     private LocalDate benefitDate;
     private Integer quotaSnapshot;
+    /** 同校免费发送时锁定的归一学校编码，非同校免费为空。 */
+    private String schoolCodeSnapshot;
     private String assetConsumeFlowNo;
     private String assetRefundFlowNo;
     /** @see MessageDeliveryStatusEnum */

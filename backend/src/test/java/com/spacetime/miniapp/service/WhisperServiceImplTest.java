@@ -27,6 +27,8 @@ import com.spacetime.common.entity.UserCoinLog;
 import com.spacetime.common.entity.VipBenefit;
 import com.spacetime.common.enums.AccountStatusEnum;
 import com.spacetime.common.service.RelationAccessProjectionService;
+import com.spacetime.common.service.VerifiedSchoolPairService;
+import com.spacetime.common.service.VerifiedSchoolPairService.VerifiedSchoolPairResult;
 import com.spacetime.miniapp.dto.request.WhisperCreateReq;
 import com.spacetime.miniapp.dto.request.WhisperPrecheckReq;
 import com.spacetime.miniapp.dto.response.WhisperCreateVO;
@@ -74,6 +76,7 @@ class WhisperServiceImplTest {
     @Mock private AppMessageRuleVersionDao ruleVersionDao;
     @Mock private AppMessageRuntimeControlDao runtimeControlDao;
     @Mock private RelationAccessProjectionService accessProjectionService;
+    @Mock private VerifiedSchoolPairService verifiedSchoolPairService;
     @Mock private WhisperQuoteStore quoteStore;
 
     private WhisperServiceImpl service;
@@ -83,7 +86,8 @@ class WhisperServiceImplTest {
         service = new WhisperServiceImpl(whisperDao, conversationDao, recordDao, outboxDao, appUserDao,
                 userAssetDao, sceneConfigDao, coinLogDao, vipBenefitDao, matchDao,
                 relationBlockDao, ruleVersionDao, runtimeControlDao,
-                accessProjectionService, quoteStore, new ObjectMapper().findAndRegisterModules());
+                accessProjectionService, verifiedSchoolPairService, quoteStore,
+                new ObjectMapper().findAndRegisterModules());
     }
 
     @Test
@@ -110,6 +114,24 @@ class WhisperServiceImplTest {
         verify(recordDao, never()).insert(any());
         verify(whisperDao, never()).insert(any());
         verify(outboxDao, never()).insert(any());
+    }
+
+    @Test
+    void precheckPrioritizesSchoolFreeWithoutConsumingVipQuota() {
+        stubEligibleUsers();
+        when(verifiedSchoolPairService.resolve(any(AppUser.class), any(AppUser.class)))
+                .thenReturn(new VerifiedSchoolPairResult(true, "CCNU", "school-fingerprint", null));
+        when(quoteStore.issue(any())).thenReturn("wq-school-free");
+
+        WhisperPrecheckVO result = service.precheck(7L, precheckReq());
+
+        assertThat(result.getCanSend()).isTrue();
+        assertThat(result.getPayType()).isEqualTo("school_free");
+        assertThat(result.getCoinAmount()).isZero();
+        assertThat(result.getFree()).isTrue();
+        assertThat(result.getConfirmText()).contains("同校免费", "不消耗千寻币", "会员免费次数");
+        verify(whisperDao, never()).countPaidVipFree(anyLong(), any(LocalDate.class));
+        verify(userAssetDao, never()).selectByUserId(anyLong());
     }
 
     @Test
@@ -181,6 +203,33 @@ class WhisperServiceImplTest {
         verify(userAssetDao, never()).updateCoinBalance(any(), any());
         verify(coinLogDao, never()).insert(any());
         verify(userAssetDao).updateFreeWhisperProjection(7L, 0);
+    }
+
+    @Test
+    void schoolFreeCreateWritesMessageWithoutAssetMutation() {
+        stubEligibleUsers();
+        when(verifiedSchoolPairService.resolve(any(AppUser.class), any(AppUser.class)))
+                .thenReturn(new VerifiedSchoolPairResult(true, "CCNU", "school-fingerprint", null));
+        when(quoteStore.read("wq-school-free")).thenReturn(schoolQuote());
+        assignInsertIds();
+
+        WhisperCreateVO result = service.create(7L, "idem-school", createReq("wq-school-free", "校友你好"));
+
+        assertThat(result.getPayType()).isEqualTo("school_free");
+        assertThat(result.getCoinAmount()).isZero();
+        assertThat(result.getCharged()).isFalse();
+        verify(userAssetDao, never()).selectByUserIdForUpdate(anyLong());
+        verify(userAssetDao, never()).selectByUserId(anyLong());
+        verify(userAssetDao, never()).updateCoinBalance(anyLong(), anyInt());
+        verify(userAssetDao, never()).updateFreeWhisperProjection(anyLong(), anyInt());
+        verify(userAssetDao, never()).updateLastConsumeTime(anyLong(), any(LocalDateTime.class));
+        verify(coinLogDao, never()).insert(any());
+
+        ArgumentCaptor<AppMessageWhisper> whisperCaptor = ArgumentCaptor.forClass(AppMessageWhisper.class);
+        verify(whisperDao).insert(whisperCaptor.capture());
+        assertThat(whisperCaptor.getValue().getSchoolCodeSnapshot()).isEqualTo("CCNU");
+        assertThat(whisperCaptor.getValue().getBenefitDate()).isNull();
+        assertThat(whisperCaptor.getValue().getQuotaSnapshot()).isNull();
     }
 
     @Test
@@ -317,6 +366,8 @@ class WhisperServiceImplTest {
         when(appUserDao.selectById(7L)).thenReturn(user(7L, "发送者"));
         when(appUserDao.selectById(8L)).thenReturn(user(8L, "接收者"));
         lenient().when(accessProjectionService.project(any(AppUser.class))).thenReturn("OPEN");
+        lenient().when(verifiedSchoolPairService.resolve(any(AppUser.class), any(AppUser.class)))
+                .thenReturn(new VerifiedSchoolPairResult(false, null, null, "DIFFERENT_SCHOOL"));
         lenient().when(sceneConfigDao.selectPage(any(), any())).thenReturn(scenePage(12));
     }
 
@@ -339,7 +390,14 @@ class WhisperServiceImplTest {
         return new WhisperQuoteSnapshot(7L, 8L, "USR-000000000008",
                 "profile", null, payType,
                 coinAmount, freeRemain, "MSG-RULE-V1", 7, 7,
-                LocalDateTime.now().plusMinutes(5));
+                LocalDateTime.now().plusMinutes(5), null, null);
+    }
+
+    private WhisperQuoteSnapshot schoolQuote() {
+        return new WhisperQuoteSnapshot(7L, 8L, "USR-000000000008",
+                "profile", null, "school_free",
+                0, 0, "MSG-RULE-V1", 7, 7,
+                LocalDateTime.now().plusMinutes(5), "CCNU", "school-fingerprint");
     }
 
     private AppMessageRuleVersion rule() {

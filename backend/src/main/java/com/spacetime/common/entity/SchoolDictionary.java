@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 public class SchoolDictionary extends BaseEntity {
     private String providerUuid;
     private String schoolCode;
+    /** 归一学校编码；不同校区、历史编码可映射到同一学校主体。 */
+    private String canonicalSchoolCode;
     private String schoolName;
     private String shortName;
     private String oldName;

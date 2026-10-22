@@ -70,6 +70,7 @@ public class GuGuDataCollegeSearchProvider implements CollegeSearchProvider {
         SchoolDictionary school = new SchoolDictionary();
         school.setProviderUuid(item.uuid);
         school.setSchoolCode(StringUtils.hasText(item.code) ? item.code : item.uuid);
+        school.setCanonicalSchoolCode(school.getSchoolCode());
         school.setSchoolName(item.name);
         school.setShortName(item.shortName);
         school.setOldName(item.oldName);

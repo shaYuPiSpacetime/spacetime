@@ -66,11 +66,25 @@ public class SchoolDictionaryDaoImpl implements SchoolDictionaryDao {
                     .eq(SchoolDictionary::getProviderUuid, incoming.getProviderUuid())
                     .last("LIMIT 1"));
             if (existing == null) {
+                incoming.setCanonicalSchoolCode(defaultCanonicalCode(incoming));
                 mapper.insert(incoming);
             } else {
                 incoming.setId(existing.getId());
+                incoming.setCanonicalSchoolCode(StringUtils.hasText(existing.getCanonicalSchoolCode())
+                        ? existing.getCanonicalSchoolCode().trim()
+                        : defaultCanonicalCode(incoming));
                 mapper.updateById(incoming);
             }
         }
+    }
+
+    private String defaultCanonicalCode(SchoolDictionary school) {
+        if (StringUtils.hasText(school.getCanonicalSchoolCode())) {
+            return school.getCanonicalSchoolCode().trim();
+        }
+        if (StringUtils.hasText(school.getSchoolCode())) {
+            return school.getSchoolCode().trim();
+        }
+        return school.getProviderUuid().trim();
     }
 }

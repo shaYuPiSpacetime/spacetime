@@ -10,6 +10,7 @@ import {
 } from '@/services/message'
 import type { WhisperPrecheckResponse } from '@/types/message'
 import { getMessageAuthSessionVersion } from '@/domain/messageLifecycle'
+import { getApiErrorCode } from '@/services/request'
 import { openPrivateChat } from '@/utils/privateChatNavigation'
 
 export interface WhisperComposeTarget extends WhisperPrecheckCommand {
@@ -175,12 +176,46 @@ export default function WhisperComposeSheet({ target, visible = true, onClose }:
       void Taro.hideKeyboard().catch(() => undefined)
       onClose()
       await Taro.showToast({
-        title: result.payType === 'vip_free'
-          ? '悄悄话已发送，本次使用免费权益'
-          : `悄悄话已发送，消耗${result.coinAmount}千寻币`,
+        title: result.payType === 'school_free'
+          ? '悄悄话已发送，本次同校免费'
+          : result.payType === 'vip_free'
+            ? '悄悄话已发送，本次使用免费权益'
+            : `悄悄话已发送，消耗${result.coinAmount}千寻币`,
         icon: 'success',
       })
     } catch (error) {
+      if (getApiErrorCode(error) === 30021) {
+        idempotencyCache.clear()
+        setPrecheck(undefined)
+        setReadyTargetKey('')
+        setLoading(true)
+        const staleTargetKey = targetKey
+        const sessionVersion = getMessageAuthSessionVersion()
+        const isActive = () => pageActive.current
+          && preparedTargetKey.current === staleTargetKey
+          && sessionVersion === getMessageAuthSessionVersion()
+        try {
+          const result = await precheckWhisper({
+            targetUserNo: target.targetUserNo,
+            sourceScene: target.sourceScene,
+            sourceBizNo: target.sourceBizNo,
+          })
+          if (isActive()) {
+            if (result.existingWhisperNo || result.reasonCode === 'MATCHED_PRIVATE_CHAT') {
+              await openExistingEntry(result, sessionVersion, isActive)
+            } else {
+              setPrecheck(result)
+              setReadyTargetKey(staleTargetKey)
+            }
+          }
+        } catch {
+          // 保留正文；用户留在当前入口时可再次触发预检。
+        } finally {
+          if (isActive()) setLoading(false)
+        }
+        await Taro.showToast({ title: '报价已变化，请重新确认后提交', icon: 'none' })
+        return
+      }
       await Taro.showToast({
         title: resolveWhisperErrorMessage(error, '发送失败，请稍后重试'),
         icon: 'none',

@@ -298,6 +298,7 @@ export default function WhisperDetailPage() {
           submitting={submitting}
           maxLength={quote?.contentMaxLength || 60}
           coinAmount={quote?.coinAmount || 0}
+          payType={quote?.payType}
           freeWhisperDailyQuota={quote?.freeWhisperDailyQuota}
           onInput={setContent}
           onClose={() => setShowComposer(false)}
@@ -332,18 +333,20 @@ function TimelineRow({ icon, title, description, date, active = false }: { icon?
   )
 }
 
-function WhisperComposer({ avatarUrl, profileName, profileMeta, content, submitting, maxLength, coinAmount, freeWhisperDailyQuota, onInput, onClose, onSubmit }: { avatarUrl: string; profileName: string; profileMeta: string; content: string; submitting: boolean; maxLength: number; coinAmount: number; freeWhisperDailyQuota?: number; onInput: (value: string) => void; onClose: () => void; onSubmit: () => void }) {
+function WhisperComposer({ avatarUrl, profileName, profileMeta, content, submitting, maxLength, coinAmount, payType, freeWhisperDailyQuota, onInput, onClose, onSubmit }: { avatarUrl: string; profileName: string; profileMeta: string; content: string; submitting: boolean; maxLength: number; coinAmount: number; payType?: string; freeWhisperDailyQuota?: number; onInput: (value: string) => void; onClose: () => void; onSubmit: () => void }) {
   const count = useMemo(() => Array.from(content).length, [content])
+  const schoolFree = payType === 'school_free'
+  const vipFree = payType === 'vip_free'
   return (
     <View className="whisper-composer-mask" onClick={onClose}>
       <View className="whisper-composer" onClick={event => event.stopPropagation()}>
         <View className="whisper-composer-profile"><Image className="whisper-composer-avatar" src={avatarUrl} mode="aspectFill" /><View><Text className="whisper-composer-name">{profileName}</Text><Text className="whisper-composer-meta">{profileMeta}</Text></View></View>
         <View className="whisper-textarea-shell"><Textarea className="whisper-textarea" value={content} maxlength={maxLength} placeholder="写点什么···" onInput={event => onInput(event.detail.value)} /><Text className="whisper-textarea-count">{count}/{maxLength}</Text></View>
         <View className="whisper-pay-row">
-          <View><View className="whisper-coin"><Image className="whisper-coin-icon" src={miniappOssIcons.messageQianxunCoin} mode="aspectFit" /><Text>{coinAmount}</Text></View><Text className="whisper-pay-note">私信直达，配对率翻倍</Text></View>
+          <View><View className="whisper-coin">{schoolFree || vipFree ? null : <Image className="whisper-coin-icon" src={miniappOssIcons.messageQianxunCoin} mode="aspectFit" />}<Text>{schoolFree ? '同校免费' : vipFree ? '今日免费' : coinAmount}</Text></View><Text className="whisper-pay-note">私信直达，配对率翻倍</Text></View>
           <View className="whisper-submit message-primary-button" onClick={onSubmit}><Text>{submitting ? '提交中' : '立即申请'}</Text></View>
         </View>
-        <View className="whisper-member-tip"><Image src={miniappOssIcons.messageMemberBadge} className="whisper-member-badge" mode="aspectFit" /><Text>{resolveWhisperMemberTip(freeWhisperDailyQuota)}</Text></View>
+        <View className="whisper-member-tip"><Image src={miniappOssIcons.messageMemberBadge} className="whisper-member-badge" mode="aspectFit" /><Text>{schoolFree ? '同校用户本次免费，不消耗会员次数' : resolveWhisperMemberTip(freeWhisperDailyQuota)}</Text></View>
       </View>
     </View>
   )

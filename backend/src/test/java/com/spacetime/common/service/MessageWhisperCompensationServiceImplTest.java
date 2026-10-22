@@ -103,6 +103,25 @@ class MessageWhisperCompensationServiceImplTest {
     }
 
     @Test
+    void schoolFreeFailureShouldFinishCompensationWithoutTouchingAssets() {
+        AppMessageWhisper whisper = refunding("school_free", 0);
+        when(whisperDao.selectRefundingIds(100)).thenReturn(List.of(10L));
+        when(whisperDao.selectByIdForUpdate(10L)).thenReturn(whisper);
+        when(whisperDao.markRefunded(10L, 2, null, now)).thenReturn(1);
+
+        int processed = service.compensateBatch(now, 100);
+
+        assertThat(processed).isEqualTo(1);
+        verify(userAssetDao, never()).selectByUserIdForUpdate(any());
+        verify(userAssetDao, never()).updateCoinBalance(any(), any());
+        verify(userAssetDao, never()).updateFreeWhisperProjection(any(), any());
+        verify(coinLogDao, never()).insert(any());
+        verify(whisperDao).markRefunded(10L, 2, null, now);
+        verify(assetResultNotificationService, never())
+                .publishWhisperCompensationAfterCommit(any(), any());
+    }
+
+    @Test
     void shouldSkipWhisperThatWasAlreadyRefundedByAnotherWorker() {
         AppMessageWhisper whisper = refunding("coin", 10);
         whisper.setPaymentStatus("refunded");

@@ -20,6 +20,8 @@ public interface WhisperQuoteStore {
             String configVersion,
             Integer expireDays,
             Integer cooldownDays,
-            LocalDateTime expireAt) {
+            LocalDateTime expireAt,
+            String canonicalSchoolCode,
+            String qualificationFingerprint) {
     }
 }

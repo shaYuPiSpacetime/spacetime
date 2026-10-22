@@ -2089,7 +2089,7 @@ function ModuleSupplementDialog({
     title: record.whisperNo,
     subtitle: `${record.direction === 'sent' ? '我申请的' : '申请我的'} · ${peerLabel(record)} · ${DELIVERY_STATUS_LABELS[record.deliveryStatus] || record.deliveryStatus}`,
     status: WHISPER_STATUS_LABELS[record.status] || record.status,
-    detail: record.failureReason || record.invalidReason || record.createTime || '-',
+    detail: `${record.payType === 'school_free' ? '同校免费' : record.payType === 'vip_free' ? '会员免费' : record.payType === 'coin' ? `${record.coinAmount || 0} 千寻币` : '费用类型未知'} · ${record.failureReason || record.invalidReason || record.createTime || '-'}`,
     action: sensitiveAction(record.contentAvailable, () => openSensitiveContent({ type: 'whisper', no: record.whisperNo })),
   }));
   const platformItems: MessagePanelItem[] = platformData.records.map((record) => ({

@@ -40,7 +40,7 @@ class RedisWhisperQuoteStoreTest {
         WhisperQuoteSnapshot quote = new WhisperQuoteSnapshot(
                 78L, 79L, "U79", "recommendation", null,
                 "vip_free", 0, 2, "MSG-CFG-INIT-001", 7, 7,
-                LocalDateTime.of(2026, 8, 13, 19, 30));
+                LocalDateTime.of(2026, 8, 13, 19, 30), null, null);
 
         String token = store.issue(quote);
 
