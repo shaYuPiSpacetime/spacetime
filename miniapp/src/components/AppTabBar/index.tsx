@@ -33,10 +33,11 @@ interface Tab {
   activeIconPath: string
   iconWidth: number
   iconHeight: number
+  iconTransform?: string
 }
 
 const TABS: Tab[] = [
-  { key: 'kindred', label: '时空邂逅', path: '/pages/index/index', iconPath: tabEncounterIcon, activeIconPath: tabEncounterActiveIcon, iconWidth: 40, iconHeight: 40 },
+  { key: 'kindred', label: '时空邂逅', path: '/pages/index/index', iconPath: tabEncounterIcon, activeIconPath: tabEncounterActiveIcon, iconWidth: 40, iconHeight: 40, iconTransform: 'rotate(180deg)' },
   { key: 'index', label: '千寻', path: '/pages/index/index', iconPath: tabHomeIcon, activeIconPath: tabHomeActiveIcon, iconWidth: 40, iconHeight: 40 },
   { key: 'community', label: '心动', path: '/pages/community/index', iconPath: tabWorkIcon, activeIconPath: tabWorkActiveIcon, iconWidth: 40, iconHeight: 40 },
   { key: 'recommend', label: '推荐', path: '/pages/recommend/index', iconPath: tabRecommendIcon, activeIconPath: tabRecommendActiveIcon, iconWidth: 40, iconHeight: 40 },
@@ -217,12 +218,13 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
                   width: `${tab.iconWidth}rpx`,
                   height: `${tab.iconHeight}rpx`,
                   opacity: isOn ? 0 : 1,
+                  transform: tab.iconTransform,
                 }}
               />
               <Image
                 src={tab.activeIconPath}
                 mode="aspectFit"
-                style={{ position: 'absolute', width: `${tab.iconWidth}rpx`, height: `${tab.iconHeight}rpx`, opacity: isOn ? 1 : 0 }}
+                style={{ position: 'absolute', width: `${tab.iconWidth}rpx`, height: `${tab.iconHeight}rpx`, opacity: isOn ? 1 : 0, transform: tab.iconTransform }}
               />
               {tab.key === 'recommend' ? (
                 <NotificationBadge id="app-tab-recommend-badge" value={visibleRecommendCount} bordered

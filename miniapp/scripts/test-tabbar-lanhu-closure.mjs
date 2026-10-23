@@ -42,6 +42,8 @@ assert.doesNotMatch(appTabBar, /showActiveDot|background: '#2876FF'[\s\S]{0,120}
 assert.match(appTabBar, /const isOn = tab\.key === active/, '同一 TabBar 必须只由唯一 active key 推导点亮态')
 assert.doesNotMatch(appTabBar, /src=\{isOn \? tab\.activeIconPath : tab\.iconPath\}/, '切 Tab 不得替换图标资源造成闪烁')
 assert.match(appTabBar, /src=\{tab\.iconPath\}[\s\S]{0,260}opacity: isOn \? 0 : 1[\s\S]{0,360}src=\{tab\.activeIconPath\}[\s\S]{0,260}opacity: isOn \? 1 : 0/, '普通态与点亮态图标常驻且互斥显示，点击仍由可见 Tab 控件处理')
+assert.match(appTabBar, /key: 'kindred'[^\n]+iconTransform: 'rotate\(180deg\)'/, '时空邂逅必须配置开口向下的旋转方向')
+assert.match(appTabBar, /src=\{tab\.iconPath\}[\s\S]{0,320}transform: tab\.iconTransform[\s\S]{0,420}src=\{tab\.activeIconPath\}[\s\S]{0,320}transform: tab\.iconTransform/, '时空邂逅普通态与点亮态必须应用同一旋转方向')
 
 assert.match(appTabBar, /key: 'recommend'[^\n]+iconWidth: 40, iconHeight: 40/, '推荐必须使用与其他入口同尺寸的星形切图')
 

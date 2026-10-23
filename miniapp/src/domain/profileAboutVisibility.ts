@@ -3,8 +3,8 @@ import type { AboutMeQuestion, ProfileFieldSetting } from '@/types/prd01'
 export const PROFILE_ABOUT_TABS = [
   { key: 'all', title: '全部', questionKeys: [] },
   { key: 'self', title: '我是谁', questionKeys: ['housingStatus', 'carStatus', 'hasChild', 'religion'] },
-  { key: 'daily', title: '我的日常', questionKeys: ['smoking', 'drinking', 'pets'] },
-  { key: 'story', title: '我的故事', questionKeys: ['childrenPlan', 'marriagePlan'] },
+  { key: 'daily', title: '小习惯', questionKeys: ['smoking', 'drinking', 'pets'] },
+  { key: 'story', title: '心愿', questionKeys: ['childrenPlan', 'marriagePlan'] },
   { key: 'love', title: '我热爱的', questionKeys: ['meetingPreference', 'preferredActivities'] },
 ] as const
 

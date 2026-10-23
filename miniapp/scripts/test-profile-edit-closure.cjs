@@ -20,6 +20,21 @@ function loadTypeScriptModule(relativePath) {
   return loaded.exports
 }
 
+test('关于我分类使用心愿和小习惯的新文案且保留原分类键', () => {
+  const visibilityPath = 'src/domain/profileAboutVisibility.ts'
+  const visibilitySource = read(visibilityPath)
+  const { PROFILE_ABOUT_TABS } = loadTypeScriptModule(visibilityPath)
+  const dailyTab = PROFILE_ABOUT_TABS.find(item => item.key === 'daily')
+  const storyTab = PROFILE_ABOUT_TABS.find(item => item.key === 'story')
+
+  assert.equal(dailyTab?.title, '小习惯')
+  assert.deepEqual(dailyTab?.questionKeys, ['smoking', 'drinking', 'pets'])
+  assert.equal(storyTab?.title, '心愿')
+  assert.deepEqual(storyTab?.questionKeys, ['childrenPlan', 'marriagePlan'])
+  assert.doesNotMatch(visibilitySource, /title: '我的日常'/, '关于我分类不得继续展示“我的日常”')
+  assert.doesNotMatch(visibilitySource, /title: '我的故事'/, '关于我分类不得继续展示“我的故事”')
+})
+
 test('关于我题目和分类按后台字段 visible 配置动态展示', () => {
   const visibilityPath = 'src/domain/profileAboutVisibility.ts'
   assert.ok(fs.existsSync(path.join(root, visibilityPath)), '缺少关于我字段可见性领域模型')

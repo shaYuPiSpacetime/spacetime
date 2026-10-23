@@ -176,7 +176,7 @@ async function open(miniProgram, route) {
   await assertTexts(page, ['我的标签', '全部', '已添加'])
 
   page = await open(miniProgram, '/pages/profile-edit/about')
-  await assertTexts(page, ['关于我', '全部', '我是谁', '我的日常', '我的故事', '我热爱的'])
+  await assertTexts(page, ['关于我', '全部', '我是谁', '小习惯', '心愿', '我热爱的'])
 
   page = await open(miniProgram, '/pages/profile-edit/songs')
   const songTexts = await assertTexts(page, ['爱听的歌曲'])
