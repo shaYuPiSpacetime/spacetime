@@ -27,11 +27,13 @@ import com.spacetime.miniapp.dto.response.AccessStatusVO;
 import com.spacetime.miniapp.dto.response.IdealPricingVO;
 import com.spacetime.miniapp.dto.response.IdealResultPageVO;
 import com.spacetime.miniapp.dto.response.IdealSearchVO;
+import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.service.impl.IdealServiceImpl;
 import com.spacetime.miniapp.service.impl.Prd01AccessEvaluator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -698,8 +700,9 @@ class IdealServiceImplTest {
         verify(publicProfileService, never()).getPublicProfile(any(), any());
     }
 
-    @Test
-    void resultOmitsPreviouslyUnlockedUserFromAnotherSnapshot() {
+    @ParameterizedTest
+    @ValueSource(strings = {"IDS-001", "IDS-OLD"})
+    void resultKeepsUnlockedCardWithApprovedProfile(String unlockSnapshotNo) {
         AppUser current = openUser(7L, "MALE", 30, "320100");
         AppUser target = openUser(8L, "FEMALE", 28, "320100");
         IdealFilterSnapshot snapshot = snapshot(100L, 7L, LocalDateTime.now().plusDays(1));
@@ -710,7 +713,7 @@ class IdealServiceImplTest {
         unlock.setTargetUserId(8L);
         unlock.setTargetBizType("ideal");
         unlock.setTargetBizNo("8");
-        unlock.setSnapshotNo("IDS-OLD");
+        unlock.setSnapshotNo(unlockSnapshotNo);
         unlock.setSnapshotItemNo("IDI-OLD");
         unlock.setStatus("active");
         unlock.setActiveMarker(1);
@@ -720,13 +723,67 @@ class IdealServiceImplTest {
         when(snapshotDao.selectBySnapshotNo("IDS-001")).thenReturn(snapshot);
         when(snapshotCandidateDao.selectBySnapshotId(100L)).thenReturn(List.of(item));
         when(unlockRecordDao.selectList(any())).thenReturn(List.of(unlock));
+        when(appUserDao.selectByIds(List.of(8L))).thenReturn(List.of(target));
+        when(accessProjectionService.projectAll(List.of(target))).thenReturn(Map.of(8L, "OPEN"));
+        PublicProfileVO profile = new PublicProfileVO();
+        profile.setUserId(8L);
+        profile.setAvatar("https://example.test/approved-avatar.png");
+        profile.setSchool("已认证学校");
+        profile.setCommunicationMode("PRIVATE_MESSAGE");
+        when(publicProfileService.getPublicProfile(7L, 8L)).thenReturn(profile);
         when(idealUnlockService.getPricing()).thenReturn(new IdealPricingVO());
 
         IdealResultPageVO result = service.getResults(7L, "IDS-001", null);
 
-        assertThat(result.getItems()).isEmpty();
-        assertThat(result.getResultCount()).isZero();
+        assertThat(result.getItems()).singleElement().satisfies(card -> {
+            assertThat(card.getItemNo()).isEqualTo("IDI-NEW");
+            assertThat(card.getUnlocked()).isTrue();
+            assertThat(card.getCandidateNo()).isEqualTo("8");
+            assertThat(card.getProfile()).isSameAs(profile);
+            assertThat(card.getBlurAvatarUrl()).isNull();
+            assertThat(card.getSchoolSummary()).isEqualTo("已认证学校");
+            assertThat(card.getUnlockExpiresAt()).isEqualTo(unlock.getExpireTime());
+        });
+        assertThat(result.getResultCount()).isEqualTo(1);
         assertThat(result.getUnlockableCount()).isZero();
+        verify(publicProfileService).getPublicProfile(7L, 8L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"expired", "inactive", "blocked", "closed"})
+    void resultDoesNotExposeProfileWhenUnlockOrCandidateIsUnavailable(String reason) {
+        AppUser current = openUser(7L, "MALE", 30, "320100");
+        AppUser target = openUser(8L, "FEMALE", 28, "320100");
+        when(appUserDao.selectById(7L)).thenReturn(current);
+        when(accessProjectionService.project(current)).thenReturn("OPEN");
+        when(snapshotDao.selectBySnapshotNo("IDS-001"))
+                .thenReturn(snapshot(100L, 7L, LocalDateTime.now().plusDays(1)));
+        when(snapshotCandidateDao.selectBySnapshotId(100L))
+                .thenReturn(List.of(candidate(100L, "IDI-8", 8L, "[]")));
+        when(appUserDao.selectByIds(List.of(8L))).thenReturn(List.of(target));
+        when(accessProjectionService.projectAll(List.of(target)))
+                .thenReturn(Map.of(8L, "closed".equals(reason) ? "CLOSED" : "OPEN"));
+        com.spacetime.common.entity.UserUnlockRecord unlock = new com.spacetime.common.entity.UserUnlockRecord();
+        unlock.setTargetUserId(8L);
+        unlock.setStatus("inactive".equals(reason) ? "refunded" : "active");
+        unlock.setActiveMarker(1);
+        unlock.setExpireTime(LocalDateTime.now().plusDays("expired".equals(reason) ? -1 : 1));
+        when(unlockRecordDao.selectList(any())).thenReturn(List.of(unlock));
+        if ("blocked".equals(reason)) {
+            AppUserRelationBlock block = new AppUserRelationBlock();
+            block.setUserId(8L); block.setTargetUserId(7L); block.setBlockType("BLACKLIST");
+            when(relationBlockDao.selectActiveBetweenUserAndTargets(any(), any(), any())).thenReturn(List.of(block));
+        }
+
+        IdealResultPageVO result = service.getResults(7L, "IDS-001", null);
+
+        if (List.of("blocked", "closed").contains(reason)) assertThat(result.getItems()).isEmpty();
+        else assertThat(result.getItems()).singleElement().satisfies(card -> {
+            assertThat(card.getUnlocked()).isFalse();
+            assertThat(card.getProfile()).isNull();
+            assertThat(card.getCandidateNo()).isNull();
+            assertThat(card.getBlurAvatarUrl()).contains("avatar-liked-blurred");
+        });
         verify(publicProfileService, never()).getPublicProfile(any(), any());
     }
 
@@ -821,6 +878,15 @@ class IdealServiceImplTest {
         assertThat(second.getItems()).hasSize(2);
         assertThat(second.getItems()).extracting(item -> item.getItemNo())
                 .containsExactly("IDI-28", "IDI-29");
+        PublicProfileVO profile = new PublicProfileVO(); profile.setUserId(8L);
+        when(publicProfileService.getPublicProfile(7L, 8L)).thenReturn(profile);
+        IdealResultPageVO refreshed = service.getResults(7L, "IDS-001", null);
+        assertThat(refreshed.getItems()).extracting(item -> item.getItemNo())
+                .containsExactlyElementsOf(first.getItems().stream().map(item -> item.getItemNo()).toList());
+        assertThat(refreshed.getItems().get(0).getUnlocked()).isTrue();
+        assertThat(refreshed.getNextCursor()).isEqualTo(first.getNextCursor());
+        assertThat(refreshed.getResultCount()).isEqualTo(22);
+        assertThat(refreshed.getUnlockableCount()).isEqualTo(21);
     }
 
     @Test

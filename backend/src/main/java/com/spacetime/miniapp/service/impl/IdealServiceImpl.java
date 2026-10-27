@@ -37,9 +37,11 @@ import com.spacetime.miniapp.dto.response.IdealMetaVO;
 import com.spacetime.miniapp.dto.response.IdealResultItemVO;
 import com.spacetime.miniapp.dto.response.IdealResultPageVO;
 import com.spacetime.miniapp.dto.response.IdealSearchVO;
+import com.spacetime.miniapp.dto.response.PublicProfileVO;
 import com.spacetime.miniapp.dto.response.RecommendCityVO;
 import com.spacetime.miniapp.service.IdealService;
 import com.spacetime.miniapp.service.IdealUnlockService;
+import com.spacetime.miniapp.service.MiniappPublicProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -132,6 +134,7 @@ public class IdealServiceImpl implements IdealService {
     private final SchoolDictionaryDao schoolDictionaryDao;
     private final RelationAccessProjectionService accessProjectionService;
     private final ProfileDictionaryService profileDictionaryService;
+    private final MiniappPublicProfileService publicProfileService;
     private final IdealUnlockService idealUnlockService;
     private final Prd01AccessEvaluator accessEvaluator;
 
@@ -252,8 +255,7 @@ public class IdealServiceImpl implements IdealService {
             int endIndex = Math.min(nextIndex + PAGE_SIZE, ordered.size());
             List<Long> targetIds = ordered.subList(nextIndex, endIndex).stream()
                     .map(IdealSnapshotCandidate::getCandidateUserId)
-                    .filter(java.util.Objects::nonNull)
-                    .filter(id -> !unlocks.containsKey(id)).distinct().toList();
+                    .filter(java.util.Objects::nonNull).distinct().toList();
             List<AppUser> users = targetIds.isEmpty() ? List.of() : safeUsers(appUserDao.selectByIds(targetIds));
             Map<Long, AppUser> usersById = new HashMap<>();
             users.forEach(user -> usersById.put(user.getId(), user));
@@ -266,7 +268,20 @@ public class IdealServiceImpl implements IdealService {
                         || blockedIds.contains(candidate.getId())) {
                     continue;
                 }
-                items.add(lockedItem(row, candidate));
+                IdealResultItemVO item = lockedItem(row, candidate);
+                UserUnlockRecord unlock = unlocks.get(candidate.getId());
+                if (unlock != null) {
+                    // 解锁只改变原卡片的展示状态；公开资料继续由统一服务校验并投影审核通过的字段。
+                    PublicProfileVO profile = publicProfileService.getPublicProfile(userId, candidate.getId());
+                    item.setUnlocked(true);
+                    item.setBlurAvatarUrl(null);
+                    item.setCandidateNo(String.valueOf(candidate.getId()));
+                    item.setProfile(profile);
+                    item.setSchoolSummary(profile.getSchool());
+                    item.setCommunicationMode(profile.getCommunicationMode());
+                    item.setUnlockExpiresAt(unlock.getExpireTime());
+                }
+                items.add(item);
             }
         }
 
@@ -274,9 +289,7 @@ public class IdealServiceImpl implements IdealService {
         result.setSnapshotNo(snapshot.getSnapshotNo());
         result.setStatus(snapshot.getStatus());
         result.setSummary(summary(snapshot));
-        result.setResultCount((int) ordered.stream()
-                .filter(row -> !unlocks.containsKey(row.getCandidateUserId()))
-                .count());
+        result.setResultCount(ordered.size());
         result.setUnlockableCount((int) ordered.stream()
                 .map(IdealSnapshotCandidate::getCandidateUserId)
                 .filter(java.util.Objects::nonNull)

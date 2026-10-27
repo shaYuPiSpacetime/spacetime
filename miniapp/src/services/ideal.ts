@@ -98,7 +98,7 @@ export interface IdealUnlockQuoteVO {
 export interface IdealUnlockedItemVO {
   itemNo: string
   candidateNo: string
-  /** 批量确认只返回权益回执，资料在历史解锁页按需加载。 */
+  /** 批量确认只返回权益回执，资料在当前结果页或历史解锁页按需加载。 */
   profile?: PublicProfileVO | null
   communicationMode: 'PRIVATE_MESSAGE'
   unlockExpiresAt: string

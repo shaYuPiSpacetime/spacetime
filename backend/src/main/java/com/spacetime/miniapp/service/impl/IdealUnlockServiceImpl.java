@@ -438,7 +438,7 @@ public class IdealUnlockServiceImpl implements IdealUnlockService {
         ordered.sort(Comparator.comparing(UserUnlockRecord::getId,
                 Comparator.nullsLast(Comparator.naturalOrder())));
         List<IdealUnlockedItemVO> items = ordered.stream().map(record -> {
-            // 批量确认仅返回权益回执，完整资料由历史解锁页按页加载，避免大批量确认超时。
+            // 批量确认仅返回权益回执，公开资料由当前结果页或历史解锁页按页加载，避免大批量确认超时。
             PublicProfileVO profile = ordered.size() == 1 ? publicProfileService.getPublicProfile(
                     record.getUserId(), record.getTargetUserId()) : null;
             IdealUnlockedItemVO item = new IdealUnlockedItemVO();

@@ -41,6 +41,8 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
   const currentPageNumber = useRef(1)
   const pageCursors = useRef<Array<string | undefined>>([undefined])
   const requestGeneration = useRef(0)
+  const currentSnapshotNo = useRef(snapshotNo)
+  currentSnapshotNo.current = snapshotNo
   const [unlocking, setUnlocking] = useState(false)
   const unlockInFlight = useRef(false)
   const [selection, setSelection] = useState<{ snapshotNo: string; itemNos: string[] }>({ snapshotNo, itemNos: [] })
@@ -152,9 +154,15 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
     try {
       const result = await confirmIdealUnlock(quoteToken, requestId)
       Taro.removeStorageSync(PENDING_QUOTE_KEY)
+      if (currentSnapshotNo.current !== snapshotNo) return
+      // 先应用已确认权益，刷新失败也不会再次展示付费入口；批量缺少的资料再按当前页加载。
+      const confirmedItems = new Map(result.unlockedItems.map(item => [item.itemNo, item]))
+      setItems(current => current.map(item => {
+        const confirmed = confirmedItems.get(item.itemNo)
+        return confirmed ? { ...item, ...confirmed, profile: confirmed.profile || item.profile, unlocked: true } : item
+      }))
       setSelection({ snapshotNo, itemNos: [] })
       await Taro.showToast({ title: `成功解锁${result.unlockedItems.length}位`, icon: 'success' })
-      scroll.reset()
     } catch (error) {
       Taro.removeStorageSync(PENDING_QUOTE_KEY)
       await Taro.showToast({
@@ -162,7 +170,9 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
         icon: 'none',
       })
     } finally {
-      await load(pageCursors.current[currentPageNumber.current - 1], currentPageNumber.current)
+      if (currentSnapshotNo.current === snapshotNo) {
+        await load(pageCursors.current[currentPageNumber.current - 1], currentPageNumber.current)
+      }
       unlockInFlight.current = false
       setUnlocking(false)
     }
@@ -239,7 +249,10 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
                 <CenterText text={`${resolutionError}，点击重试`} />
               </View>
             ) : null}
-            {message ? <CenterText text={message} /> : null}
+            {message ? <View>
+              <CenterText text={message} />
+              <Text onClick={() => { if (!loading && !unlocking) void load(pageCursors.current[currentPageNumber.current - 1], currentPageNumber.current) }} style={{ display: 'block', textAlign: 'center', padding: '20rpx', color: BLUE }}>重新加载</Text>
+            </View> : null}
             {items.map(item => (
               <IdealCandidateCard
                 key={item.itemNo}
@@ -545,6 +558,7 @@ function IdealCandidateCard({ item, onUnlock, selected, onSelect }: { item: Idea
     : [item.cityName, item.ageBand, item.educationLabel].filter(Boolean).join('·')
   return (
     <View
+      id={`ideal-candidate-${item.itemNo}`}
       style={{
         minHeight: '468rpx',
         marginBottom: '20rpx',
@@ -664,11 +678,12 @@ function IdealCandidateCard({ item, onUnlock, selected, onSelect }: { item: Idea
         {item.unlocked ? <View style={{ color: '#949BAA', fontSize: '23rpx' }}>资料已解锁</View> : null}
         <Text
           onClick={
-            item.unlocked && profile
-              ? () =>
-                  void Taro.navigateTo({
-                    url: `/pages/heart/user?targetUserId=${profile.userId}&sourceScene=ideal`,
-                  })
+            item.unlocked
+              ? () => {
+                  const targetUserId = profile?.userId || item.candidateNo
+                  if (targetUserId) void Taro.navigateTo({ url: `/pages/heart/user?targetUserId=${encodeURIComponent(String(targetUserId))}&sourceScene=ideal` })
+                  else void Taro.showToast({ title: '用户资料加载中，请稍后重试', icon: 'none' })
+                }
               : onUnlock
           }
           style={{ color: '#4C8BFF', fontSize: '27rpx', fontWeight: 600 }}
