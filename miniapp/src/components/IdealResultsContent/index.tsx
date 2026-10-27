@@ -560,7 +560,6 @@ function IdealCandidateCard({ item, onUnlock, selected, onSelect }: { item: Idea
     <View
       id={`ideal-candidate-${item.itemNo}`}
       style={{
-        minHeight: '468rpx',
         marginBottom: '20rpx',
         padding: '30rpx 28rpx 28rpx',
         borderRadius: '20rpx',

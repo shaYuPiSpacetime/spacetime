@@ -408,7 +408,10 @@ test('理想型结果首卡不被原生滚动容器裁剪且筛选面板尺寸�
     '结果卡片不能用负边距越过 ScrollView 顶部，否则微信端会裁掉头像和标题'
   )
   assert.match(results, /top:\s*['"]184rpx['"]/, '结果滚动视口必须从设计稿卡片顶部开始')
-  assert.match(results, /minHeight:\s*['"]468rpx['"]/, '结果卡片高度必须容纳两行命中条件')
+  const candidateCard = results.slice(results.indexOf('function IdealCandidateCard'), results.indexOf('function CenterText'))
+  const cardContainerStyle = candidateCard.slice(candidateCard.indexOf('style={{'), candidateCard.indexOf('!item.unlocked'))
+  assert.doesNotMatch(cardContainerStyle, /(?:minHeight|height|maxHeight):/, '卡片必须随内容撑开，隐藏勾选区后不能保留固定高度空白')
+  assert.match(candidateCard, /flexWrap:\s*['"]wrap['"]/, '命中条件必须换行撑开卡片，不能截断第二行标签')
   assert.doesNotMatch(results, /linear-gradient\(135deg/, '结果卡片不应出现设计稿外的蓝色渐变')
   assert.match(filter, /height:\s*['"]756rpx['"]/, '地址面板高度必须对齐设计稿')
   assert.match(
