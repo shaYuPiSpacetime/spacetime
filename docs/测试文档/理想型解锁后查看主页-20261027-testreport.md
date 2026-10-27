@@ -31,7 +31,26 @@
 
 - 源码提交：`970d408e9b75d5983ac8a26fc8b55e6044fe2037`，已 Push 到 `origin/master`。
 - 对应提交的[后端生产自动部署 40460450617](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/40460450617)已成功；公网 `/api/health` 返回业务码 200、`ok`。
-- 本轮已实际拉取并同步 `origin/master`，从当前源码完成生产构建。
-- 新独立目录：`.runtime/weapp-release-20261027-141957-970d408e/project`，442 个文件与构建源文件 SHA-256 一致，不包含 `project.private.config.json`。
-- 小程序体验版**尚未上传**：微信 CLI 的 `islogin` 缓存返回 true，但实际预览请求返回 `需要重新登录（code 10）`。本次 CLI 虽退出码为 0，实际未生成有效预览信息，因此未进入上传步骤，也未将计划版本 `1.0.20261027.1419` 记为已发布。
-- 已生成重新登录二维码，等待用户扫码确认。登录后须再次同步远端源码、按发布流程构建并核对预览/上传分包后，才能标记体验版发布成功。
+- 首次预览被微信登录过期（code 10）阻断，计划版本 `1.0.20261027.1419` 未上传；重新登录后，实际微信预览请求已通过。
+- 登录恢复后再次拉取并同步 `origin/master`，从 `93b33ee4c1b5840d30b13fef06e7b495e6d66885` 构建，较修复提交仅新增文档；本次构建的 578 项测试和全部产物门禁通过。
+- 本次新独立目录：`.runtime/weapp-release-20261027-142829-93b33ee4/project`。442 个文件与构建源文件 SHA-256 一致，不包含 `project.private.config.json`；上传前再次核对远端 SHA 和文件哈希全部一致。
+- **体验版 `1.0.20261027.1428` 已上传成功**。已实际取得预览和上传信息，主包及全部分包字节数逐项一致，总包 2,903,977 字节。未仅凭 CLI 退出码认定发布成功。
+- 原始证据：独立目录同级的 `manifest.json`、`preview-info.json`、`upload-info.json`、`verified.json`；重新构建日志为 `.runtime/ideal-unlock-20261027/build-after-login.log`。
+
+| 包 | 预览字节 | 上传字节 |
+| --- | ---: | ---: |
+| 总包 | 2903977 | 2903977 |
+| 主包 | 1404239 | 1404239 |
+| assessment | 4199 | 4199 |
+| coins | 46436 | 46436 |
+| featured | 80918 | 80918 |
+| heart | 56325 | 56325 |
+| membership | 39115 | 39115 |
+| message | 442270 | 442270 |
+| prd08 | 87670 | 87670 |
+| profile-edit | 33515 | 33515 |
+| promotion | 364357 | 364357 |
+| qianxun | 135570 | 135570 |
+| search | 19920 | 19920 |
+| settings | 58193 | 58193 |
+| verification | 131250 | 131250 |
