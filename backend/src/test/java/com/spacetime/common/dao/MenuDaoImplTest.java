@@ -23,12 +23,16 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -111,15 +115,103 @@ class MenuDaoImplTest {
         child.setId(2L);
         child.setParentId(1L);
         child.setStatus("ENABLED");
-        SysMenu parent = new SysMenu();
-        parent.setId(1L);
-        parent.setParentId(0L);
-        parent.setStatus("DISABLED");
         when(roleMenuMapper.selectList(any())).thenReturn(List.of(roleMenu));
+        // 批量查询仅返回启用菜单，禁用父级不会出现在结果中。
         when(menuMapper.selectList(any())).thenReturn(List.of(child));
-        when(menuMapper.selectById(1L)).thenReturn(parent);
         MenuDaoImpl menuDao = new MenuDaoImpl(menuMapper, roleMenuMapper, userRoleMapper, roleMapper, userMapper);
 
         assertThat(menuDao.selectByRoleIds(List.of(1L))).isEmpty();
+        verify(menuMapper, never()).selectById(any());
+    }
+
+    @Test
+    @DisplayName("无菜单授权时不查询菜单表")
+    void shouldSkipQueryForEmptyMenuIds() {
+        MenuDaoImpl menuDao = new MenuDaoImpl(menuMapper, roleMenuMapper, userRoleMapper, roleMapper, userMapper);
+
+        assertThat(menuDao.selectByIds(null)).isEmpty();
+        assertThat(menuDao.selectByIds(List.of())).isEmpty();
+
+        verifyNoInteractions(menuMapper);
+    }
+
+    @Test
+    @DisplayName("多个按钮共享父级时只查询一次菜单且不额外授予父级权限")
+    void shouldCheckSharedAncestorsWithOneQuery() {
+        List<SysMenu> enabledMenus = new ArrayList<>();
+        enabledMenus.add(menu(1L, 0L));
+        enabledMenus.add(menu(2L, 1L));
+        List<Long> buttonIds = LongStream.rangeClosed(3, 102).boxed().toList();
+        buttonIds.forEach(id -> enabledMenus.add(menu(id, 2L)));
+        when(menuMapper.selectList(any())).thenReturn(enabledMenus);
+        MenuDaoImpl menuDao = new MenuDaoImpl(menuMapper, roleMenuMapper, userRoleMapper, roleMapper, userMapper);
+
+        assertThat(menuDao.selectByIds(buttonIds)).extracting(SysMenu::getId).containsExactlyElementsOf(buttonIds);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<LambdaQueryWrapper<SysMenu>> wrapperCaptor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(menuMapper).selectList(wrapperCaptor.capture());
+        LambdaQueryWrapper<SysMenu> wrapper = wrapperCaptor.getValue();
+        assertThat(wrapper.getCustomSqlSegment().toLowerCase())
+                .contains("status =", "order by menu_sort asc").doesNotContain(" in ");
+        assertThat(wrapper.getParamNameValuePairs()).containsValue("ENABLED");
+        verify(menuMapper, never()).selectById(any());
+    }
+
+    @Test
+    @DisplayName("保留数据库菜单顺序并忽略重复和不存在的授权编号")
+    void shouldPreserveMenuOrderAndExcludeUnassignedMenus() {
+        SysMenu first = menu(2L, 0L);
+        SysMenu second = menu(1L, null);
+        when(menuMapper.selectList(any())).thenReturn(List.of(first, second, menu(3L, 0L)));
+        MenuDaoImpl menuDao = new MenuDaoImpl(menuMapper, roleMenuMapper, userRoleMapper, roleMapper, userMapper);
+
+        assertThat(menuDao.selectByIds(List.of(1L, 2L, 1L, 99L))).containsExactly(first, second);
+    }
+
+    @Test
+    @DisplayName("父级缺失或已删除时拒绝子级权限且保留独立菜单")
+    void shouldExcludeMenusWithMissingAncestors() {
+        SysMenu root = menu(1L, 0L);
+        SysMenu child = menu(2L, 99L);
+        when(menuMapper.selectList(any())).thenReturn(List.of(root, child));
+        MenuDaoImpl menuDao = new MenuDaoImpl(menuMapper, roleMenuMapper, userRoleMapper, roleMapper, userMapper);
+
+        assertThat(menuDao.selectByIds(List.of(1L, 2L))).containsExactly(root);
+        verify(menuMapper, never()).selectById(any());
+    }
+
+    @Test
+    @DisplayName("自引用和循环父级不授予权限且不影响正常菜单")
+    void shouldRejectCyclicAncestors() {
+        SysMenu root = menu(1L, 0L);
+        when(menuMapper.selectList(any())).thenReturn(List.of(root,
+                menu(2L, 2L), menu(3L, 4L), menu(4L, 3L), menu(5L, 3L)));
+        MenuDaoImpl menuDao = new MenuDaoImpl(menuMapper, roleMenuMapper, userRoleMapper, roleMapper, userMapper);
+
+        assertThat(menuDao.selectByIds(List.of(1L, 2L, 3L, 4L, 5L))).containsExactly(root);
+        verify(menuMapper, never()).selectById(any());
+    }
+
+    @Test
+    @DisplayName("菜单父级禁用后下一次请求立即撤销子级权限")
+    void shouldRefreshAncestorsOnEveryCall() {
+        SysMenu parent = menu(1L, 0L);
+        SysMenu child = menu(2L, 1L);
+        when(menuMapper.selectList(any())).thenReturn(List.of(parent, child), List.of(child));
+        MenuDaoImpl menuDao = new MenuDaoImpl(menuMapper, roleMenuMapper, userRoleMapper, roleMapper, userMapper);
+
+        assertThat(menuDao.selectByIds(List.of(2L))).containsExactly(child);
+        assertThat(menuDao.selectByIds(List.of(2L))).isEmpty();
+        verify(menuMapper, times(2)).selectList(any());
+        verify(menuMapper, never()).selectById(any());
+    }
+
+    private SysMenu menu(Long id, Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setId(id);
+        menu.setParentId(parentId);
+        menu.setStatus("ENABLED");
+        return menu;
     }
 }

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -50,11 +51,17 @@ public class MenuDaoImpl implements MenuDao {
     @Override
     public List<SysMenu> selectByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) return Collections.emptyList();
+        // 一次读取有效菜单树，在内存中校验父级，避免逐菜单、逐层重复查库。
         List<SysMenu> menus = menuMapper.selectList(new LambdaQueryWrapper<SysMenu>()
-                .in(SysMenu::getId, ids)
                 .eq(SysMenu::getStatus, CommonStatusEnum.ENABLED.getCode())
                 .orderByAsc(SysMenu::getMenuSort));
-        return menus.stream().filter(this::hasEnabledAncestors).toList();
+        Map<Long, SysMenu> menusById = menus.stream()
+                .collect(Collectors.toMap(SysMenu::getId, menu -> menu));
+        Set<Long> requestedIds = new HashSet<>(ids);
+        return menus.stream()
+                .filter(menu -> requestedIds.contains(menu.getId()))
+                .filter(menu -> hasEnabledAncestors(menu, menusById))
+                .toList();
     }
 
     @Override
@@ -135,14 +142,14 @@ public class MenuDaoImpl implements MenuDao {
                 .toList();
     }
 
-    private boolean hasEnabledAncestors(SysMenu menu) {
+    private boolean hasEnabledAncestors(SysMenu menu, Map<Long, SysMenu> menusById) {
         Set<Long> visited = new HashSet<>();
         Long parentId = menu.getParentId();
         while (parentId != null && parentId > 0) {
             if (!visited.add(parentId)) {
                 return false;
             }
-            SysMenu parent = menuMapper.selectById(parentId);
+            SysMenu parent = menusById.get(parentId);
             if (parent == null || !CommonStatusEnum.ENABLED.getCode().equals(parent.getStatus())) {
                 return false;
             }
