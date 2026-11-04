@@ -24,7 +24,7 @@ jobs:
       - name: Copy read-only audit
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: 112.124.59.146
+          host: 47.117.142.161
           username: root
           password: ${{ secrets.ALIYUN_PASSWORD }}
           source: 'scripts/ops/audit-location-20261010.py'
@@ -33,7 +33,7 @@ jobs:
         id: audit
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: 112.124.59.146
+          host: 47.117.142.161
           username: root
           password: ${{ secrets.ALIYUN_PASSWORD }}
           capture_stdout: true
@@ -43,7 +43,7 @@ jobs:
             set -a
             . secrets/prod.env
             set +a
-            python3 scripts/ops/audit-location-20261010.py
+            python3.11 scripts/ops/audit-location-20261010.py
       - name: Publish redacted audit
         env:
           AUDIT_STDOUT: ${{ steps.audit.outputs.stdout }}
