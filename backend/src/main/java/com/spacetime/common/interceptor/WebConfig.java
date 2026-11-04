@@ -39,6 +39,7 @@ public class WebConfig implements WebMvcConfigurer {
     private void configureCors(CorsRegistration registration, String... methods) {
         registration.allowedOriginPatterns(
                         "https://admin.shikongxiehou.com",
+                        "https://test-admin.shikongxiehou.com",
                         "http://localhost:*",
                         "http://127.0.0.1:*",
                         "https://servicewechat.com",

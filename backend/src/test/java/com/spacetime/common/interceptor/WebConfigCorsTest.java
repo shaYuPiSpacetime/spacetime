@@ -1,7 +1,10 @@
 package com.spacetime.common.interceptor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.spacetime.admin.controller.AuthController;
 import com.spacetime.admin.controller.SensitiveWordController;
+import com.spacetime.admin.dto.response.LoginVO;
+import com.spacetime.admin.service.AuthService;
 import com.spacetime.admin.service.SensitiveWordService;
 import com.spacetime.common.constant.AuthConstant;
 import com.spacetime.common.dao.MenuDao;
@@ -30,7 +33,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** FIX-01/02: exercise actual WebConfig CORS and interceptors, not standalone MVC defaults. */
+/** 使用真实 WebConfig 和拦截器验证浏览器跨域请求。 */
 class WebConfigCorsTest {
     private AnnotationConfigWebApplicationContext context;
     private MockMvc mvc;
@@ -39,6 +42,8 @@ class WebConfigCorsTest {
     @Configuration @EnableWebMvc @Import(WebConfig.class)
     static class Config {
         @Bean WebsitePostController websitePostController() { return new WebsitePostController(); }
+        @Bean AuthService authService() { return mock(AuthService.class); }
+        @Bean AuthController authController(AuthService s) { return new AuthController(s); }
         @Bean MenuDao menus() { return mock(MenuDao.class); }
         @Bean SensitiveWordService service() { return mock(SensitiveWordService.class); }
         @Bean SensitiveWordController controller(SensitiveWordService s) { return new SensitiveWordController(s); }
@@ -72,13 +77,43 @@ class WebConfigCorsTest {
         mvc=MockMvcBuilders.webAppContextSetup(context).build();
     }
     @AfterEach void close() { UserContextHolder.clear();context.close(); }
-    @ParameterizedTest @ValueSource(strings={"http://127.0.0.1:5173","http://localhost:5173","https://admin.shikongxiehou.com"})
+    @ParameterizedTest @ValueSource(strings={"http://127.0.0.1:5173","http://localhost:5173","https://admin.shikongxiehou.com","https://test-admin.shikongxiehou.com"})
     void allowedOriginsCanPreflightPatch(String origin) throws Exception {
         mvc.perform(options("/admin/sensitive-words/2/status").header("Origin",origin)
             .header("Access-Control-Request-Method","PATCH").header("Access-Control-Request-Headers","content-type,x-auth-token"))
             .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin",origin))
             .andExpect(header().string("Access-Control-Allow-Methods",containsString("PATCH")));
         verifyNoInteractions(service,menus);
+    }
+    @ParameterizedTest
+    @ValueSource(strings={"https://admin.shikongxiehou.com", "https://test-admin.shikongxiehou.com"})
+    void 正式和测试后台可携带浏览器来源登录(String origin) throws Exception {
+        AuthService auth = context.getBean(AuthService.class);
+        LoginVO login = new LoginVO();
+        login.setToken("new-test-session");
+        when(auth.login(any())).thenReturn(login);
+
+        mvc.perform(options("/admin/login").header("Origin", origin)
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "content-type"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", origin));
+        mvc.perform(post("/admin/login").header("Origin", origin)
+                .contentType("application/json")
+                .content("{\"account\":\"test-account\",\"password\":\"test-password\"}"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", origin))
+            .andExpect(jsonPath("$.data.token").value("new-test-session"));
+        verify(auth).login(argThat(req -> "test-account".equals(req.getAccount())
+                && "test-password".equals(req.getPassword())));
+        verifyNoInteractions(menus);
+    }
+    @Test void 非受信来源登录仍被拦截() throws Exception {
+        mvc.perform(post("/admin/login").header("Origin", "https://untrusted.invalid")
+                .contentType("application/json")
+                .content("{\"account\":\"test-account\",\"password\":\"test-password\"}"))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(context.getBean(AuthService.class));
     }
     @Test void patchStillRequiresSessionAndEditPermission() throws Exception {
         mvc.perform(patchRequest()).andExpect(status().isUnauthorized());
