@@ -1,17 +1,33 @@
 name: ${PROJECT_NAME:-spacetime-prod}
 
 services:
+  # 首次请使用部署脚本生成受限配置；Redis 不映射宿主端口。
+  redis:
+    image: ${REDIS_IMAGE:-crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com/bobo2026/bobo2026:spacetime-redis-7.4}
+    container_name: spacetime-redis-prod
+    restart: unless-stopped
+    mem_limit: 3g
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - /mnt/data/spacetime-prod/redis/data:/data
+      - /mnt/data/spacetime-prod/secrets/redis:/usr/local/etc/redis:ro
+    networks:
+      - spacetime-prod
+
   backend:
     image: ${BACKEND_IMAGE:-crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com/bobo2026/bobo2026:spacetime-backend-prod}
     container_name: spacetime-backend-prod
     restart: unless-stopped
     env_file:
-      - /mnt/data/spacetime-prod/secrets/prod.env
+      - /mnt/data/spacetime-prod/secrets/runtime.env
     environment:
       SPRING_PROFILES_ACTIVE: prod
       TZ: Asia/Shanghai
     volumes:
       - ${WECHAT_PAY_CERT_DIR:-/mnt/data/spacetime-prod/secrets/cert}:/app/cert:ro
+      - /mnt/data/spacetime-prod/secrets/trust:/app/trust:ro
+    depends_on:
+      - redis
     ports:
       - "127.0.0.1:8080:8080"
     healthcheck:

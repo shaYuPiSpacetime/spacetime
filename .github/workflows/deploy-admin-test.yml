@@ -1,0 +1,126 @@
+name: spacetime-admin-test
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'frontend/**'
+      - 'website/**'
+      - 'docs/静态Demo/**'
+      - 'scripts/test-official-website.mjs'
+      - 'deploy/**'
+      - '.github/workflows/deploy-admin-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: spacetime-test-deploy
+  cancel-in-progress: false
+
+env:
+  ALIYUN_CR_REGISTRY: crpi-agc08x7zneglt1wg.cn-hangzhou.personal.cr.aliyuncs.com
+  ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'
+  DOCKER_NAMESPACE: bobo2026
+  ADMIN_IMAGE_NAME: bobo2026
+  ADMIN_IMAGE_TAG: spacetime-admin-test-${{ github.sha }}
+  NGINX_IMAGE_NAME: bobo2026
+  NGINX_IMAGE_TAG: spacetime-nginx-prod
+  PROD_SERVER_HOST: 112.124.59.146
+  PROD_SERVER_USER: root
+  PROD_DEPLOY_DIR: /mnt/data/spacetime-test/deploy
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate official website
+        run: node scripts/test-official-website.mjs
+
+      - name: Validate WeChat virtual product prices
+        run: node scripts/test-virtual-product-price-alignment.mjs
+
+      - name: Validate ACR password
+        env:
+          HAS_ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD != '' }}
+        run: |
+          if [ "$HAS_ALIYUN_REGISTRY_PASSWORD" != "true" ]; then
+            echo "::error::请在 GitHub Secrets 中配置 ALIYUN_REGISTRY_PASSWORD"
+            exit 1
+          fi
+
+      - name: Login to ACR
+        uses: aliyun/acr-login@v1
+        with:
+          login-server: ${{ env.ALIYUN_CR_REGISTRY }}
+          username: ${{ env.ALIYUN_REGISTRY_USER_NAME }}
+          password: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+
+      - name: Validate static demo bundle
+        run: |
+          set -e
+          test -d 'docs/静态Demo'
+          test -f 'docs/静态Demo/shared/base.css'
+          demo_pages="$(find 'docs/静态Demo' -mindepth 3 -maxdepth 3 -path '*/html/index.html' | wc -l | tr -d ' ')"
+          if [ "$demo_pages" -lt 1 ]; then
+            echo "::error::docs/静态Demo 下没有找到 */html/index.html"
+            exit 1
+          fi
+          echo "Static demo pages: $demo_pages"
+
+      - name: Build admin image with static demos
+        run: |
+          set -e
+          echo "Dockerfile will copy docs/静态Demo/ into /usr/share/nginx/html/demo/"
+          docker build \
+            -f frontend/Dockerfile \
+            -t "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${ADMIN_IMAGE_NAME}:${ADMIN_IMAGE_TAG}" \
+            .
+
+      - name: Push nginx runtime image
+        run: |
+          set -e
+          docker pull nginx:1.27-alpine
+          docker tag nginx:1.27-alpine "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${NGINX_IMAGE_NAME}:${NGINX_IMAGE_TAG}"
+          docker push "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${NGINX_IMAGE_NAME}:${NGINX_IMAGE_TAG}"
+
+      - name: Push admin image
+        run: |
+          set -e
+          docker push "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${ADMIN_IMAGE_NAME}:${ADMIN_IMAGE_TAG}"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout deploy files
+        uses: actions/checkout@v4
+
+      - name: Sync deploy files over SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.PROD_SERVER_HOST }}
+          username: ${{ env.PROD_SERVER_USER }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          source: 'deploy/cron/*,deploy/scripts/*,deploy/nginx-test/conf.d/*'
+          target: '/mnt/data/spacetime-test'
+
+      - name: Deploy admin over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        env:
+          ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+          DEPLOY_ADMIN_IMAGE: ${{ env.ALIYUN_CR_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/${{ env.ADMIN_IMAGE_NAME }}:${{ env.ADMIN_IMAGE_TAG }}
+        with:
+          host: ${{ env.PROD_SERVER_HOST }}
+          username: ${{ env.PROD_SERVER_USER }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+          envs: ALIYUN_REGISTRY_PASSWORD,DEPLOY_ADMIN_IMAGE
+          script_stop: true
+          script: |
+            set -e
+            export SPACETIME_DEPLOY_ENV=test
+            export SPACETIME_PROJECT_DIR=/mnt/data/spacetime-test
+            export SPACETIME_PROD_ENV_FILE=/mnt/data/spacetime-test/secrets/test.env
+            cd "${{ env.PROD_DEPLOY_DIR }}"
+            bash scripts/deploy-prod-local.sh admin

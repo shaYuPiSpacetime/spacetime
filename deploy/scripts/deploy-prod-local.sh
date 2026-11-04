@@ -7,6 +7,14 @@ PROD_ENV_FILE="${SPACETIME_PROD_ENV_FILE:-${PROJECT_DIR}/secrets/prod.env}"
 RUNTIME_ENV_FILE="${SPACETIME_RUNTIME_ENV_FILE:-${PROJECT_DIR}/secrets/runtime.env}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_ENV="${SPACETIME_DEPLOY_ENV:-prod}"
+case "$DEPLOY_ENV" in prod|test) ;; *) echo "部署环境只能为 prod 或 test" >&2; exit 1 ;; esac
+BACKEND_CONTAINER="spacetime-backend-${DEPLOY_ENV}"
+ADMIN_CONTAINER="spacetime-admin-${DEPLOY_ENV}"
+NGINX_CONTAINER="spacetime-nginx-${DEPLOY_ENV}"
+DOCKER_NETWORK="spacetime-${DEPLOY_ENV}"
+REDIS_CONTAINER="spacetime-redis-${DEPLOY_ENV}"
+NGINX_CONFIG_DIR="${SPACETIME_NGINX_CONFIG_DIR:-${ROOT_DIR}/deploy/nginx-${DEPLOY_ENV}/conf.d}"
 
 # shellcheck source=resolve-oss-endpoint.sh
 . "${SCRIPT_DIR}/resolve-oss-endpoint.sh"
@@ -45,6 +53,7 @@ load_env() {
   export ADMIN_DOMAIN="${ADMIN_DOMAIN:-admin.shikongxiehou.com}"
   export ADMIN_SSL_DIR="${ADMIN_SSL_DIR:-/mnt/data/spacetime-prod/ssl}"
   export SITE_DOMAIN="${SITE_DOMAIN:-www.shikongxiehou.com}"
+  export SITE_HTTPS_CHECK_ENABLED="${SITE_HTTPS_CHECK_ENABLED:-true}"
   export SITE_APEX_DOMAIN="${SITE_APEX_DOMAIN:-shikongxiehou.com}"
   export SITE_SSL_DIR="${SITE_SSL_DIR:-/mnt/data/spacetime-prod/letsencrypt}"
   export ACME_WEBROOT="${ACME_WEBROOT:-/mnt/data/spacetime-prod/acme}"
@@ -58,7 +67,13 @@ load_env() {
   export BACKEND_IMAGE_TAG="${BACKEND_IMAGE_TAG:-spacetime-backend-prod}"
   export ADMIN_IMAGE="${ADMIN_IMAGE:-${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${ADMIN_IMAGE_NAME}:${ADMIN_IMAGE_TAG}}"
   export BACKEND_IMAGE="${BACKEND_IMAGE:-${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}}"
+  export BACKEND_IMAGE="${DEPLOY_BACKEND_IMAGE:-$BACKEND_IMAGE}"
+  export ADMIN_IMAGE="${DEPLOY_ADMIN_IMAGE:-$ADMIN_IMAGE}"
+  export SPACETIME_SCHEDULING_ENABLED="${SPACETIME_SCHEDULING_ENABLED:-true}"
+  export JAVA_OPTS="${JAVA_OPTS:-}"
   export REDIS_DATABASE="${REDIS_DATABASE:-1}"
+  export REDIS_LOCAL_ENABLED="${REDIS_LOCAL_ENABLED:-false}"
+  export REDIS_IMAGE="${REDIS_IMAGE:-${ALIYUN_CR_REGISTRY}/bobo2026/bobo2026:spacetime-redis-7.4}"
   export OSS_URL_EXPIRE_SECONDS="${OSS_URL_EXPIRE_SECONDS:-300}"
   export SMS_PROVIDER="${SMS_PROVIDER:-aliyun}"
   export SMS_MOCK_ENABLED="${SMS_MOCK_ENABLED:-true}"
@@ -169,8 +184,17 @@ load_env() {
 
   require_file "${ADMIN_SSL_DIR}/${ADMIN_DOMAIN}.pem"
   require_file "${ADMIN_SSL_DIR}/${ADMIN_DOMAIN}.key"
-  require_file "${SITE_SSL_DIR}/live/${SITE_DOMAIN}/fullchain.pem"
-  require_file "${SITE_SSL_DIR}/live/${SITE_DOMAIN}/privkey.pem"
+  if [ "$DEPLOY_ENV" = prod ]; then
+    [ "$DB_NAME" = shikongxiehou_prod ] || fail "生产部署必须使用 shikongxiehou_prod 数据库"
+    [ "$REDIS_LOCAL_ENABLED" = true ] && [ "$REDIS_HOST" = redis ] && [ "$REDIS_USERNAME" = default ] \
+      || fail "生产必须使用 Docker 私网独立 Redis"
+    require_file "${SITE_SSL_DIR}/live/${SITE_DOMAIN}/fullchain.pem"
+    require_file "${SITE_SSL_DIR}/live/${SITE_DOMAIN}/privkey.pem"
+  else
+    [ "$DB_NAME" = shikongxiehou ] || fail "测试部署必须使用 shikongxiehou 数据库"
+    [ "$ADMIN_DOMAIN" = test-admin.shikongxiehou.com ] || fail "测试域名配置错误"
+    [ "$SPACETIME_SCHEDULING_ENABLED" = false ] || fail "测试环境必须关闭自动调度，避免重复处理历史订单和消息"
+  fi
 }
 
 write_runtime_env() {
@@ -179,7 +203,7 @@ write_runtime_env() {
   # Docker --env-file 不会像 shell source 一样剥离引号，统一写入规范化后的运行时环境变量。
   {
     for key in \
-      PROJECT_NAME \
+      PROJECT_NAME JAVA_OPTS SPACETIME_SCHEDULING_ENABLED \
       DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
       REDIS_HOST REDIS_PORT REDIS_DATABASE REDIS_USERNAME REDIS_PASSWORD \
       OSS_ENDPOINT OSS_BUCKET_NAME WEBSITE_OSS_BUCKET_NAME OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET \
@@ -227,7 +251,51 @@ docker_login_if_possible() {
 }
 
 ensure_network() {
-  docker network inspect spacetime-prod >/dev/null 2>&1 || docker network create spacetime-prod >/dev/null
+  docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK" >/dev/null
+}
+
+ensure_redis() {
+  [ "$REDIS_LOCAL_ENABLED" = true ] || return 0
+  # 密码写入受限配置文件，避免出现在进程参数和发布日志中。
+  [[ "$REDIS_PASSWORD" =~ ^[a-zA-Z0-9_-]{32,}$ ]] || fail "本机 Redis 密码须为至少 32 位安全随机字符"
+  local redis_dir="${PROJECT_DIR}/redis"
+  mkdir -p "$redis_dir/data" "${PROJECT_DIR}/secrets/redis"
+  if ! docker inspect "$REDIS_CONTAINER" >/dev/null 2>&1; then
+    docker pull "$REDIS_IMAGE"
+    umask 077
+    cat > "${PROJECT_DIR}/secrets/redis/redis.conf" <<EOF
+bind 0.0.0.0
+protected-mode yes
+port 6379
+dir /data
+requirepass ${REDIS_PASSWORD}
+appendonly yes
+appendfsync everysec
+save 900 1
+save 300 10
+save 60 10000
+maxmemory 2gb
+maxmemory-policy noeviction
+EOF
+    # 官方镜像的 redis 用户为 999；宿主持久化目录不向其他用户开放。
+    chown -R 999:999 "$redis_dir/data" "${PROJECT_DIR}/secrets/redis"
+    chmod 700 "$redis_dir/data" "${PROJECT_DIR}/secrets/redis"
+    docker run -d --name "$REDIS_CONTAINER" --restart unless-stopped \
+      --network "$DOCKER_NETWORK" --network-alias redis --memory 3g \
+      -v "$redis_dir/data:/data" \
+      -v "${PROJECT_DIR}/secrets/redis:/usr/local/etc/redis:ro" \
+      "$REDIS_IMAGE" redis-server /usr/local/etc/redis/redis.conf >/dev/null
+  else
+    docker start "$REDIS_CONTAINER" >/dev/null
+  fi
+  for _ in $(seq 1 30); do
+    if printf '%s\n' "$REDIS_PASSWORD" | docker exec -i "$REDIS_CONTAINER" sh -c \
+      'read -r REDISCLI_AUTH; export REDISCLI_AUTH; redis-cli ping' | grep -qx PONG; then
+      return 0
+    fi
+    sleep 1
+  done
+  fail "独立 Redis 健康检查失败"
 }
 
 pull_admin() {
@@ -253,24 +321,27 @@ wait_backend() {
     fi
     sleep 2
   done
-  docker logs --tail=200 spacetime-backend-prod || true
+  docker logs --tail=200 "$BACKEND_CONTAINER" || true
   fail "后端健康检查失败"
 }
 
 wait_admin() {
   log "等待管理后台 HTTPS 访问"
   for _ in $(seq 1 60); do
-    if curl -k -fsS --resolve "${ADMIN_DOMAIN}:443:127.0.0.1" "https://${ADMIN_DOMAIN}/" >/dev/null; then
+    if curl -fsS --resolve "${ADMIN_DOMAIN}:443:127.0.0.1" "https://${ADMIN_DOMAIN}/" >/dev/null; then
       return
     fi
     sleep 2
   done
-  docker logs --tail=200 spacetime-nginx-prod || true
-  docker logs --tail=200 spacetime-admin-prod || true
+  docker logs --tail=200 "$NGINX_CONTAINER" || true
+  docker logs --tail=200 "$ADMIN_CONTAINER" || true
   fail "管理后台 HTTPS 检查失败"
 }
 
 wait_site() {
+  [ "$DEPLOY_ENV" = prod ] || return 0
+  # 官网域名由其他服务器承载时，不用本机镜像站证书阻塞后台发布。
+  [ "$SITE_HTTPS_CHECK_ENABLED" = true ] || return 0
   log "等待官网 HTTPS 访问"
   for _ in $(seq 1 60); do
     if curl -fsS --resolve "${SITE_DOMAIN}:443:127.0.0.1" "https://${SITE_DOMAIN}/" >/dev/null; then
@@ -278,20 +349,21 @@ wait_site() {
     fi
     sleep 2
   done
-  docker logs --tail=200 spacetime-nginx-prod || true
-  docker logs --tail=200 spacetime-admin-prod || true
+  docker logs --tail=200 "$NGINX_CONTAINER" || true
+  docker logs --tail=200 "$ADMIN_CONTAINER" || true
   fail "官网 HTTPS 检查失败"
 }
 
 restart_backend() {
-  docker rm -f spacetime-backend-prod >/dev/null 2>&1 || true
+  docker rm -f "$BACKEND_CONTAINER" >/dev/null 2>&1 || true
   docker run -d \
-    --name spacetime-backend-prod \
+    --name "$BACKEND_CONTAINER" \
     --restart unless-stopped \
-    --network spacetime-prod \
+    --network "$DOCKER_NETWORK" \
     --network-alias backend \
     --env-file "$RUNTIME_ENV_FILE" \
     -v "${WECHAT_PAY_CERT_DIR}:/app/cert:ro" \
+    -v "${PROJECT_DIR}/secrets/trust:/app/trust:ro" \
     -e SPRING_PROFILES_ACTIVE=prod \
     -e TZ=Asia/Shanghai \
     -p 127.0.0.1:8080:8080 \
@@ -299,25 +371,25 @@ restart_backend() {
 }
 
 restart_admin() {
-  docker rm -f spacetime-admin-prod >/dev/null 2>&1 || true
+  docker rm -f "$ADMIN_CONTAINER" >/dev/null 2>&1 || true
   docker run -d \
-    --name spacetime-admin-prod \
+    --name "$ADMIN_CONTAINER" \
     --restart unless-stopped \
-    --network spacetime-prod \
+    --network "$DOCKER_NETWORK" \
     --network-alias admin-web \
     "$ADMIN_IMAGE" >/dev/null
 }
 
 restart_nginx() {
   mkdir -p "$ACME_WEBROOT"
-  docker rm -f spacetime-nginx-prod >/dev/null 2>&1 || true
+  docker rm -f "$NGINX_CONTAINER" >/dev/null 2>&1 || true
   docker run -d \
-    --name spacetime-nginx-prod \
+    --name "$NGINX_CONTAINER" \
     --restart unless-stopped \
-    --network spacetime-prod \
+    --network "$DOCKER_NETWORK" \
     -p 80:80 \
     -p 443:443 \
-    -v "$ROOT_DIR/deploy/nginx-prod/conf.d:/etc/nginx/conf.d:ro" \
+    -v "$NGINX_CONFIG_DIR:/etc/nginx/conf.d:ro" \
     -v "${ADMIN_SSL_DIR}:/etc/nginx/ssl:ro" \
     -v "${SITE_SSL_DIR}:/etc/letsencrypt:ro" \
     -v "${ACME_WEBROOT}:/var/www/certbot:ro" \
@@ -356,6 +428,7 @@ main() {
   docker_login_if_possible
   ensure_network
   write_runtime_env
+  ensure_redis
 
   case "$TARGET" in
     backend)
@@ -365,15 +438,28 @@ main() {
       deploy_admin
       ;;
     full)
-      deploy_backend
-      deploy_admin
+      # 空服务器首次部署时，先启动全部上游，再检查站点。
+      pull_backend
+      pull_admin
+      pull_nginx
+      restart_backend
+      restart_admin
+      restart_nginx
+      wait_backend
+      wait_admin
+      wait_site
       ;;
     *)
       fail "未知部署目标：$TARGET，可选 backend/admin/full"
       ;;
   esac
 
-  install_admin_cert_cron
+  if [ "$DEPLOY_ENV" = prod ]; then
+    install_admin_cert_cron
+  else
+    mkdir -p /var/log/spacetime
+    install -m 644 "$ROOT_DIR/deploy/cron/spacetime-test-cert" /etc/cron.d/spacetime-test-cert
+  fi
   log "部署完成：$TARGET"
 }
 

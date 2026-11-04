@@ -68,7 +68,7 @@ assertNotIncludes(adminWorkflow, 'ADMIN_SSL_CERT_PEM', '.github/workflows/deploy
 assertNotIncludes(adminWorkflow, 'ADMIN_SSL_CERT_KEY', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, acrRegistry, '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'", '.github/workflows/deploy-admin-prod.yml');
-assertIncludes(adminWorkflow, 'PROD_SERVER_HOST: 112.124.59.146', '.github/workflows/deploy-admin-prod.yml');
+assertIncludes(adminWorkflow, 'PROD_SERVER_HOST: 47.117.142.161', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'bash scripts/deploy-prod-local.sh admin', '.github/workflows/deploy-admin-prod.yml');
 assertIncludes(adminWorkflow, 'NGINX_IMAGE_TAG: spacetime-nginx-prod', '.github/workflows/deploy-admin-prod.yml');
@@ -91,7 +91,7 @@ assertIncludes(backendWorkflow, 'spacetime-backend-prod', '.github/workflows/dep
 for (const expected of [
   acrRegistry,
   "ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'",
-  'PROD_SERVER_HOST: 112.124.59.146',
+  'PROD_SERVER_HOST: 47.117.142.161',
   'PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy',
   'node scripts/validate-prod-deploy-config.mjs',
   'bash scripts/migrate-prod-db.sh',
@@ -167,7 +167,7 @@ for (const expected of [
   'admin-web',
   'backend',
   'spacetime-prod',
-  '/mnt/data/spacetime-prod/secrets/prod.env',
+  '/mnt/data/spacetime-prod/secrets/runtime.env',
   `${acrRegistry}/bobo2026/bobo2026:spacetime-admin-prod`,
   `${acrRegistry}/bobo2026/bobo2026:spacetime-backend-prod`,
   `${acrRegistry}/bobo2026/bobo2026:spacetime-nginx-prod`,
@@ -228,8 +228,10 @@ for (const expected of [
   `BACKEND_IMAGE=${acrRegistry}/bobo2026/bobo2026:spacetime-backend-prod`,
   'DB_HOST=',
   'DB_NAME=',
-  'DB_USER=shikongxiehou',
-  'REDIS_USERNAME=r-bp182i9r17g2ybq30g',
+  'DB_USER=spacetime_prod',
+  'REDIS_USERNAME=default',
+  'REDIS_LOCAL_ENABLED=true',
+  'REDIS_HOST=redis',
   'OSS_ENDPOINT=https://oss-cn-shanghai.aliyuncs.com',
   'OSS_BUCKET_NAME=shikongxiehou',
   'OSS_ACCESS_KEY_ID=',
@@ -468,3 +470,19 @@ for (const file of [
 }
 
 console.log('生产部署静态配置校验通过');
+
+// 两个环境的服务器、目录、域名和数据必须分离。
+for (const component of ['backend', 'admin']) {
+  const file = `.github/workflows/deploy-${component}-test.yml`;
+  const content = read(file);
+  assertIncludes(content, 'PROD_SERVER_HOST: 112.124.59.146', file);
+  assertIncludes(content, '/mnt/data/spacetime-test', file);
+  assertIncludes(content, 'export SPACETIME_DEPLOY_ENV=test', file);
+  assertIncludes(content, 'secrets/test.env', file);
+  assertIncludes(content, 'deploy/nginx-test/conf.d/*', file);
+  assertNotIncludes(content, '47.117.142.161', file);
+  assertIncludes(content, 'branches: [ master ]', file);
+}
+assertIncludes(read('deploy/server.test.env.example'), 'SPACETIME_SCHEDULING_ENABLED=false', '测试环境模板');
+assertIncludes(read('deploy/server.prod.env.example'), 'DB_NAME=shikongxiehou_prod', '生产环境模板');
+assertIncludes(read('deploy/nginx-test/conf.d/default.conf'), 'server_name test-admin.shikongxiehou.com', '测试 Nginx');

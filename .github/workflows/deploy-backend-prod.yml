@@ -26,10 +26,10 @@ env:
   ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'
   DOCKER_NAMESPACE: bobo2026
   BACKEND_IMAGE_NAME: bobo2026
-  BACKEND_IMAGE_TAG: spacetime-backend-prod
+  BACKEND_IMAGE_TAG: spacetime-backend-prod-${{ github.sha }}
   NGINX_IMAGE_NAME: bobo2026
   NGINX_IMAGE_TAG: spacetime-nginx-prod
-  PROD_SERVER_HOST: 112.124.59.146
+  PROD_SERVER_HOST: 47.117.142.161
   PROD_SERVER_USER: root
   PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy
 
@@ -87,6 +87,13 @@ jobs:
           set -e
           docker push "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${BACKEND_IMAGE_NAME}:${BACKEND_IMAGE_TAG}"
 
+      - name: 同步独立 Redis 官方镜像
+        run: |
+          set -e
+          docker pull --platform linux/amd64 redis@sha256:1cf73a2f04808e55a8bd2f5706c2aa0ebb0f71938f93deb7af79f48311cd5cb9
+          docker tag redis@sha256:1cf73a2f04808e55a8bd2f5706c2aa0ebb0f71938f93deb7af79f48311cd5cb9 "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${BACKEND_IMAGE_NAME}:spacetime-redis-7.4"
+          docker push "${ALIYUN_CR_REGISTRY}/${DOCKER_NAMESPACE}/${BACKEND_IMAGE_NAME}:spacetime-redis-7.4"
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -107,11 +114,12 @@ jobs:
         uses: appleboy/ssh-action@v1.2.2
         env:
           ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+          DEPLOY_BACKEND_IMAGE: ${{ env.ALIYUN_CR_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}:${{ env.BACKEND_IMAGE_TAG }}
         with:
           host: ${{ env.PROD_SERVER_HOST }}
           username: ${{ env.PROD_SERVER_USER }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          envs: ALIYUN_REGISTRY_PASSWORD
+          envs: ALIYUN_REGISTRY_PASSWORD,DEPLOY_BACKEND_IMAGE
           script_stop: true
           script: |
             set -e

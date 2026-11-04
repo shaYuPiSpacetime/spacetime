@@ -61,6 +61,7 @@ ensure_database() {
     -h"$DB_HOST" \
     -P"${DB_PORT:-3306}" \
     -u"$DB_USER" \
+    "${MYSQL_SSL_ARGS[@]}" \
     --default-character-set=utf8mb4 \
     -e "CREATE DATABASE IF NOT EXISTS ${quoted_db} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 }
@@ -101,6 +102,15 @@ run_migrations() {
 
   local client
   client="$(mysql_client)"
+  MYSQL_SSL_ARGS=(--connect-timeout=10)
+  if [ -n "${DB_SSL_CA:-}" ]; then
+    require_file "$DB_SSL_CA"
+    if "$client" --version | grep -qi mariadb; then
+      MYSQL_SSL_ARGS+=(--ssl-ca="$DB_SSL_CA" --ssl-verify-server-cert)
+    else
+      MYSQL_SSL_ARGS+=(--ssl-ca="$DB_SSL_CA" --ssl-mode=VERIFY_IDENTITY)
+    fi
+  fi
   log "使用 ${client} 直连生产数据库执行迁移"
   ensure_database "$client"
 
@@ -110,6 +120,7 @@ run_migrations() {
       -h"$DB_HOST" \
       -P"${DB_PORT:-3306}" \
       -u"$DB_USER" \
+      "${MYSQL_SSL_ARGS[@]}" \
       --default-character-set=utf8mb4 \
       "$DB_NAME" < "$sql_file"
   done

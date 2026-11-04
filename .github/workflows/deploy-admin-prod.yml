@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: spacetime-admin-prod-deploy
+  group: spacetime-prod-deploy
   cancel-in-progress: false
 
 env:
@@ -21,10 +21,10 @@ env:
   ALIYUN_REGISTRY_USER_NAME: '393841724@qq.com'
   DOCKER_NAMESPACE: bobo2026
   ADMIN_IMAGE_NAME: bobo2026
-  ADMIN_IMAGE_TAG: spacetime-admin-prod
+  ADMIN_IMAGE_TAG: spacetime-admin-prod-${{ github.sha }}
   NGINX_IMAGE_NAME: bobo2026
   NGINX_IMAGE_TAG: spacetime-nginx-prod
-  PROD_SERVER_HOST: 112.124.59.146
+  PROD_SERVER_HOST: 47.117.142.161
   PROD_SERVER_USER: root
   PROD_DEPLOY_DIR: /mnt/data/spacetime-prod/deploy
 
@@ -133,11 +133,12 @@ jobs:
         uses: appleboy/ssh-action@v1.2.2
         env:
           ALIYUN_REGISTRY_PASSWORD: ${{ secrets.ALIYUN_REGISTRY_PASSWORD }}
+          DEPLOY_ADMIN_IMAGE: ${{ env.ALIYUN_CR_REGISTRY }}/${{ env.DOCKER_NAMESPACE }}/${{ env.ADMIN_IMAGE_NAME }}:${{ env.ADMIN_IMAGE_TAG }}
         with:
           host: ${{ env.PROD_SERVER_HOST }}
           username: ${{ env.PROD_SERVER_USER }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-          envs: ALIYUN_REGISTRY_PASSWORD
+          envs: ALIYUN_REGISTRY_PASSWORD,DEPLOY_ADMIN_IMAGE
           script_stop: true
           script: |
             set -e
