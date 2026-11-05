@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_DIR="${SPACETIME_PROJECT_DIR:-/mnt/data/spacetime-prod}"
 PROD_ENV_FILE="${SPACETIME_PROD_ENV_FILE:-${PROJECT_DIR}/secrets/prod.env}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+. "${ROOT_DIR}/deploy/scripts/local-mysql.sh"
 
 log() {
   printf '[spacetime-prod-db] %s\n' "$*"
@@ -57,13 +58,17 @@ ensure_database() {
   local quoted_db
   quoted_db="$(quote_identifier "$DB_NAME")"
   log "确保生产数据库存在"
-  MYSQL_PWD="$DB_PASSWORD" "$client" \
-    -h"$DB_HOST" \
-    -P"${DB_PORT:-3306}" \
-    -u"$DB_USER" \
-    "${MYSQL_SSL_ARGS[@]}" \
-    --default-character-set=utf8mb4 \
+  run_mysql \
     -e "CREATE DATABASE IF NOT EXISTS ${quoted_db} DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+}
+
+run_mysql() {
+  if mysql_local_enabled; then
+    mysql_local_app "$@"
+  else
+    MYSQL_PWD="$DB_PASSWORD" "$client" -h"$DB_HOST" -P"${DB_PORT:-3306}" -u"$DB_USER" \
+      "${MYSQL_SSL_ARGS[@]}" --default-character-set=utf8mb4 "$@"
+  fi
 }
 
 run_migrations() {
@@ -101,9 +106,14 @@ run_migrations() {
   [ "${#sql_files[@]}" -gt 0 ] || fail "未发现生产 SQL：$ROOT_DIR/deploy/sql/prod/*.sql"
 
   local client
-  client="$(mysql_client)"
+  if mysql_local_enabled; then
+    ensure_mysql
+    client=container
+  else
+    client="$(mysql_client)"
+  fi
   MYSQL_SSL_ARGS=(--connect-timeout=10)
-  if [ -n "${DB_SSL_CA:-}" ]; then
+  if ! mysql_local_enabled && [ -n "${DB_SSL_CA:-}" ]; then
     require_file "$DB_SSL_CA"
     if "$client" --version | grep -qi mariadb; then
       MYSQL_SSL_ARGS+=(--ssl-ca="$DB_SSL_CA" --ssl-verify-server-cert)
@@ -116,13 +126,7 @@ run_migrations() {
 
   for sql_file in "${sql_files[@]}"; do
     log "执行 $(basename "$sql_file")"
-    MYSQL_PWD="$DB_PASSWORD" "$client" \
-      -h"$DB_HOST" \
-      -P"${DB_PORT:-3306}" \
-      -u"$DB_USER" \
-      "${MYSQL_SSL_ARGS[@]}" \
-      --default-character-set=utf8mb4 \
-      "$DB_NAME" < "$sql_file"
+    run_mysql "$DB_NAME" < "$sql_file"
   done
 }
 

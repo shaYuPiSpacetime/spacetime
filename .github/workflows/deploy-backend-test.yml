@@ -7,6 +7,7 @@ on:
       - 'backend/**'
       - 'deploy/**'
       - 'scripts/validate-prod-deploy-config.mjs'
+      - 'scripts/test-local-mysql-deploy.mjs'
       - 'scripts/generate-website-legal-sql.mjs'
       - 'docs/官网/官网用户服务协议.md'
       - 'docs/官网/官网隐私政策.md'
@@ -42,8 +43,9 @@ jobs:
 
       - name: Validate production runtime configuration
         run: |
-          bash -n deploy/scripts/resolve-oss-endpoint.sh deploy/scripts/migrate-prod-db.sh deploy/scripts/deploy-prod-local.sh
+          bash -n deploy/scripts/resolve-oss-endpoint.sh deploy/scripts/migrate-prod-db.sh deploy/scripts/deploy-prod-local.sh deploy/scripts/local-mysql.sh deploy/scripts/backup-local-mysql.sh
           node scripts/validate-prod-deploy-config.mjs
+          node scripts/test-local-mysql-deploy.mjs
           node scripts/generate-website-legal-sql.mjs --check
           node scripts/test-prod-oss-endpoint.mjs
           node scripts/test-prod-wechat-pay-config.mjs

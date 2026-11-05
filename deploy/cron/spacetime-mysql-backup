@@ -1,0 +1,3 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+17 4 * * * root /bin/bash /mnt/data/spacetime-prod/deploy/scripts/backup-local-mysql.sh >> /var/log/spacetime/mysql-backup.log 2>&1

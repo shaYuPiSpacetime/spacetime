@@ -18,6 +18,7 @@ NGINX_CONFIG_DIR="${SPACETIME_NGINX_CONFIG_DIR:-${ROOT_DIR}/deploy/nginx-${DEPLO
 
 # shellcheck source=resolve-oss-endpoint.sh
 . "${SCRIPT_DIR}/resolve-oss-endpoint.sh"
+. "${SCRIPT_DIR}/local-mysql.sh"
 
 log() {
   printf '[spacetime-prod] %s\n' "$*"
@@ -186,6 +187,8 @@ load_env() {
   require_file "${ADMIN_SSL_DIR}/${ADMIN_DOMAIN}.key"
   if [ "$DEPLOY_ENV" = prod ]; then
     [ "$DB_NAME" = shikongxiehou_prod ] || fail "生产部署必须使用 shikongxiehou_prod 数据库"
+    mysql_local_enabled || fail "生产必须使用已迁移的本机 MySQL"
+    mysql_local_validate
     [ "$REDIS_LOCAL_ENABLED" = true ] && [ "$REDIS_HOST" = redis ] && [ "$REDIS_USERNAME" = default ] \
       || fail "生产必须使用 Docker 私网独立 Redis"
     require_file "${SITE_SSL_DIR}/live/${SITE_DOMAIN}/fullchain.pem"
@@ -421,12 +424,22 @@ install_admin_cert_cron() {
   install -m 644 "$ROOT_DIR/deploy/cron/spacetime-admin-cert" /etc/cron.d/spacetime-admin-cert
 }
 
+install_mysql_backup_cron() {
+  mysql_local_enabled || return 0
+  [ -n "${MYSQL_BACKUP_REMOTE:-}" ] || fail "生产 MySQL 缺少异机备份目标"
+  require_file "${PROJECT_DIR}/secrets/mysql-backup/id_ed25519"
+  require_file "${PROJECT_DIR}/secrets/mysql-backup/known_hosts"
+  require_file "$ROOT_DIR/deploy/cron/spacetime-mysql-backup"
+  install -m 644 "$ROOT_DIR/deploy/cron/spacetime-mysql-backup" /etc/cron.d/spacetime-mysql-backup
+}
+
 main() {
   cd "$ROOT_DIR"
   load_env
   ensure_runtime
   docker_login_if_possible
   ensure_network
+  ensure_mysql
   write_runtime_env
   ensure_redis
 
@@ -456,6 +469,7 @@ main() {
 
   if [ "$DEPLOY_ENV" = prod ]; then
     install_admin_cert_cron
+    install_mysql_backup_cron
   else
     mkdir -p /var/log/spacetime
     install -m 644 "$ROOT_DIR/deploy/cron/spacetime-test-cert" /etc/cron.d/spacetime-test-cert
