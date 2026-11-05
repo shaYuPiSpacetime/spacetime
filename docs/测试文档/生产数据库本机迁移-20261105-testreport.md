@@ -53,7 +53,17 @@
 - 数据目录或验收标识缺失时，发布停止，不能自动创建空库；正常发布保留 MySQL 容器和数据。
 - 生产 SQL 迁移通过容器内客户端执行，测试 RDS 保持原客户端路径；命令行 SQL 不连接标准输入，防止吞掉后续 SSH 发布命令。
 - 8 项部署回归、Shell 语法、生产配置校验均通过。本次未改动业务代码，复用上一轮已经有效的业务回归证据。
-- 自动流水线最终结果在本次提交后补录；当前手工切换与公网验证已完成。
+- 部署代码 `283ce6d8c3a41b544bcaed045eb6ab1753c191c1` 已推送；[生产后端自动部署](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/41981464630)成功，实际运行镜像与该提交一致，连接仍为 Docker `mysql` 下的生产库。
+- 自动部署后，8 个正式 HTTPS 业务接口全部再次返回 HTTP / 业务码 200，响应摘要与迁移前一致；本轮中位数为 41–89 毫秒。
+- 四条部署流水线全部成功，两个环境的后端及管理端实际镜像均为本次提交，运行正常、重启次数为 0；生产仍连接本机 `shikongxiehou_prod`，测试仍连接原 RDS `shikongxiehou`。两环境公网后台页面与健康接口全部返回 200。
+- 自动发布后 MySQL 实例 UUID 未改变、无宿主端口映射，两个只读开关均关闭；应用连接实际协商 TLS。旧后端容器仍为停止状态，重启策略为 `no`；本机 MySQL 已移除默认网络 root 账号，只保留 `root@localhost`。
+
+| 发布目标 | 流水线 | 结果 |
+| --- | --- | --- |
+| 生产后端 | [41981464630](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/41981464630) | 成功，实际连接本机库 |
+| 生产管理端 | [41981464622](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/41981464622) | 成功，公网访问正常 |
+| 测试后端 | [41981464642](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/41981464642) | 成功，保留原 RDS |
+| 测试管理端 | [41981464639](https://github.com/shaYuPiSpacetime/spacetime/actions/runs/41981464639) | 成功，公网访问正常 |
 
 ## 回退与恢复
 
