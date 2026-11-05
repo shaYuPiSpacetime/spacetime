@@ -38,7 +38,8 @@ function rememberPendingShareRoute(path?: string, query?: Record<string, unknown
 }
 
 function App({ children }: PropsWithChildren<object>) {
-  const { setLogin, checkLogin } = useAuthStore()
+  const setLogin = useAuthStore(state => state.setLogin)
+  const checkLogin = useAuthStore(state => state.checkLogin)
   const bootstrapPrd01 = usePrd01Store(state => state.bootstrap)
   const loginRedirectingRef = useRef(false)
   const shareEntryVersionRef = useRef(0)

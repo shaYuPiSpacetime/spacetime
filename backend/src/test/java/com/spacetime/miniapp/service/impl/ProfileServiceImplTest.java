@@ -885,6 +885,12 @@ class ProfileServiceImplTest {
                 .thenReturn(record(AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED));
         org.mockito.Mockito.lenient().when(auditService.latestEffectiveRecord(7L, AppUserAuditTypeEnum.ABOUT_ME))
                 .thenReturn(record(AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditStatusEnum.APPROVED));
+        var avatarFact = record(AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED);
+        avatarFact.setUserId(7L);
+        var introductionFact = record(AppUserAuditTypeEnum.ABOUT_ME, AppUserAuditStatusEnum.APPROVED);
+        introductionFact.setUserId(7L);
+        when(auditService.profileCompletenessRecords(java.util.Set.of(7L)))
+                .thenReturn(List.of(avatarFact, introductionFact));
 
         ProfileDetailVO result = newService().getDetail(7L);
 

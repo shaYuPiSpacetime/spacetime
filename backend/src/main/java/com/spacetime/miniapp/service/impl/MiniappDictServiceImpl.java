@@ -1,6 +1,8 @@
 package com.spacetime.miniapp.service.impl;
 
 import com.spacetime.common.constant.ProfileDictType;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.spacetime.common.enums.CommonStatusEnum;
 import com.spacetime.common.dao.DictDataDao;
 import com.spacetime.common.entity.SysDictData;
 import com.spacetime.common.exception.BusinessException;
@@ -115,23 +117,40 @@ public class MiniappDictServiceImpl implements MiniappDictService {
     /** 基础资料字典选项数量较小，一次返回可减少首登和资料编辑页请求次数。 */
     @Override
     public Map<String, Object> profileOptions() {
+        Map<String, String> types = new LinkedHashMap<>();
+        types.put("gender", ProfileDictType.GENDER);
+        types.put("identity", ProfileDictType.IDENTITY);
+        types.put("educationLevel", ProfileDictType.EDUCATION_LEVEL);
+        types.put("industry", ProfileDictType.INDUSTRY);
+        types.put("occupation", ProfileDictType.OCCUPATION);
+        types.put("annualIncome", ProfileDictType.ANNUAL_INCOME);
+        types.put("maritalStatus", ProfileDictType.MARITAL_STATUS);
+        types.put("datingGoal", ProfileDictType.DATING_GOAL);
+        types.put("emotionalStatus", ProfileDictType.EMOTIONAL_STATUS);
+        types.put("educationUserType", ProfileDictType.EDUCATION_USER_TYPE);
+        types.put("educationMethod", ProfileDictType.EDUCATION_METHOD);
+        types.put("auditStatus", ProfileDictType.AUDIT_STATUS);
+        types.put("auditSource", ProfileDictType.AUDIT_SOURCE);
+        types.put("coreAccessStatus", ProfileDictType.CORE_ACCESS_STATUS);
+        types.put("avatarSource", ProfileDictType.AVATAR_SOURCE);
+        List<String> dictTypes = new ArrayList<>(types.values());
+        dictTypes.add(ProfileDictType.PROFILE_TAG);
+        List<SysDictData> rows = dictDataDao.selectList(new LambdaQueryWrapper<SysDictData>()
+                .in(SysDictData::getDictType, dictTypes)
+                .eq(SysDictData::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .orderByAsc(SysDictData::getDictSort).orderByAsc(SysDictData::getId));
+        Map<String, List<SysDictData>> grouped = rows.stream()
+                .collect(java.util.stream.Collectors.groupingBy(SysDictData::getDictType));
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("gender", requiredOptions(ProfileDictType.GENDER, "性别"));
-        result.put("identity", requiredOptions(ProfileDictType.IDENTITY, "身份"));
-        result.put("educationLevel", requiredOptions(ProfileDictType.EDUCATION_LEVEL, "学历"));
-        result.put("industry", options(ProfileDictType.INDUSTRY));
-        result.put("occupation", options(ProfileDictType.OCCUPATION));
-        result.put("annualIncome", options(ProfileDictType.ANNUAL_INCOME));
-        result.put("maritalStatus", options(ProfileDictType.MARITAL_STATUS));
-        result.put("datingGoal", options(ProfileDictType.DATING_GOAL));
-        result.put("emotionalStatus", options(ProfileDictType.EMOTIONAL_STATUS));
-        result.put("educationUserType", options(ProfileDictType.EDUCATION_USER_TYPE));
-        result.put("educationMethod", options(ProfileDictType.EDUCATION_METHOD));
-        result.put("auditStatus", options(ProfileDictType.AUDIT_STATUS));
-        result.put("auditSource", options(ProfileDictType.AUDIT_SOURCE));
-        result.put("coreAccessStatus", options(ProfileDictType.CORE_ACCESS_STATUS));
-        result.put("avatarSource", options(ProfileDictType.AVATAR_SOURCE));
-        List<SysDictData> tagItems = dictDataDao.selectByDictType(ProfileDictType.PROFILE_TAG);
+        Map<String, String> requiredLabels = Map.of("gender", "性别", "identity", "身份", "educationLevel", "学历");
+        types.forEach((field, type) -> {
+            List<DictOptionVO> options = options(grouped.getOrDefault(type, List.of()));
+            if (options.isEmpty() && requiredLabels.containsKey(field)) {
+                throw new BusinessException(requiredLabels.get(field) + "字典配置为空，请联系管理员");
+            }
+            result.put(field, options);
+        });
+        List<SysDictData> tagItems = grouped.getOrDefault(ProfileDictType.PROFILE_TAG, List.of());
         List<TagCategory> tagCategories = tagCategories(tagItems);
         List<DictOptionVO> profileTags = profileTagOptions(tagItems, tagCategories);
         result.put("profileTag", profileTags);
@@ -139,23 +158,14 @@ public class MiniappDictServiceImpl implements MiniappDictService {
         return result;
     }
 
-    private List<DictOptionVO> options(String dictType) {
-        return dictDataDao.selectByDictType(dictType).stream().map(item -> {
+    private List<DictOptionVO> options(List<SysDictData> rows) {
+        return rows.stream().map(item -> {
             DictOptionVO option = new DictOptionVO();
             option.setCode(item.getDictValue());
             option.setLabel(item.getDictLabel());
             option.setSort(item.getDictSort());
             return option;
         }).toList();
-    }
-
-    /** 首登必填字典缺失属于服务配置异常，不能伪装成可用的空列表。 */
-    private List<DictOptionVO> requiredOptions(String dictType, String fieldLabel) {
-        List<DictOptionVO> result = options(dictType);
-        if (result.isEmpty()) {
-            throw new BusinessException(fieldLabel + "字典配置为空，请联系管理员");
-        }
-        return result;
     }
 
     private List<DictOptionVO> profileTagOptions(List<SysDictData> items, List<TagCategory> categories) {

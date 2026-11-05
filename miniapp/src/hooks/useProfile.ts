@@ -175,12 +175,11 @@ async function loadLocationLabel(home: ProfileHomeDetail) {
  * 我的页面 Hook
  *
  * 职责：
- * - 聚合 authStore + mock 数据构建页面所需的完整数据
+ * - 聚合本人资料、认证状态及资产接口构建页面数据
  * - 管理 loading / error / empty / refreshing 状态
  * - 提供页面所需的所有导航方法
  *
- * 数据来源：当前阶段使用 authStore 同步数据 + mock 静态常量，
- * 后续对接真实接口时只需修改 buildProfileData 为异步即可，页面组件无需改动。
+ * 每次页面展示读取最新数据，已有内容在刷新期间继续展示。
  */
 export function useProfile(): UseProfileReturn {
   const [data, setData] = useState<ProfileData>(() => buildProfileData());
@@ -193,7 +192,7 @@ export function useProfile(): UseProfileReturn {
 
   /**
    * 核心数据拉取逻辑
-   * 当前阶段数据均为同步，仅模拟异步加载过程以便后续对接真实接口。
+   * 页面配置与资料并行读取，依赖准入结果的资产查询仍在校验后启动。
    * @param isRefresh 是否为下拉刷新
    */
   const loadData = useCallback(async (isRefresh = false) => {
@@ -213,8 +212,8 @@ export function useProfile(): UseProfileReturn {
       let introduction: OpenTextDetail | null = null;
       let location = '';
       if (auth.isLoggedIn) {
-        await usePrd01Store.getState().bootstrap();
-        const [homeResult, basicResult, introductionResult] = await Promise.all([
+        const [, homeResult, basicResult, introductionResult] = await Promise.all([
+          usePrd01Store.getState().bootstrap(),
           prd01Api.getHomeDetail(),
           prd01Api.getBasicProfile(),
           prd01Api.getIntroduction(),
@@ -223,11 +222,15 @@ export function useProfile(): UseProfileReturn {
         basicProfile = basicResult;
         introduction = introductionResult;
         useAuthStore.getState().setAccessStatus(homeResult.accessStatus);
-        location = await loadLocationLabel(homeResult);
-        if (homeResult.accessStatus.coreAccessStatus === 'CORE_ALLOWED') {
-          const [status, balance] = await Promise.all([getVipStatus(), getCoinBalance()]);
-          membership = adaptProfileMembership(status);
-          coinBalance = { balance: Number(balance.coinBalance || 0) };
+        const [locationResult, assets] = await Promise.all([
+          loadLocationLabel(homeResult),
+          homeResult.accessStatus.coreAccessStatus === 'CORE_ALLOWED'
+            ? Promise.all([getVipStatus(), getCoinBalance()]) : Promise.resolve(null),
+        ]);
+        location = locationResult;
+        if (assets) {
+          membership = adaptProfileMembership(assets[0]);
+          coinBalance = { balance: Number(assets[1].coinBalance || 0) };
         }
       }
       const freshData = buildProfileData(home, membership, coinBalance, location, basicProfile, introduction);

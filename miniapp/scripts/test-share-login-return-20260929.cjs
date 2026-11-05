@@ -49,7 +49,7 @@ test('热启动旧分享卡片直达对应动态，未登录时新卡片优先�
   const requireMock = name => {
     if (name === 'react') return { useRef: value => ({ current: value }) }
     if (name === '@tarojs/taro') return { __esModule: true, default: taro, ...taro }
-    if (name.endsWith('authStore')) return { useAuthStore: () => ({ setLogin: () => {}, checkLogin: () => {} }) }
+    if (name.endsWith('authStore')) return { useAuthStore: selector => selector({ setLogin: () => {}, checkLogin: () => {} }) }
     if (name.endsWith('prd01Store')) return { usePrd01Store: selector => selector({ bootstrap: async () => {} }) }
     if (name.endsWith('config')) return { DEV_FIXED_LOGIN: { enabled: false }, MOCK_ENABLED: false, TOKEN_KEY: 'token' }
     if (name.endsWith('promotionAttribution')) return { capturePromotionSource: async () => {} }
@@ -84,7 +84,7 @@ async function shareApp(currentPage) {
   const mocks = {
     react: { useRef: value => ({ current: value }) },
     '@tarojs/taro': { __esModule: true, default: taro, ...taro },
-    './stores/authStore': { useAuthStore: () => ({ checkLogin() {}, setLogin() {} }) },
+    './stores/authStore': { useAuthStore: selector => selector({ checkLogin() {}, setLogin() {} }) },
     './stores/prd01Store': { usePrd01Store: selector => selector({ bootstrap: async () => {} }) },
     './constants/config': { DEV_FIXED_LOGIN: { enabled: false }, MOCK_ENABLED: false, TOKEN_KEY: 'token' },
     './services/promotionAttribution': { capturePromotionSource: async () => {} },

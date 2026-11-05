@@ -33,9 +33,15 @@ export const usePrd01Store = create<Prd01State>((set, get) => ({
   copy: createCopyReader(),
 
   bootstrap: async (force = false) => {
+    // 底层加载器本来就会复用配置，已有快照时也避免重复发布 loading 和新文案函数。
+    if (!force && get().config && get().profileOptions && !get().error) return
     set({ loading: true, error: undefined })
     try {
       const snapshot = await loader.bootstrap(force)
+      if (get().config === snapshot.config && get().profileOptions === snapshot.profileOptions) {
+        if (get().loading || get().error) set({ loading: false, error: undefined })
+        return
+      }
       set({
         config: snapshot.config,
         profileOptions: snapshot.profileOptions,

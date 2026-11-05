@@ -165,28 +165,29 @@ class MiniappDictServiceImplTest {
     @Test
     @DisplayName("一次返回资料页需要的字典选项，标签分类按父子关系读取")
     void shouldReturnProfileOptions() {
-        when(dictDataDao.selectByDictType("app_identity")).thenReturn(List.of(dict("app_identity", "WORKER", "职场人")));
-        when(dictDataDao.selectByDictType("app_education_level")).thenReturn(List.of(dict("app_education_level", "BACHELOR", "本科")));
-        when(dictDataDao.selectByDictType("app_occupation")).thenReturn(List.of(dict("app_occupation", "ENGINEER", "工程师")));
-        when(dictDataDao.selectByDictType("app_industry")).thenReturn(List.of(dict("app_industry", "INTERNET", "IT/互联网")));
-        when(dictDataDao.selectByDictType("app_annual_income")).thenReturn(List.of(dict("app_annual_income", "FROM_150K_TO_300K", "15-30万")));
-        when(dictDataDao.selectByDictType("app_marital_status")).thenReturn(List.of(dict("app_marital_status", "SINGLE", "未婚")));
-        when(dictDataDao.selectByDictType("app_dating_goal")).thenReturn(List.of(dict("app_dating_goal", "TIMING_MATURE", "时机成熟就结婚")));
-        when(dictDataDao.selectByDictType("app_emotional_status")).thenReturn(List.of(dict("app_emotional_status", "SEARCHING", "正在寻觅")));
-        when(dictDataDao.selectByDictType("app_gender")).thenReturn(List.of(
+        var rows = new java.util.ArrayList<SysDictData>();
+        rows.addAll(List.of(dict("app_identity", "WORKER", "职场人")));
+        rows.addAll(List.of(dict("app_education_level", "BACHELOR", "本科")));
+        rows.addAll(List.of(dict("app_occupation", "ENGINEER", "工程师")));
+        rows.addAll(List.of(dict("app_industry", "INTERNET", "IT/互联网")));
+        rows.addAll(List.of(dict("app_annual_income", "FROM_150K_TO_300K", "15-30万")));
+        rows.addAll(List.of(dict("app_marital_status", "SINGLE", "未婚")));
+        rows.addAll(List.of(dict("app_dating_goal", "TIMING_MATURE", "时机成熟就结婚")));
+        rows.addAll(List.of(dict("app_emotional_status", "SEARCHING", "正在寻觅")));
+        rows.addAll(List.of(
                 dict("app_gender", "FEMALE", "女"),
                 dict("app_gender", "MALE", "男")));
-        when(dictDataDao.selectByDictType("app_education_user_type")).thenReturn(List.of(
+        rows.addAll(List.of(
                 dict("app_education_user_type", "STUDENT", "在校生"),
                 dict("app_education_user_type", "MAINLAND_GRADUATE", "中国大陆毕业生")));
-        when(dictDataDao.selectByDictType("app_education_method")).thenReturn(List.of(
+        rows.addAll(List.of(
                 dict("app_education_method", "STUDENT_CARD", "学生证或在读证明"),
                 dict("app_education_method", "CHSI", "学信网在线验证码")));
-        when(dictDataDao.selectByDictType("app_audit_status")).thenReturn(List.of(dict("app_audit_status", "PENDING", "待审核")));
-        when(dictDataDao.selectByDictType("app_audit_source")).thenReturn(List.of(dict("app_audit_source", "MACHINE", "机审")));
-        when(dictDataDao.selectByDictType("app_core_access_status")).thenReturn(List.of(dict("app_core_access_status", "CORE_ALLOWED", "核心能力可用")));
-        when(dictDataDao.selectByDictType("app_avatar_source")).thenReturn(List.of(dict("app_avatar_source", "CAMERA", "拍照")));
-        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+        rows.addAll(List.of(dict("app_audit_status", "PENDING", "待审核")));
+        rows.addAll(List.of(dict("app_audit_source", "MACHINE", "机审")));
+        rows.addAll(List.of(dict("app_core_access_status", "CORE_ALLOWED", "核心能力可用")));
+        rows.addAll(List.of(dict("app_avatar_source", "CAMERA", "拍照")));
+        rows.addAll(List.of(
                 dict(99L, 0L, "app_profile_tag", "ALL", "全部"),
                 dict(100L, 0L, "app_profile_tag", "MBTI", "MBTI"),
                 dict(101L, 0L, "app_profile_tag", "SPORT", "运动"),
@@ -195,9 +196,13 @@ class MiniappDictServiceImplTest {
                 dict(2L, 101L, "app_profile_tag", "OUTDOOR_LOVER", "户外发烧友"),
                 dict(3L, 102L, "app_profile_tag", "LOVE_TRAVEL", "热爱旅行")
         ));
+        when(dictDataDao.selectList(any())).thenReturn(rows);
         MiniappDictService service = new MiniappDictServiceImpl(dictDataDao);
 
         Map<String, Object> result = service.profileOptions();
+
+        verify(dictDataDao).selectList(any());
+        verify(dictDataDao, never()).selectByDictType(any());
 
         assertThat(result).containsOnlyKeys(
                 "identity", "educationLevel", "industry", "occupation", "annualIncome", "maritalStatus",
@@ -229,7 +234,9 @@ class MiniappDictServiceImplTest {
     @Test
     @DisplayName("首登必需字典为空时明确报错而不是返回空数组")
     void shouldRejectEmptyRequiredProfileDictionary() {
-        when(dictDataDao.selectByDictType("app_gender")).thenReturn(List.of());
+        var rows = new java.util.ArrayList<SysDictData>();
+        rows.addAll(List.of());
+        when(dictDataDao.selectList(any())).thenReturn(rows);
         MiniappDictService service = new MiniappDictServiceImpl(dictDataDao);
 
         assertThatThrownBy(service::profileOptions)
@@ -240,21 +247,18 @@ class MiniappDictServiceImplTest {
     @Test
     @DisplayName("标签字典未配置全部分组时仍合成首个全部分组")
     void shouldSynthesizeAllTagGroupWhenDatabaseDoesNotContainIt() {
-        org.mockito.Mockito.lenient().when(dictDataDao.selectByDictType(any()))
-                .thenReturn(List.of());
-        when(dictDataDao.selectByDictType("app_gender"))
-                .thenReturn(List.of(dict("app_gender", "FEMALE", "女")));
-        when(dictDataDao.selectByDictType("app_identity"))
-                .thenReturn(List.of(dict("app_identity", "WORKER", "职场人")));
-        when(dictDataDao.selectByDictType("app_education_level"))
-                .thenReturn(List.of(dict("app_education_level", "BACHELOR", "本科")));
-        when(dictDataDao.selectByDictType("app_profile_tag")).thenReturn(List.of(
+        var rows = new java.util.ArrayList<SysDictData>();
+        rows.addAll(List.of(dict("app_gender", "FEMALE", "女")));
+        rows.addAll(List.of(dict("app_identity", "WORKER", "职场人")));
+        rows.addAll(List.of(dict("app_education_level", "BACHELOR", "本科")));
+        rows.addAll(List.of(
                 dict(100L, 0L, "app_profile_tag", "MBTI", "MBTI"),
                 dict(101L, 0L, "app_profile_tag", "SPORT", "运动"),
                 dict(1L, 100L, "app_profile_tag", "INFJ", "INFJ提倡者"),
                 dict(3L, 100L, "app_profile_tag", "INFJ", "INFJ提倡者重复数据"),
                 dict(2L, 101L, "app_profile_tag", "RUNNING", "跑步")
         ));
+        when(dictDataDao.selectList(any())).thenReturn(rows);
         MiniappDictService service = new MiniappDictServiceImpl(dictDataDao);
 
         List<ProfileTagGroupVO> groups = tagGroups(service.profileOptions());

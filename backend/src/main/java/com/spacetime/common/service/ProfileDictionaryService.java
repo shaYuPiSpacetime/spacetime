@@ -78,6 +78,29 @@ public class ProfileDictionaryService {
         return result;
     }
 
+    /** 当前页多类标签一次查询，仍按字典类型隔离同名编码，不缓存跨请求结果。 */
+    public Map<String, Map<String, String>> labelsByType(Map<String, ? extends Collection<String>> requested) {
+        Map<String, Set<String>> codesByType = new LinkedHashMap<>();
+        if (requested != null) requested.forEach((type, codes) -> {
+            if (StrUtil.isBlank(type) || codes == null) return;
+            Set<String> normalized = new LinkedHashSet<>();
+            codes.stream().map(StrUtil::trim).filter(StrUtil::isNotBlank).forEach(normalized::add);
+            if (!normalized.isEmpty()) codesByType.put(type, normalized);
+        });
+        if (codesByType.isEmpty()) return Map.of();
+        LambdaQueryWrapper<SysDictData> query = new LambdaQueryWrapper<SysDictData>()
+                .eq(SysDictData::getStatus, CommonStatusEnum.ENABLED.getCode())
+                .and(group -> codesByType.forEach((type, codes) -> group.or(pair -> pair
+                        .eq(SysDictData::getDictType, type).in(SysDictData::getDictValue, codes))))
+                .orderByAsc(SysDictData::getDictSort).orderByAsc(SysDictData::getId);
+        Map<String, Map<String, String>> result = new LinkedHashMap<>();
+        for (SysDictData item : dictDataDao.selectList(query)) {
+            result.computeIfAbsent(item.getDictType(), ignored -> new LinkedHashMap<>())
+                    .put(item.getDictValue(), displayLabel(item.getDictType(), item));
+        }
+        return result;
+    }
+
     /** 校验并返回去除首尾空格后的标准 code。 */
     public String requireCode(String dictType, String code, String fieldLabel) {
         String normalized = StrUtil.trim(code);

@@ -37,13 +37,39 @@ function compactRequestData(data: Record<string, unknown>): Record<string, unkno
   )
 }
 
+// 只合并尚未完成的读取，不缓存已完成结果；写入前后清空，确保保存后刷新能取得新值。
+const pendingReads = new Map<string, Promise<unknown>>()
+
+function orderedRequestValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(orderedRequestValue)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, orderedRequestValue(item)]))
+  }
+  return value
+}
+
 /**
  * 统一请求封装
  * 自动注入 token、统一错误处理
  */
-export async function request<T>(options: RequestOptions): Promise<T> {
+export function request<T>(options: RequestOptions): Promise<T> {
   const token = Taro.getStorageSync(TOKEN_KEY) || ''
+  if (options.method && options.method !== 'GET') {
+    pendingReads.clear()
+    return executeRequest<T>(options, token).finally(() => pendingReads.clear())
+  }
+  const key = JSON.stringify([token, options.url, orderedRequestValue(options.data), orderedRequestValue(options.header)])
+  const pending = pendingReads.get(key)
+  if (pending) return pending as Promise<T>
+  const task = executeRequest<T>(options, token).finally(() => {
+    if (pendingReads.get(key) === task) pendingReads.delete(key)
+  })
+  pendingReads.set(key, task)
+  return task
+}
 
+async function executeRequest<T>(options: RequestOptions, token: string): Promise<T> {
   let res
   try {
     res = await Taro.request<R<T>>({

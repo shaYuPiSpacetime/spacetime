@@ -205,7 +205,11 @@ public class ProfileServiceImpl implements ProfileService {
 
         VerificationStatusVO verificationStatus = verificationService.getStatus(userId);
         ProfileHomeDetailVO vo = new ProfileHomeDetailVO();
-        vo.setProfile(toDetailVO(user, true));
+        ProfileDetailVO profile = toDetailVO(user, false);
+        applyRelationCounts(profile, userId);
+        // 本次响应已经计算过准入状态，避免组装主页资料时再次查用户、配置和认证记录。
+        profile.setAccessStatus(verificationStatus.getAccessStatus());
+        vo.setProfile(profile);
         boolean realNameCertified = effectiveRealName(userId);
         vo.setFieldSettings(basicFieldsForAuditLocks(education, realNameCertified));
         vo.setVerificationStatus(verificationStatus);

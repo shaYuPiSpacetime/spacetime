@@ -48,10 +48,6 @@ export default function ProfilePage() {
     goToHelp,
     goToSettings,
   } = useProfile()
-  useEffect(() => {
-    fetch()
-  }, [fetch])
-
   useDidShow(() => {
     fetch()
   })

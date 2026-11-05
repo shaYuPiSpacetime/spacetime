@@ -367,30 +367,29 @@ public class RecommendServiceImpl implements RecommendService {
         Map<Long, List<String>> albums = safeMap(auditContentService.publicAlbumPhotos(candidateIds));
         Map<AuditContentKey, AppUserAuditRecord> supplementalContent =
                 approvedSupplementalContent(candidateIds);
-        Map<String, String> regionLabels = dictionaryLabels(ProfileDictType.CHINA_REGION,
-                candidates.stream()
-                        .flatMap(candidate -> java.util.stream.Stream.of(
-                                candidate.getLocationCity(), candidate.getHometownCity()))
-                        .toList());
-        Map<String, String> identityLabels = dictionaryLabels(ProfileDictType.IDENTITY,
-                candidates.stream().map(AppUser::getIdentity).toList());
-        Map<String, String> industryLabels = dictionaryLabels(ProfileDictType.INDUSTRY,
-                candidates.stream().map(AppUser::getIndustry).toList());
-        Map<String, String> occupationLabels = dictionaryLabels(ProfileDictType.OCCUPATION,
-                candidates.stream().map(AppUser::getOccupation).toList());
-        Map<String, String> incomeLabels = dictionaryLabels(ProfileDictType.ANNUAL_INCOME,
-                candidates.stream().map(AppUser::getAnnualIncome).toList());
-        Map<String, String> datingGoalLabels = dictionaryLabels(ProfileDictType.DATING_GOAL,
-                candidates.stream().map(AppUser::getDatingGoal).toList());
-        Map<String, String> maritalLabels = dictionaryLabels(ProfileDictType.MARITAL_STATUS,
-                candidates.stream().map(AppUser::getMaritalStatus).toList());
-        Map<String, String> emotionalLabels = dictionaryLabels(ProfileDictType.EMOTIONAL_STATUS,
-                candidates.stream().map(AppUser::getEmotionalStatus).toList());
         Map<Long, List<String>> tagCodes = candidates.stream().collect(Collectors.toMap(
                 AppUser::getId, candidate -> parseTagCodes(candidate.getTags()),
                 (left, right) -> left, LinkedHashMap::new));
-        Map<String, String> tagLabels = dictionaryLabels(ProfileDictType.PROFILE_TAG,
-                tagCodes.values().stream().flatMap(List::stream).toList());
+        Map<String, Map<String, String>> labels = profileDictionaryService.labelsByType(Map.of(
+                ProfileDictType.CHINA_REGION, candidates.stream().flatMap(candidate -> java.util.stream.Stream.of(
+                        candidate.getLocationCity(), candidate.getHometownCity())).toList(),
+                ProfileDictType.IDENTITY, candidates.stream().map(AppUser::getIdentity).toList(),
+                ProfileDictType.INDUSTRY, candidates.stream().map(AppUser::getIndustry).toList(),
+                ProfileDictType.OCCUPATION, candidates.stream().map(AppUser::getOccupation).toList(),
+                ProfileDictType.ANNUAL_INCOME, candidates.stream().map(AppUser::getAnnualIncome).toList(),
+                ProfileDictType.DATING_GOAL, candidates.stream().map(AppUser::getDatingGoal).toList(),
+                ProfileDictType.MARITAL_STATUS, candidates.stream().map(AppUser::getMaritalStatus).toList(),
+                ProfileDictType.EMOTIONAL_STATUS, candidates.stream().map(AppUser::getEmotionalStatus).toList(),
+                ProfileDictType.PROFILE_TAG, tagCodes.values().stream().flatMap(List::stream).toList()));
+        Map<String, String> regionLabels = labels.getOrDefault(ProfileDictType.CHINA_REGION, Map.of());
+        Map<String, String> identityLabels = labels.getOrDefault(ProfileDictType.IDENTITY, Map.of());
+        Map<String, String> industryLabels = labels.getOrDefault(ProfileDictType.INDUSTRY, Map.of());
+        Map<String, String> occupationLabels = labels.getOrDefault(ProfileDictType.OCCUPATION, Map.of());
+        Map<String, String> incomeLabels = labels.getOrDefault(ProfileDictType.ANNUAL_INCOME, Map.of());
+        Map<String, String> datingGoalLabels = labels.getOrDefault(ProfileDictType.DATING_GOAL, Map.of());
+        Map<String, String> maritalLabels = labels.getOrDefault(ProfileDictType.MARITAL_STATUS, Map.of());
+        Map<String, String> emotionalLabels = labels.getOrDefault(ProfileDictType.EMOTIONAL_STATUS, Map.of());
+        Map<String, String> tagLabels = labels.getOrDefault(ProfileDictType.PROFILE_TAG, Map.of());
         Map<Long, AppRelationMatch> matches = activeMatches(currentUserId, candidateIds);
         Set<Long> unlockedIds = activeIdealUnlocks(currentUserId, candidateIds);
 

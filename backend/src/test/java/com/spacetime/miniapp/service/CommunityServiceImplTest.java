@@ -1381,6 +1381,35 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    @DisplayName("多作者动态页的完整度规则只查询一次，分数保持原有口径")
+    void postPageShouldLoadScoreRulesOnceForAllAuthors() {
+        var runtime = mock(com.spacetime.common.service.Prd01RuntimeConfigResolver.class);
+        var audits = mock(com.spacetime.common.service.AppUserAuditService.class);
+        var snapshot = new com.spacetime.common.service.Prd01RuntimeConfigResolver.RuntimeConfigSnapshot(Map.of());
+        when(runtime.snapshot()).thenReturn(snapshot);
+        when(runtime.profileCompleteness(snapshot)).thenReturn(Map.of(
+                "workerTotalScore", 100, "items", List.of(Map.of("fieldId", "nickname", "workerScore", 10))));
+        var calculator = new Prd01ProfileCompletenessCalculator(runtime, audits);
+        org.springframework.test.util.ReflectionTestUtils.setField(communityService, "profileCompletenessCalculator", calculator);
+        AppUser first = author(2L, "用户一");
+        AppUser second = author(3L, "用户二");
+        CommunityPost other = new CommunityPost();
+        other.setId(101L);
+        other.setAuthorId(3L);
+        other.setStatus("published");
+        Page<CommunityPost> page = new Page<>(1, 10, 2);
+        page.setRecords(List.of(post, other));
+        when(communityPostDao.selectPage(any(), any())).thenReturn(page);
+        when(appUserDao.selectByIds(anyList())).thenReturn(List.of(first, second));
+
+        var result = communityService.getPosts(null, null, null, "HOT", 1, 10);
+
+        assertThat(result.getRecords()).extracting(CommunityPostCardVO::getAuthorProfileCompletion)
+                .containsExactly(10, 10);
+        verify(runtime, times(1)).snapshot();
+    }
+
+    @Test
     @DisplayName("悦目列表-返回审核通过的用户照片与心动态")
     void getYuemuUsers_shouldReturnPublicPhotoCards() {
         user.setMajor("软件工程");

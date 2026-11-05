@@ -59,4 +59,7 @@ public interface AppUserAuditService {
 
     /** 批量统计实名、头像、学历三重认证通过数，避免列表逐用户查询。 */
     Map<Long, Integer> certificationApprovedCounts(Collection<Long> userIds);
+
+    /** 一次读取资料完整度所需审核事实，头像保留最新提交状态，其余类型只读取生效记录。 */
+    List<AppUserAuditRecord> profileCompletenessRecords(Collection<Long> userIds);
 }

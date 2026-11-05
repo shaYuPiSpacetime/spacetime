@@ -11,6 +11,11 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.HashSet;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,7 +57,42 @@ public class Prd01ProfileCompletenessCalculator {
         if (user == null || user.getId() == null) {
             return 0;
         }
-        return calculateScore(user, loadRules(), fieldId -> filledFromDao(user, fieldId));
+        return calculateAll(List.of(user)).getOrDefault(user.getId(), 0);
+    }
+
+    /** 当前页共用一次规则查询和一次审核查询，结果只在本次调用内复用。 */
+    public Map<Long, Integer> calculateAll(Collection<AppUser> users) {
+        Map<Long, AppUser> byId = new LinkedHashMap<>();
+        if (users != null) users.stream().filter(Objects::nonNull)
+                .filter(user -> user.getId() != null).forEach(user -> byId.putIfAbsent(user.getId(), user));
+        if (byId.isEmpty()) return Map.of();
+        ProfileCompletenessRules rules = loadRules();
+        List<AppUserAuditRecord> records = auditService.profileCompletenessRecords(byId.keySet());
+        Map<Long, AppUserAuditRecord> latestAvatars = new LinkedHashMap<>();
+        Map<Long, Set<String>> effectiveTypes = new LinkedHashMap<>();
+        Map<Long, Set<String>> questionKeys = new LinkedHashMap<>();
+        Comparator<AppUserAuditRecord> latest = Comparator
+                .comparing(AppUserAuditRecord::getSubmitTime, Comparator.nullsFirst(Comparator.naturalOrder()))
+                .thenComparing(AppUserAuditRecord::getId, Comparator.nullsFirst(Comparator.naturalOrder()));
+        for (AppUserAuditRecord record : records == null ? List.<AppUserAuditRecord>of() : records) {
+            if (record == null || !byId.containsKey(record.getUserId())) continue;
+            if (AppUserAuditTypeEnum.AVATAR.getCode().equals(record.getAuditType())) {
+                latestAvatars.merge(record.getUserId(), record,
+                        (left, right) -> latest.compare(left, right) >= 0 ? left : right);
+            }
+            if (approved(record)) {
+                effectiveTypes.computeIfAbsent(record.getUserId(), ignored -> new HashSet<>()).add(record.getAuditType());
+                if (AppUserAuditTypeEnum.PROFILE_QA.getCode().equals(record.getAuditType())) {
+                    String key = questionKey(record.getMaterialJson());
+                    if (StrUtil.isNotBlank(key)) questionKeys.computeIfAbsent(record.getUserId(), ignored -> new HashSet<>()).add(key);
+                }
+            }
+        }
+        Map<Long, Integer> scores = new LinkedHashMap<>();
+        byId.forEach((id, user) -> scores.put(id, calculate(user, rules,
+                latestAvatars.containsKey(id) ? Map.of(AppUserAuditTypeEnum.AVATAR.getCode(), latestAvatars.get(id)) : Map.of(),
+                effectiveTypes.getOrDefault(id, Set.of()), questionKeys.getOrDefault(id, Set.of()))));
+        return scores;
     }
 
     /** 使用列表已批量加载的审核事实计算，不在逐用户组装阶段访问 DAO。 */
@@ -96,25 +136,6 @@ public class Prd01ProfileCompletenessCalculator {
         return Math.min(score, configuredTotal);
     }
 
-    private boolean filledFromDao(AppUser user, String fieldId) {
-        return switch (fieldId) {
-            case "avatarImage", "avatar" -> latestApproved(user.getId(), AppUserAuditTypeEnum.AVATAR);
-            case "photos", "albumPhotos" -> hasEffectiveRecords(user.getId(), AppUserAuditTypeEnum.ALBUM_PHOTO);
-            case "profileBgImage", "profileBg" -> auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.PROFILE_BG) != null;
-            case "aboutMe" -> auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.ABOUT_ME) != null;
-            case "qaList", "profileQa" -> auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.PROFILE_QA) != null;
-            case "voiceIntro", "voiceIntroUrl", "voiceIntroDuration" ->
-                    auditService.latestEffectiveRecord(user.getId(), AppUserAuditTypeEnum.VOICE_INTRO) != null;
-            case "meetingPreference" -> StrUtil.isNotBlank(user.getMeetingPreference())
-                    || effectiveProfileQaQuestionKeys(user.getId()).contains(fieldId);
-            case "preferredActivities" -> hasJsonValues(user.getPreferredActivities())
-                    || effectiveProfileQaQuestionKeys(user.getId()).contains(fieldId);
-            default -> PROFILE_QA_FIELD_IDS.contains(fieldId)
-                    ? effectiveProfileQaQuestionKeys(user.getId()).contains(fieldId)
-                    : filledScalar(user, fieldId);
-        };
-    }
-
     private boolean filledFromFacts(AppUser user, String fieldId,
             Map<String, AppUserAuditRecord> latestAudits, Set<String> effectiveAuditTypes,
             Set<String> effectiveProfileQaQuestionKeys) {
@@ -134,17 +155,6 @@ public class Prd01ProfileCompletenessCalculator {
                     ? effectiveProfileQaQuestionKeys.contains(fieldId)
                     : filledScalar(user, fieldId);
         };
-    }
-
-    private Set<String> effectiveProfileQaQuestionKeys(Long userId) {
-        List<AppUserAuditRecord> records = auditService.effectiveRecords(userId, AppUserAuditTypeEnum.PROFILE_QA);
-        if (records == null || records.isEmpty()) {
-            return Set.of();
-        }
-        return records.stream()
-                .map(record -> questionKey(record.getMaterialJson()))
-                .filter(StrUtil::isNotBlank)
-                .collect(java.util.stream.Collectors.toSet());
     }
 
     public static String questionKey(String materialJson) {
@@ -198,16 +208,6 @@ public class Prd01ProfileCompletenessCalculator {
 
     private boolean hasJsonValues(String json) {
         return StrUtil.isNotBlank(json) && !"[]".equals(json.replaceAll("\\s", ""));
-    }
-
-    private boolean latestApproved(Long userId, AppUserAuditTypeEnum type) {
-        AppUserAuditRecord record = auditService.latestRecord(userId, type);
-        return record != null && AppUserAuditStatusEnum.APPROVED.getCode().equals(record.getStatus());
-    }
-
-    private boolean hasEffectiveRecords(Long userId, AppUserAuditTypeEnum type) {
-        List<AppUserAuditRecord> records = auditService.effectiveRecords(userId, type);
-        return records != null && !records.isEmpty();
     }
 
     private int number(Object value, int fallback) {

@@ -91,6 +91,9 @@ class AppUserAuditServiceTest {
 
     @BeforeEach
     void setUpAuditService() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
+                new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
+                AppUserAuditRecord.class);
         auditService = new AppUserAuditServiceImpl(recordDao, historyDao, appUserDao,
                 promotionEventInboxService, new ObjectMapper());
     }
@@ -242,11 +245,13 @@ class AppUserAuditServiceTest {
         AppUserAuditRecord realName = record(1L, 10L, AppUserAuditTypeEnum.REAL_NAME, AppUserAuditStatusEnum.APPROVED);
         AppUserAuditRecord avatar = record(2L, 10L, AppUserAuditTypeEnum.AVATAR, AppUserAuditStatusEnum.APPROVED);
         AppUserAuditRecord education = record(3L, 10L, AppUserAuditTypeEnum.EDUCATION, AppUserAuditStatusEnum.APPROVED);
-        when(recordDao.selectOne(any())).thenReturn(realName, avatar, education);
+        when(recordDao.selectList(any())).thenReturn(List.of(realName, avatar, education));
 
         int count = auditService.certificationApprovedCount(10L);
 
         assertThat(count).isEqualTo(3);
+        verify(recordDao).selectList(any());
+        org.mockito.Mockito.verify(recordDao, org.mockito.Mockito.never()).selectOne(any());
     }
 
     @Test

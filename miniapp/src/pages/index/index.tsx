@@ -46,15 +46,10 @@ export default function IndexPage() {
     setLoading(true)
     setEntryError('')
     try {
-      await bootstrap()
+      const [, verificationResult] = await Promise.all([bootstrap(), prd01Api.getVerificationStatus()])
       const runtime = usePrd01Store.getState()
       if (!runtime.config || !runtime.profileOptions) throw new Error('页面配置加载失败')
       validateVerificationRuntime(runtime.config, runtime.profileOptions)
-      const [basicResult, verificationResult, introductionResult] = await Promise.all([
-        prd01Api.getBasicProfile(),
-        prd01Api.getVerificationStatus(),
-        prd01Api.getIntroduction(),
-      ])
       if (verificationResult.accessStatus) setAccessStatus(verificationResult.accessStatus)
       if (verificationResult.accessStatus?.coreAccessStatus === 'CORE_ALLOWED' || verificationResult.accessStatus?.coreAccessStatus === 'NON_CORE_ONLY') {
         setContentAllowed(true)
@@ -62,6 +57,10 @@ export default function IndexPage() {
         return
       }
       setContentAllowed(false)
+      // 已准入用户无需在每次切回千寻时重读认证引导页的基础资料和自我介绍。
+      const [basicResult, introductionResult] = await Promise.all([
+        prd01Api.getBasicProfile(), prd01Api.getIntroduction(),
+      ])
       setBasic(basicResult)
       setVerification(verificationResult)
       setIntroduction(introductionResult)

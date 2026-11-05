@@ -674,12 +674,9 @@ class RecommendServiceImplTest {
         when(auditContentService.publicAvatars(List.of(8L)))
                 .thenReturn(Map.of(8L, "https://example.com/avatar.png"));
         when(auditContentService.publicAlbumPhotos(List.of(8L))).thenReturn(Map.of());
-        when(profileDictionaryService.labels(any(), any())).thenAnswer(invocation -> {
-            String dictType = invocation.getArgument(0);
-            if ("china_region".equals(dictType)) return Map.of("310100", "上海市");
-            if ("app_occupation".equals(dictType)) return Map.of("SOFTWARE_ENGINEER", "软件工程师");
-            return Map.of();
-        });
+        when(profileDictionaryService.labelsByType(any())).thenReturn(Map.of(
+                "china_region", Map.of("310100", "上海市"),
+                "app_occupation", Map.of("SOFTWARE_ENGINEER", "软件工程师")));
         when(relationLikeDao.selectList(any())).thenReturn(List.of());
 
         RecommendCandidatePageVO result = service.getCandidates(7L, null);
@@ -694,6 +691,8 @@ class RecommendServiceImplTest {
         verify(relationBlockDao).selectActiveBetweenUserAndTargets(any(), any(), any());
         verify(relationBlockDao, never()).selectActive(any(), any(), any());
         verify(profileDictionaryService, never()).label(anyString(), anyString());
+        verify(profileDictionaryService).labelsByType(any());
+        verify(profileDictionaryService, never()).labels(any(), any());
     }
 
     @Test

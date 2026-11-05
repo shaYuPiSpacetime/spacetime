@@ -25,6 +25,30 @@ class ProfileDictionaryServiceTest {
     private DictDataDao dictDataDao;
 
     @Test
+    @DisplayName("多类字典一次查询，同编码按类型隔离且直辖市标签兼容旧编码")
+    void shouldResolveMultipleDictionaryTypesWithOneQuery() {
+        when(dictDataDao.selectList(any())).thenReturn(List.of(
+                dict("app_identity", "SAME", "身份标签"),
+                dict("app_occupation", "SAME", "职业标签"),
+                dict("china_region", "500200", "县")));
+        ProfileDictionaryService service = new ProfileDictionaryService(dictDataDao);
+        var result = service.labelsByType(Map.of(
+                "app_identity", List.of(" SAME "), "app_occupation", List.of("SAME"),
+                "china_region", List.of("500200"), "unused", List.of(" ")));
+        assertThat(result.get("app_identity")).containsEntry("SAME", "身份标签");
+        assertThat(result.get("app_occupation")).containsEntry("SAME", "职业标签");
+        assertThat(result.get("china_region")).containsEntry("500200", "重庆市");
+        org.mockito.Mockito.verify(dictDataDao).selectList(any());
+    }
+
+    @Test
+    @DisplayName("空字典编码不发起数据库查询")
+    void shouldSkipEmptyDictionaryBatch() {
+        assertThat(new ProfileDictionaryService(dictDataDao).labelsByType(Map.of("app_identity", List.of(" ")))).isEmpty();
+        org.mockito.Mockito.verifyNoInteractions(dictDataDao);
+    }
+
+    @Test
     @DisplayName("命中字典时返回标准code和中文标签")
     void shouldResolveEnabledDictionaryCode() {
         when(dictDataDao.selectEnabledByTypeAndValue("app_identity", "WORKER"))

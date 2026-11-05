@@ -273,11 +273,7 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
 
     @Override
     public int certificationApprovedCount(Long userId) {
-        int count = 0;
-        if (hasEffective(userId, AppUserAuditTypeEnum.REAL_NAME)) count++;
-        if (latestApproved(userId, AppUserAuditTypeEnum.AVATAR)) count++;
-        if (hasEffective(userId, AppUserAuditTypeEnum.EDUCATION)) count++;
-        return count;
+        return userId == null ? 0 : certificationApprovedCounts(List.of(userId)).getOrDefault(userId, 0);
     }
 
     @Override
@@ -288,6 +284,9 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
             return Map.of();
         }
         List<AppUserAuditRecord> records = recordDao.selectList(new LambdaQueryWrapper<AppUserAuditRecord>()
+                .select(AppUserAuditRecord::getId, AppUserAuditRecord::getUserId,
+                        AppUserAuditRecord::getAuditType, AppUserAuditRecord::getStatus,
+                        AppUserAuditRecord::getSubmitTime)
                 .in(AppUserAuditRecord::getUserId, ids)
                 .in(AppUserAuditRecord::getAuditType, List.of(
                         AppUserAuditTypeEnum.REAL_NAME.getCode(),
@@ -321,6 +320,25 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
         Map<Long, Integer> result = new LinkedHashMap<>();
         ids.forEach(id -> result.put(id, approvedTypes.getOrDefault(id, Set.of()).size()));
         return result;
+    }
+
+    @Override
+    public List<AppUserAuditRecord> profileCompletenessRecords(Collection<Long> userIds) {
+        List<Long> ids = userIds == null ? List.of() : userIds.stream()
+                .filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return List.of();
+        // 计分不需要照片、证件号等正文，按当前页用户和计分类型限定查询范围。
+        return recordDao.selectList(new LambdaQueryWrapper<AppUserAuditRecord>()
+                .select(AppUserAuditRecord::getId, AppUserAuditRecord::getUserId,
+                        AppUserAuditRecord::getAuditType, AppUserAuditRecord::getStatus,
+                        AppUserAuditRecord::getSubmitTime, AppUserAuditRecord::getMaterialJson)
+                .in(AppUserAuditRecord::getUserId, ids)
+                .in(AppUserAuditRecord::getAuditType, List.of(
+                        AppUserAuditTypeEnum.AVATAR.getCode(), AppUserAuditTypeEnum.ALBUM_PHOTO.getCode(),
+                        AppUserAuditTypeEnum.PROFILE_BG.getCode(), AppUserAuditTypeEnum.ABOUT_ME.getCode(),
+                        AppUserAuditTypeEnum.PROFILE_QA.getCode(), AppUserAuditTypeEnum.VOICE_INTRO.getCode()))
+                .and(query -> query.eq(AppUserAuditRecord::getAuditType, AppUserAuditTypeEnum.AVATAR.getCode())
+                        .or().eq(AppUserAuditRecord::getStatus, AppUserAuditStatusEnum.APPROVED.getCode())));
     }
 
     private LambdaQueryWrapper<AppUserAuditRecord> baseUserTypeWrapper(Long userId, AppUserAuditTypeEnum type) {

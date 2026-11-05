@@ -60,6 +60,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setAccessStatus: (accessStatus) => {
+    // 准入轮询仍取服务端最新值；相同结果不反复写同步存储或通知所有已挂载页面。
+    if (JSON.stringify(get().accessStatus) === JSON.stringify(accessStatus)) return
     const current = Taro.getStorageSync(USER_INFO_KEY) || {}
     Taro.setStorageSync(USER_INFO_KEY, { ...current, accessStatus })
     set({ accessStatus })
@@ -67,6 +69,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   /** 缓存本人最新资料，避免页面加载时先显示旧昵称或旧头像。 */
   updateIdentity: (userId, nickname, avatar) => {
+    if (get().userId === userId && get().nickname === nickname && get().avatar === avatar) return
     const current = Taro.getStorageSync(USER_INFO_KEY) || {}
     if (!userId || current.userId !== userId) return
     Taro.setStorageSync(USER_INFO_KEY, { ...current, nickname, avatar })

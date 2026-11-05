@@ -2392,11 +2392,7 @@ public class CommunityServiceImpl implements CommunityService {
                 .filter(item -> item != null && item.getId() != null)
                 .collect(Collectors.toMap(AppUser::getId, item -> item,
                         (left, right) -> left, LinkedHashMap::new));
-        Map<Long, Integer> profileCompletionByAuthorId = authors.stream()
-                .filter(item -> item != null && item.getId() != null)
-                .collect(Collectors.toMap(AppUser::getId,
-                        profileCompletenessCalculator::calculate,
-                        (left, right) -> left, LinkedHashMap::new));
+        Map<Long, Integer> profileCompletionByAuthorId = profileCompletenessCalculator.calculateAll(authors);
         Map<Long, String> avatars = authorIds.isEmpty() ? Map.of()
                 : Optional.ofNullable(auditContentService.publicAvatars(authorIds)).orElseGet(Map::of);
         Map<String, String> cityLabels = batchProfileLabels(ProfileDictType.CHINA_REGION,
