@@ -88,6 +88,7 @@ const ARRAY_SECTIONS: ArraySectionDefinition[] = [
 ];
 
 const SETTING_FIELDS: FieldDefinition[] = [
+  { key: 'certificationRewardCoins', label: '资料认证奖励千寻币' },
   { key: 'idealBatchMax', label: '理想型批量上限' },
   { key: 'idealBatchDiscountPercent', label: '理想型解锁全部折扣比例' },
   { key: 'idealRetentionDays', label: '理想型保留天数' },

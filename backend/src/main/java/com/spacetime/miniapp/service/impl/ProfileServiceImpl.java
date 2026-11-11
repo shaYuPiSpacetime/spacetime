@@ -83,6 +83,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final ObjectMapper objectMapper;
     private final Prd01AccessEvaluator accessEvaluator;
     private final Prd01ProfileCompletenessCalculator profileCompletenessCalculator;
+    private final com.spacetime.common.service.CertificationRewardService certificationRewardService;
     private final Prd01RuntimeConfigResolver runtimeConfigResolver;
     private final VerificationService verificationService;
     private final SongSearchProvider songSearchProvider;
@@ -245,6 +246,7 @@ public class ProfileServiceImpl implements ProfileService {
         if (req == null) {
             throw new BusinessException("基础资料不能为空");
         }
+        appUserDao.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getId, userId).last("FOR UPDATE"));
         AppUser user = requireUser(userId);
         AppUserAuditRecord education = effectiveEducation(userId);
         projectEffectiveEducation(user, education);
@@ -258,6 +260,7 @@ public class ProfileServiceImpl implements ProfileService {
         user.setBasicProfileCompleted(1);
 
         appUserDao.updateById(user);
+        certificationRewardService.grantIfEligible(userId);
         return toBasicProfileVO(user, settings);
     }
 

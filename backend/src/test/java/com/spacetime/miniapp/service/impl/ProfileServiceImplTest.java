@@ -1072,6 +1072,7 @@ class ProfileServiceImplTest {
         return new ProfileServiceImpl(appUserDao, appRelationLikeDao, appRelationVisitDao,
                 scoreConfig, auditService, auditContentService,
                 resolver, dictionaryService, mapper, accessEvaluator, completenessCalculator,
+                org.mockito.Mockito.mock(com.spacetime.common.service.CertificationRewardService.class),
                 runtimeConfigResolver, verificationService, songSearchProvider,
                 schoolDictionaryService);
     }

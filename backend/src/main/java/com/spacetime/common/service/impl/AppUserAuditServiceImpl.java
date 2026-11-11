@@ -50,6 +50,7 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     private final AppUserDao appUserDao;
     private final PromotionEventInboxService promotionEventInboxService;
     private final ObjectMapper objectMapper;
+    private final com.spacetime.common.service.CertificationRewardService certificationRewardService;
 
     @Override
     public AppUserAuditRecord latestRecord(Long userId, AppUserAuditTypeEnum type) {
@@ -137,6 +138,7 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     @Transactional
     public void machineApprove(Long recordId, Long providerTaskId, String machineSignalJson) {
         AppUserAuditRecord record = requireRecord(recordId);
+        lockCertificationRewardUser(record);
         String fromStatus = record.getStatus();
         record.setStatus(AppUserAuditStatusEnum.APPROVED.getCode());
         record.setAuditSource(AuditSourceEnum.MACHINE.getCode());
@@ -171,6 +173,7 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     @Transactional
     public void manualAudit(Long recordId, String action, String reason, Long auditorId, String auditorName) {
         AppUserAuditRecord record = requireRecord(recordId);
+        if ("APPROVE".equals(action)) lockCertificationRewardUser(record);
         String fromStatus = record.getStatus();
         AppUserAuditActionEnum historyAction;
         String targetStatus;
@@ -348,6 +351,10 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
     }
 
     private void enqueuePromotionAuditEvent(AppUserAuditRecord record) {
+        if (Set.of(AppUserAuditTypeEnum.AVATAR.getCode(), AppUserAuditTypeEnum.REAL_NAME.getCode(),
+                AppUserAuditTypeEnum.EDUCATION.getCode()).contains(record.getAuditType())) {
+            certificationRewardService.grantIfEligible(record.getUserId());
+        }
         if (AppUserAuditTypeEnum.AVATAR.getCode().equals(record.getAuditType())) {
             promotionEventInboxService.enqueueBusinessEvent(
                     "profile:" + record.getUserId(),
@@ -364,6 +371,14 @@ public class AppUserAuditServiceImpl implements AppUserAuditService {
                     PromotionRewardEventEnum.VERIFY_COMPLETE_REWARD.getCode(),
                     record.getUserId(),
                     String.valueOf(record.getId()));
+        }
+    }
+
+    /** 先串行化同用户认证提交，再更新审核结果，防止两项认证并发通过漏领奖励。 */
+    private void lockCertificationRewardUser(AppUserAuditRecord record) {
+        if (Set.of(AppUserAuditTypeEnum.AVATAR.getCode(), AppUserAuditTypeEnum.REAL_NAME.getCode(),
+                AppUserAuditTypeEnum.EDUCATION.getCode()).contains(record.getAuditType())) {
+            appUserDao.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getId, record.getUserId()).last("FOR UPDATE"));
         }
     }
 

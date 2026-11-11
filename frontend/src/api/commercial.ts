@@ -83,6 +83,7 @@ export interface CommercialConfigLog {
 }
 
 export interface CommercialSettings {
+  certificationRewardCoins?: number;
   idealBatchMax: number;
   idealBatchDiscountPercent: number;
   idealRetentionDays: number;

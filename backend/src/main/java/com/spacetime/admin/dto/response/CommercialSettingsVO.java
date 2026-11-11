@@ -7,6 +7,8 @@ import lombok.Data;
  */
 @Data
 public class CommercialSettingsVO {
+    /** 完成资料和认证后的一次性千寻币奖励。 */
+    private Integer certificationRewardCoins;
     private Integer idealBatchMax;
     private Integer idealBatchDiscountPercent;
     private Integer idealRetentionDays;

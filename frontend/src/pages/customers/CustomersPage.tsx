@@ -70,6 +70,7 @@ import {
 } from '@/api/verification';
 import { getTwoLevelRegions, type RegionTreeVO } from '@/api/dict';
 import { usePermission } from '@/hooks/usePermission';
+import UserAssetGrantPanel from './UserAssetGrantPanel';
 import { formatProfileRegion } from './customerProfileLocation';
 import { buildImportTemplateCsv } from './appUserImportTemplate';
 
@@ -2623,6 +2624,9 @@ function ProfileDrawer({
               <ProfileConfirmSection title="基本信息 - 轻量资料">
                 <ProfileFieldGrid fields={lightFields} />
               </ProfileConfirmSection>
+
+              {canViewCommercial && <UserAssetGrantPanel key={user.id} userId={user.id} nickname={user.nickname}
+                onGranted={() => { getCommercialUserAssetDetail(user.id).then((res) => setCommercial(res.data)).catch(() => showToast('资产刷新失败，请重新打开详情', 'error')); }} />}
 
               <ProfileConfirmSection title="基本信息 - 基础资料">
                 <ProfileFieldGrid fields={basicFields} />

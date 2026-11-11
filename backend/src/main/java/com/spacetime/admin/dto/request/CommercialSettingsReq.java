@@ -10,6 +10,11 @@ import lombok.Data;
  */
 @Data
 public class CommercialSettingsReq {
+    /** 资料认证一次性本人奖励；零关闭，旧客户端省略时保留原值。 */
+    @jakarta.validation.constraints.DecimalMin("0")
+    @jakarta.validation.constraints.DecimalMax("2147483647")
+    @jakarta.validation.constraints.Digits(integer = 10, fraction = 0)
+    private java.math.BigDecimal certificationRewardCoins;
     /** 兼容旧管理端，不再作为解锁限制；0 表示不限人数。 */
     @Min(0)
     private Integer idealBatchMax;

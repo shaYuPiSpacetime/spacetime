@@ -80,6 +80,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CommercialAdminServiceImpl implements CommercialAdminService {
     private static final int SCENE_COUNT = 9;
+    private static final String CFG_CERTIFICATION_REWARD = com.spacetime.common.service.CertificationRewardService.CONFIG_KEY;
     private static final Set<String> BENEFIT_CODES = Set.of(
             "heart_list", "visitor_list", "free_whisper", "extra_browse", "advanced_filter",
             "exposure_score", "privacy", "three_day_replay", "daily_heart_chance"
@@ -106,7 +107,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
             CFG_IDEAL_BATCH_MAX, CFG_IDEAL_BATCH_DISCOUNT_PERCENT, CFG_IDEAL_RETENTION_DAYS,
             CFG_NORMAL_VIEW_QUOTA, CFG_VIP_VIEW_QUOTA,
             CFG_VIP_EXPIRE_REMIND_DAYS, CFG_REFUND_DISPLAY, CFG_EXPOSURE_RESERVE_ENABLED,
-            CFG_EXPOSURE_RESERVE_DESC
+            CFG_EXPOSURE_RESERVE_DESC, CFG_CERTIFICATION_REWARD
     );
     private static final DateTimeFormatter VERSION_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -352,6 +353,7 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         Map<String, String> values = (configs == null ? List.<AppConfig>of() : configs).stream()
                 .collect(Collectors.toMap(AppConfig::getConfigKey, AppConfig::getConfigValue, (a, b) -> b));
         CommercialSettingsVO vo = new CommercialSettingsVO();
+        vo.setCertificationRewardCoins(intValue(values, CFG_CERTIFICATION_REWARD, 0));
         // 保留协议字段兼容旧管理端，0 表示不限制人数，旧配置不再生效。
         vo.setIdealBatchMax(0);
         vo.setIdealBatchDiscountPercent(intValue(values, CFG_IDEAL_BATCH_DISCOUNT_PERCENT, 10));
@@ -391,6 +393,13 @@ public class CommercialAdminServiceImpl implements CommercialAdminService {
         upsertSetting(CFG_REFUND_DISPLAY, settings.getRefundDisplay(), ConfigTypeEnum.BOOLEAN, "退款状态前台展示");
         upsertSetting(CFG_EXPOSURE_RESERVE_ENABLED, settings.getExposureReserveEnabled(), ConfigTypeEnum.BOOLEAN, "曝光包预留开关");
         upsertSetting(CFG_EXPOSURE_RESERVE_DESC, settings.getExposureReserveDescription(), ConfigTypeEnum.TEXT, "曝光包预留说明");
+        if (settings.getCertificationRewardCoins() != null) {
+            int rewardCoins;
+            try { rewardCoins = settings.getCertificationRewardCoins().intValueExact(); }
+            catch (ArithmeticException ex) { throw new BusinessException("认证奖励数量必须为合法整数"); }
+            if (rewardCoins < 0) throw new BusinessException("认证奖励数量不能为负数");
+            upsertSetting(CFG_CERTIFICATION_REWARD, rewardCoins, ConfigTypeEnum.NUMBER, "资料认证本人一次性奖励千寻币");
+        }
     }
 
     private void upsertSetting(String key, Object value, ConfigTypeEnum type, String remark) {

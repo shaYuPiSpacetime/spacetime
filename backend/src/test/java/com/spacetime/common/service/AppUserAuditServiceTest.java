@@ -95,7 +95,7 @@ class AppUserAuditServiceTest {
                 new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), ""),
                 AppUserAuditRecord.class);
         auditService = new AppUserAuditServiceImpl(recordDao, historyDao, appUserDao,
-                promotionEventInboxService, new ObjectMapper());
+                promotionEventInboxService, new ObjectMapper(), org.mockito.Mockito.mock(CertificationRewardService.class));
     }
 
     @Test

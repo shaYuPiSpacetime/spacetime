@@ -48,7 +48,7 @@ class AppUserAuditServiceImplEducationProjectionTest {
         when(appUserDao.selectById(7L)).thenReturn(user);
 
         AppUserAuditServiceImpl service = new AppUserAuditServiceImpl(
-                recordDao, historyDao, appUserDao, promotionEventInboxService, new ObjectMapper());
+                recordDao, historyDao, appUserDao, promotionEventInboxService, new ObjectMapper(), org.mockito.Mockito.mock(CertificationRewardService.class));
         service.manualAudit(91L, "APPROVE", null, 3L, "auditor");
 
         ArgumentCaptor<AppUser> captor = ArgumentCaptor.forClass(AppUser.class);
