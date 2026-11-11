@@ -89,6 +89,8 @@ public interface CommunityPersonalQueryMapper {
                 SELECT i.unlock_no AS id, NULL AS post_id, i.target_user_id,
                        NULL AS description, i.effective_time AS interaction_time
                 FROM app_user_unlock_record i WHERE i.user_id=#{userId} AND i.deleted=0
+                  AND EXISTS (SELECT 1 FROM app_user target
+                              WHERE target.id=i.target_user_id AND target.deleted=0)
                   AND NOT EXISTS (
                     SELECT 1 FROM app_user_relation_block b WHERE b.deleted=0 AND b.status='ENABLED'
                       AND b.block_type='BLACKLIST'
