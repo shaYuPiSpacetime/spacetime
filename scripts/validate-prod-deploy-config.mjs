@@ -237,7 +237,7 @@ for (const expected of [
   'OSS_ACCESS_KEY_ID=',
   'OSS_ACCESS_KEY_SECRET=',
   'SMS_PROVIDER=aliyun',
-  'SMS_MOCK_ENABLED=true',
+  'SMS_MOCK_ENABLED=false',
   'SMS_ACCESS_KEY_ID=',
   'SMS_ACCESS_KEY_SECRET=',
   'SMS_ENDPOINT=dysmsapi.aliyuncs.com',
@@ -278,7 +278,7 @@ for (const expected of [
   'endpoint: ${OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}',
   'bucket-name: ${OSS_BUCKET_NAME:shikongxiehou}',
   'provider: ${SMS_PROVIDER:aliyun}',
-  'mock-enabled: ${SMS_MOCK_ENABLED:true}',
+  'mock-enabled: ${SMS_MOCK_ENABLED:false}',
   'provider: ${PRD01_CONTENT_SECURITY_PROVIDER:wechat}',
 ]) {
   assertIncludes(prodConfig, expected, 'backend/src/main/resources/application-prod.yml');
@@ -342,7 +342,8 @@ for (const expected of [
   'COMMUNITY_CONTENT_SECURITY_CALLBACK_TOKEN',
   'SMS_ACCESS_KEY_ID SMS_ACCESS_KEY_SECRET',
   'SMS_PROVIDER SMS_ENDPOINT SMS_SIGN_NAME SMS_TEMPLATE_CODE',
-  'SMS_MOCK_ENABLED="${SMS_MOCK_ENABLED:-true}"',
+  'if [ "$DEPLOY_ENV" = prod ]; then default_sms_mock_enabled=false; fi',
+  'SMS_MOCK_ENABLED="${SMS_MOCK_ENABLED:-$default_sms_mock_enabled}"',
   'SMS_MOCK_ENABLED 只能为 true 或 false',
   '关闭短信 mock 时 SMS_PROVIDER 必须为 aliyun',
   'TENCENT_IM_ENABLED TENCENT_IM_SDK_APP_ID TENCENT_IM_SECRET_KEY',

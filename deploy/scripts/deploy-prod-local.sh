@@ -77,7 +77,9 @@ load_env() {
   export REDIS_IMAGE="${REDIS_IMAGE:-${ALIYUN_CR_REGISTRY}/bobo2026/bobo2026:spacetime-redis-7.4}"
   export OSS_URL_EXPIRE_SECONDS="${OSS_URL_EXPIRE_SECONDS:-300}"
   export SMS_PROVIDER="${SMS_PROVIDER:-aliyun}"
-  export SMS_MOCK_ENABLED="${SMS_MOCK_ENABLED:-true}"
+  local default_sms_mock_enabled=true
+  if [ "$DEPLOY_ENV" = prod ]; then default_sms_mock_enabled=false; fi
+  export SMS_MOCK_ENABLED="${SMS_MOCK_ENABLED:-$default_sms_mock_enabled}"
   export SMS_ACCESS_KEY_ID="${SMS_ACCESS_KEY_ID:-$OSS_ACCESS_KEY_ID}"
   export SMS_ACCESS_KEY_SECRET="${SMS_ACCESS_KEY_SECRET:-$OSS_ACCESS_KEY_SECRET}"
   export SMS_ENDPOINT="${SMS_ENDPOINT:-dysmsapi.aliyuncs.com}"
