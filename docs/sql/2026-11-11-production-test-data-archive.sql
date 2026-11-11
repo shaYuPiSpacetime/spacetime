@@ -25,7 +25,7 @@
 -- 只有停写后才允许设置 @archive_writes_paused=1；PREVIEW 无须停写。
 -- 归档状态为 COMPLETE 且行数核对成功后，才可视为归档完成。
 
-SET NAMES utf8mb4;
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE shikongxiehou_prod;
 SET @archive_mode=COALESCE(@archive_mode,'PREVIEW');
 SET @archive_expected_server_uuid=COALESCE(@archive_expected_server_uuid,'16de2a02-d8e0-11f1-b00c-0242ac130006');
@@ -39,6 +39,7 @@ main: BEGIN
     DECLARE v_mode VARCHAR(16);
     DECLARE v_schema VARCHAR(64);
     DECLARE v_table VARCHAR(64);
+    DECLARE v_columns TEXT;
     DECLARE v_ids JSON;
     DECLARE v_count BIGINT DEFAULT 0;
     DECLARE v_tables INT DEFAULT 0;
@@ -109,9 +110,6 @@ main: BEGIN
     IF COALESCE(@archive_writes_paused,0)<>1 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='必须先完成维护停写，再明确设置 archive_writes_paused=1';
     END IF;
-    IF EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND (EXTRA LIKE '%VIRTUAL GENERATED%' OR EXTRA LIKE '%STORED GENERATED%')) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='检测到生成列，请先适配显式归档列清单';
-    END IF;
     IF @@autocommit<>1 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='请在独立且 autocommit=1 的运维会话执行';
     END IF;
@@ -146,6 +144,7 @@ main: BEGIN
     END LOOP;
     CLOSE v_cursor;
 
+    SET SESSION group_concat_max_len=65535;
     SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
     START TRANSACTION WITH CONSISTENT SNAPSHOT;
     SET v_done=FALSE;
@@ -153,7 +152,11 @@ main: BEGIN
     copy_loop: LOOP
         FETCH v_cursor INTO v_table;
         IF v_done THEN LEAVE copy_loop; END IF;
-        SET @archive_sql=CONCAT('INSERT INTO `',v_schema,'`.`',REPLACE(v_table,'`','``'),'` SELECT * FROM `shikongxiehou_prod`.`',REPLACE(v_table,'`','``'),'`');
+        -- 生成列由目标表自动计算；显式复制普通列，避免 INSERT SELECT * 被拒绝。
+        SELECT GROUP_CONCAT(CONCAT('`',REPLACE(COLUMN_NAME,'`','``'),'`') ORDER BY ORDINAL_POSITION SEPARATOR ',') INTO v_columns
+          FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='shikongxiehou_prod' AND TABLE_NAME=v_table
+          AND EXTRA NOT LIKE '%VIRTUAL GENERATED%' AND EXTRA NOT LIKE '%STORED GENERATED%';
+        SET @archive_sql=CONCAT('INSERT INTO `',v_schema,'`.`',REPLACE(v_table,'`','``'),'` (',v_columns,') SELECT ',v_columns,' FROM `shikongxiehou_prod`.`',REPLACE(v_table,'`','``'),'`');
         PREPARE archive_stmt FROM @archive_sql; EXECUTE archive_stmt;
         SET v_rows=ROW_COUNT();
         DEALLOCATE PREPARE archive_stmt;
