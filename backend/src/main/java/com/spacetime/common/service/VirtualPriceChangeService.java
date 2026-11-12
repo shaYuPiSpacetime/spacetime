@@ -147,8 +147,16 @@ public class VirtualPriceChangeService {
         if (StrUtil.isBlank(name)) {
             throw new BusinessException("套餐名称为空，无法上传微信商品");
         }
-        String goodsName = name.codePointCount(0, name.length()) > 20
-                ? name.substring(0, name.offsetByCodePoints(0, 20)) : name;
+        // 微信仅允许中英文、数字及 -_*·；只转换渠道名称，不改变后台名称和价格。
+        String goodsName = name.replaceAll("(?<=\\d)\\.(?=\\d)", "点")
+                .replaceAll("[^\\p{IsHan}A-Za-z0-9_*·-]+", "·")
+                .replaceAll("^·+|·+$", "");
+        if (goodsName.isBlank()) {
+            throw new BusinessException("套餐名称需包含中文、英文或数字，才能发布微信商品");
+        }
+        if (goodsName.codePointCount(0, goodsName.length()) > 20) {
+            goodsName = goodsName.substring(0, goodsName.offsetByCodePoints(0, 20));
+        }
         String imageUrl = StrUtil.blankToDefault(properties.getGoodsImageUrl(), DEFAULT_GOODS_IMAGE);
         change.setStatus("UPLOADING");
         changeDao.updateById(change);

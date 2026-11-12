@@ -68,8 +68,8 @@ public class WechatVirtualGoodsGateway implements VirtualGoodsGateway {
     @Override
     public void upload(String productId, String name, int priceFen, String remark, String imageUrl) {
         validateProductId(productId);
-        if (name == null || name.isBlank() || name.codePointCount(0, name.length()) > 20) {
-            throw new BusinessException("微信商品名称需为 1 至 20 个字符");
+        if (name == null || !name.matches("[\\p{IsHan}A-Za-z0-9_*·-]{1,20}")) {
+            throw new BusinessException("微信商品名称需为 1 至 20 个字符，仅支持中英文、数字及 -_*·");
         }
         if (priceFen <= 0) {
             throw new BusinessException("微信商品价格必须大于 0 分");

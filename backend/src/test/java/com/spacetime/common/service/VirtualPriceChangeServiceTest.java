@@ -71,6 +71,40 @@ class VirtualPriceChangeServiceTest {
     }
 
     @Test
+    void uploadConvertsDecimalPointInWechatNameWithoutChangingPackageNameOrPrice() {
+        VirtualPriceChange change = change("vip", 11L, null, "vb_new", "57.30", "QUEUED");
+        VipPackage pkg = new VipPackage();
+        pkg.setId(11L);
+        pkg.setPackageName("专属2.1折");
+        when(changeDao.selectPending(1)).thenReturn(List.of(change));
+        when(vipPackageDao.selectById(11L)).thenReturn(pkg);
+
+        service.advanceOne();
+
+        verify(goodsGateway).upload("vb_new", "专属2点1折", 5730, "专属2.1折",
+                "https://admin.shikongxiehou.com/assets/wechat-virtual-goods-200.png");
+        assertThat(pkg.getPackageName()).isEqualTo("专属2.1折");
+        assertThat(change.getStatus()).isEqualTo("UPLOADING");
+        verify(vipPackageDao, never()).updateById(any());
+    }
+
+    @Test
+    void uploadReplacesUnsupportedPunctuationInWechatName() {
+        VirtualPriceChange change = change("vip", 11L, null, "vb_new", "57.30", "QUEUED");
+        VipPackage pkg = new VipPackage();
+        pkg.setId(11L);
+        pkg.setPackageName("年卡（365天）");
+        when(changeDao.selectPending(1)).thenReturn(List.of(change));
+        when(vipPackageDao.selectById(11L)).thenReturn(pkg);
+
+        service.advanceOne();
+
+        verify(goodsGateway).upload("vb_new", "年卡·365天", 5730, "年卡（365天）",
+                "https://admin.shikongxiehou.com/assets/wechat-virtual-goods-200.png");
+        assertThat(pkg.getPackageName()).isEqualTo("年卡（365天）");
+    }
+
+    @Test
     void requestingNewPriceSupersedesEarlierUnfinishedChange() {
         VirtualPriceChange old = new VirtualPriceChange();
         old.setId(2L);

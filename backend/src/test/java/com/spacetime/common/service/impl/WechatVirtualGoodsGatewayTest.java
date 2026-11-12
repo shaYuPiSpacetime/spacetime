@@ -107,6 +107,14 @@ class WechatVirtualGoodsGatewayTest {
                 .isInstanceOf(BusinessException.class);
     }
 
+    @Test
+    void uploadRejectsWechatUnsupportedNameBeforeNetworkRequest() {
+        assertThatThrownBy(() -> gateway.upload("vip_11", "专属2.1折", 5730, "说明", "https://example.com/goods.png"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("商品名称");
+        org.mockito.Mockito.verifyNoInteractions(httpClient);
+    }
+
     private void reply(String body) throws Exception {
         @SuppressWarnings("unchecked")
         HttpResponse<String> response = mock(HttpResponse.class);
