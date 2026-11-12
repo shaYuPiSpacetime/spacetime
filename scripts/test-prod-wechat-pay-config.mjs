@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -9,21 +10,28 @@ const deployScript = fs.readFileSync(path.join(root, 'deploy/scripts/deploy-prod
 const workflow = fs.readFileSync(path.join(root, '.github/workflows/deploy-backend-prod.yml'), 'utf8')
 const prodEnvExample = fs.readFileSync(path.join(root, 'deploy/server.prod.env.example'), 'utf8')
 
-assert.match(
-  prodConfig,
-  /force-test-amount:\s*\$\{WECHAT_PAY_FORCE_TEST_AMOUNT:false\}/,
-  'prod 配置必须显式绑定是否启用测试扣款金额',
+// 执行部署脚本的支付配置段，验证遗留配置不能覆盖生产收费规则。
+const paymentConfig = deployScript.slice(
+  deployScript.indexOf('  # 正式环境统一按后台套餐价'),
+  deployScript.indexOf('  export WECHAT_VIRTUAL_PAY_RECONCILE_DELAY_MS='),
 )
-assert.match(
-  prodConfig,
-  /test-pay-amount:\s*\$\{WECHAT_PAY_TEST_PAY_AMOUNT:1\.00\}/,
-  'prod 配置必须绑定 1 元测试扣款金额',
-)
-assert.match(
-  deployScript,
-  /WECHAT_PAY_TEST_AMOUNT="\$WECHAT_PAY_TEST_PAY_AMOUNT"/,
-  '部署脚本必须兼容仍读取 WECHAT_PAY_TEST_AMOUNT 的后端镜像',
-)
+assert.ok(paymentConfig.length > 0, '必须取得实际部署脚本的支付配置段')
+const output = execFileSync('bash', ['-c', paymentConfig + `
+  printf '%s\\n' "$WECHAT_PAY_FORCE_TEST_AMOUNT" "$WECHAT_PAY_TEST_AMOUNT" "$WECHAT_PAY_TEST_PAY_AMOUNT" "$WECHAT_VIRTUAL_PAY_ENABLED" "$WECHAT_VIRTUAL_PAY_ENV"
+`], {
+  encoding: 'utf8',
+  env: {
+    ...process.env,
+    DEPLOY_ENV: 'prod',
+    WECHAT_PAY_FORCE_TEST_AMOUNT: 'true',
+    WECHAT_PAY_TEST_AMOUNT: '1.00',
+    WECHAT_PAY_TEST_PAY_AMOUNT: '1.00',
+    WECHAT_VIRTUAL_PAY_ENABLED: 'false',
+    WECHAT_VIRTUAL_PAY_ENV: '1',
+  },
+})
+assert.deepEqual(output.trimEnd().split('\n'), ['false', '', '', 'true', '0'],
+  '生产部署必须清除测试价覆盖，统一启用正式虚拟支付')
 
 const requiredConfigBlock = deployScript.slice(
   deployScript.indexOf('for key in \\\n    DB_HOST'),
@@ -39,8 +47,8 @@ assert.match(workflow, /node scripts\/test-prod-wechat-pay-config\.mjs/, '后端
 
 assert.match(
   prodConfig,
-  /wechat-virtual-pay:[\s\S]*enabled:\s*\$\{WECHAT_VIRTUAL_PAY_ENABLED:false\}/,
-  '生产配置必须默认关闭微信虚拟支付',
+  /wechat-virtual-pay:[\s\S]*enabled:\s*\$\{WECHAT_VIRTUAL_PAY_ENABLED:true\}/,
+  '生产配置必须默认启用微信虚拟支付',
 )
 assert.match(prodConfig, /offer-id:\s*\$\{WECHAT_VIRTUAL_PAY_OFFER_ID:\}/, '生产配置必须绑定虚拟支付 OfferId')
 assert.match(prodConfig, /app-key:\s*\$\{WECHAT_VIRTUAL_PAY_APP_KEY:\}/, '生产配置必须绑定虚拟支付 AppKey')
@@ -60,4 +68,4 @@ for (const key of [
   assert.match(prodEnvExample, new RegExp(`^${key}=`, 'm'), `生产环境模板必须声明 ${key}`)
 }
 
-console.log('生产微信支付与虚拟支付配置门禁测试通过：21/21')
+console.log('生产微信支付与虚拟支付配置检查通过（包含实际执行配置段验证）')

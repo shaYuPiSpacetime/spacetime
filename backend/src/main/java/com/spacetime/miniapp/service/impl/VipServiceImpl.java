@@ -48,7 +48,7 @@ public class VipServiceImpl implements VipService {
     private final TradeOrderDao tradeOrderDao;
     /** 线上虚拟支付商品目录 */
     private final WechatVirtualProductCatalog virtualProductCatalog;
-    /** 测试环境真实支付价。 */
+    /** 统一套餐展示价与下单金额。 */
     private final WechatPayProperties wechatPayProperties;
 
     /**

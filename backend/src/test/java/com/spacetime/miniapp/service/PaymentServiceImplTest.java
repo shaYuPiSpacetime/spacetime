@@ -281,8 +281,8 @@ class PaymentServiceImplTest {
     }
 
     @Test
-    @DisplayName("测试环境创建VIP订单-订单与微信扣款金额均为1元")
-    void createVipOrder_testAmountShouldOnlyApplyToWechatPayment() {
+    @DisplayName("遗留测试金额不覆盖会员套餐实际价格")
+    void createVipOrderShouldIgnoreLegacyTestAmount() {
         CreateOrderReq req = new CreateOrderReq();
         req.setOrderType("vip");
         req.setPackageId(1L);
@@ -295,14 +295,14 @@ class PaymentServiceImplTest {
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
 
-        assertThat(result.getPayAmount()).isEqualByComparingTo("1.00");
-        verify(tradeOrderDao).insert(argThat(order -> order.getPayAmount().compareTo(new BigDecimal("1.00")) == 0));
-        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("1.00")));
+        assertThat(result.getPayAmount()).isEqualByComparingTo("19.90");
+        verify(tradeOrderDao).insert(argThat(order -> order.getPayAmount().compareTo(new BigDecimal("19.90")) == 0));
+        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("19.90")));
     }
 
     @Test
-    @DisplayName("部署环境强制测试金额-VIP订单与微信扣款均为1元")
-    void createVipOrder_forceTestAmountShouldUseConfiguredTestPayAmount() {
+    @DisplayName("遗留强制测试开关不覆盖会员套餐实际价格")
+    void createVipOrderShouldIgnoreForcedTestAmount() {
         CreateOrderReq req = new CreateOrderReq();
         req.setOrderType("vip");
         req.setPackageId(1L);
@@ -311,19 +311,19 @@ class PaymentServiceImplTest {
         wechatPayProperties.setTestPayAmount(new BigDecimal("1.00"));
         when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
         when(appUserDao.selectById(1L)).thenReturn(appUser);
-        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("1.00"))))
+        when(wechatPayService.createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("19.90"))))
                 .thenReturn(payParams);
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
 
-        assertThat(result.getPayAmount()).isEqualByComparingTo("1.00");
-        verify(tradeOrderDao).insert(argThat(order -> new BigDecimal("1.00").compareTo(order.getPayAmount()) == 0));
-        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("1.00")));
+        assertThat(result.getPayAmount()).isEqualByComparingTo("19.90");
+        verify(tradeOrderDao).insert(argThat(order -> new BigDecimal("19.90").compareTo(order.getPayAmount()) == 0));
+        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("19.90")));
     }
 
     @Test
-    @DisplayName("测试环境创建千寻币订单-订单与微信扣款均为1元")
-    void createCoinOrder_testAmountShouldOnlyApplyToWechatPayment() {
+    @DisplayName("遗留测试金额不覆盖千寻币套餐实际价格")
+    void createCoinOrderShouldIgnoreLegacyTestAmount() {
         CreateOrderReq req = new CreateOrderReq();
         req.setOrderType("coin");
         req.setPackageId(2L);
@@ -336,16 +336,17 @@ class PaymentServiceImplTest {
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
 
-        assertThat(result.getPayAmount()).isEqualByComparingTo("1.00");
-        verify(tradeOrderDao).insert(argThat(order -> order.getPayAmount().compareTo(new BigDecimal("1.00")) == 0));
-        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("1.00")));
+        assertThat(result.getPayAmount()).isEqualByComparingTo("6.00");
+        verify(tradeOrderDao).insert(argThat(order -> order.getPayAmount().compareTo(new BigDecimal("6.00")) == 0));
+        verify(wechatPayService).createJsapiPayParams(any(TradeOrder.class), eq("openid_1"), eq(new BigDecimal("6.00")));
     }
 
     @Test
-    @DisplayName("虚拟支付千寻币测试价保留已发布商品原价，订单实际支付一元")
-    void createCoinVirtualOrderShouldUseOneYuanActivityPrice() {
+    @DisplayName("虚拟支付千寻币按后台优惠价收费，忽略遗留一元测试配置")
+    void createCoinVirtualOrderShouldUseConfiguredDiscountPrice() {
         coinPackage.setId(10L);
         coinPackage.setAmount(new BigDecimal("99.00"));
+        coinPackage.setDiscountAmount(new BigDecimal("79.80"));
         coinPackage.setWechatProductId("coin_10");
         virtualPayProperties.setEnabled(true);
         virtualPayProperties.setEnv(0);
@@ -362,23 +363,25 @@ class PaymentServiceImplTest {
         when(wechatMiniappClient.code2Session("fresh-code"))
                 .thenReturn(new WechatMiniappClient.SessionInfo("openid_1", null, "session-key"));
         when(wechatVirtualPayService.createPayParams(
-                anyString(), eq("coin_10"), eq(9900), eq(100), eq("session-key")))
+                anyString(), eq("coin_10"), eq(7980), eq("session-key")))
                 .thenReturn(virtualParams);
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
 
-        assertThat(result.getPayAmount()).isEqualByComparingTo("1.00");
+        assertThat(result.getPayAmount()).isEqualByComparingTo("79.80");
+        assertThat(result.getPayChannel()).isEqualTo("wechat_virtual");
+        verifyNoInteractions(wechatPayService);
         assertThat(result.getVirtualPayParams()).isSameAs(virtualParams);
         verify(tradeOrderDao).insert(argThat(order ->
-                order.getPayAmount().compareTo(new BigDecimal("1.00")) == 0
+                order.getPayAmount().compareTo(new BigDecimal("79.80")) == 0
                         && "coin_10".equals(order.getWechatProductId())));
     }
 
     @Test
-    @DisplayName("一元测试模式下会员虚拟支付按标价实付")
-    void createVipVirtualOrderShouldUseOneYuanPrice() {
+    @DisplayName("会员虚拟支付按后台套餐价收费，忽略遗留一元测试开关")
+    void createVipVirtualOrderShouldUseConfiguredPrice() {
         vipPackage.setWechatProductId("vip_8");
-        vipPackage.setPrice(new BigDecimal("1.00"));
+        vipPackage.setPrice(new BigDecimal("199.90"));
         virtualPayProperties.setEnabled(true);
         virtualPayProperties.setEnv(0);
         wechatPayProperties.setForceTestAmount(true);
@@ -392,19 +395,19 @@ class PaymentServiceImplTest {
         when(wechatMiniappClient.code2Session("fresh-code"))
                 .thenReturn(new WechatMiniappClient.SessionInfo("openid_1", null, "session-key"));
         when(wechatVirtualPayService.createPayParams(
-                anyString(), eq("vip_8"), eq(100), eq("session-key")))
+                anyString(), eq("vip_8"), eq(19990), eq("session-key")))
                 .thenReturn(new WechatVirtualPayParamsVO());
 
         CreateOrderVO result = paymentService.createOrder(1L, req);
 
-        assertThat(result.getPayAmount()).isEqualByComparingTo("1.00");
+        assertThat(result.getPayAmount()).isEqualByComparingTo("199.90");
         verify(tradeOrderDao).insert(argThat(order ->
-                order.getPayAmount().compareTo(new BigDecimal("1.00")) == 0));
+                order.getPayAmount().compareTo(new BigDecimal("199.90")) == 0));
     }
 
     @Test
-    @DisplayName("一元测试价高于会员商品标价时下单前拒绝，不留下待支付订单")
-    void createVipVirtualOrderShouldRejectPriceBelowTestAmountBeforeInsert() {
+    @DisplayName("低于一元的合法后台套餐价仍可按原价下单")
+    void createVipVirtualOrderShouldAllowConfiguredPriceBelowOneYuan() {
         vipPackage.setWechatProductId("vip_7");
         vipPackage.setPrice(new BigDecimal("0.01"));
         virtualPayProperties.setEnabled(true);
@@ -414,13 +417,21 @@ class PaymentServiceImplTest {
         CreateOrderReq req = new CreateOrderReq();
         req.setOrderType("vip");
         req.setPackageId(1L);
+        req.setLoginCode("fresh-code");
         when(wechatVirtualPayService.isEnabled()).thenReturn(true);
         when(vipPackageDao.selectById(1L)).thenReturn(vipPackage);
 
-        assertThatThrownBy(() -> paymentService.createOrder(1L, req))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("低于测试支付金额");
-        verifyNoInteractions(tradeOrderDao, appUserDao);
+        when(appUserDao.selectById(1L)).thenReturn(appUser);
+        when(wechatMiniappClient.code2Session("fresh-code"))
+                .thenReturn(new WechatMiniappClient.SessionInfo("openid_1", null, "session-key"));
+        when(wechatVirtualPayService.createPayParams(
+                anyString(), eq("vip_7"), eq(1), eq("session-key")))
+                .thenReturn(new WechatVirtualPayParamsVO());
+
+        CreateOrderVO result = paymentService.createOrder(1L, req);
+
+        assertThat(result.getPayAmount()).isEqualByComparingTo("0.01");
+        assertThat(result.getPaymentMode()).isEqualTo("wechat_virtual");
     }
 
     @Test

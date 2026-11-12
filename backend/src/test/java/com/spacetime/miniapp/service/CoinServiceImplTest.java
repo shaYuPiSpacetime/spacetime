@@ -105,21 +105,21 @@ class CoinServiceImplTest {
     }
 
     @Test
-    @DisplayName("一元测试模式下千寻币列表展示实付一元且保留原标价")
-    void getPackagesShouldExposeOneYuanTestPrice() {
+    @DisplayName("千寻币列表按后台优惠价展示，不受遗留测试金额影响")
+    void getPackagesShouldExposeConfiguredDiscountPrice() {
         CoinPackage entity = new CoinPackage();
         entity.setId(10L);
         entity.setAmount(new BigDecimal("99.00"));
-        entity.setDiscountAmount(new BigDecimal("99.00"));
+        entity.setDiscountAmount(new BigDecimal("79.80"));
         when(coinPackageDao.selectPage(any(), any())).thenReturn(page(List.of(entity)));
         wechatPayProperties.setForceTestAmount(true);
         wechatPayProperties.setTestPayAmount(new BigDecimal("1.00"));
 
         CoinPackageVO result = service.getPackages().get(0);
 
-        assertThat(result.getAmount()).isEqualByComparingTo("1.00");
-        assertThat(result.getDiscountAmount()).isEqualByComparingTo("1.00");
-        assertThat(result.getOriginAmount()).isEqualByComparingTo("99.00");
+        assertThat(result.getAmount()).isEqualByComparingTo("79.80");
+        assertThat(result.getDiscountAmount()).isEqualByComparingTo("79.80");
+        assertThat(result.getOriginAmount()).isNull();
     }
 
     @Test

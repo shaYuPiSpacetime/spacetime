@@ -27,6 +27,13 @@ import { cn } from '@/lib/utils';
 
 type TabKey = 'orders' | 'flows' | 'refunds';
 
+const PAY_CHANNEL_LABELS: Record<string, string> = {
+  wechat_virtual: '微信虚拟支付',
+  wechat: '微信支付',
+  alipay: '支付宝',
+  mock: '模拟支付',
+};
+
 const TABS: { key: TabKey; title: string; path: string }[] = [
   { key: 'orders', title: '订单管理', path: '/finance/orders' },
   { key: 'flows', title: '流水管理', path: '/finance/flows' },
@@ -279,6 +286,7 @@ function OrdersPanel() {
     <Card>
       <CardHeader>
         <CardTitle>订单管理</CardTitle>
+        <p className="text-sm text-muted-foreground">订单金额不代表已收款，请结合订单状态、支付成功时间和渠道交易单号核对。</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* 搜索栏 */}
@@ -331,7 +339,8 @@ function OrdersPanel() {
               <TableHead>用户ID</TableHead>
               <TableHead>订单类型</TableHead>
               <TableHead>套餐名称</TableHead>
-              <TableHead>支付金额</TableHead>
+              <TableHead>订单金额</TableHead>
+              <TableHead>支付渠道</TableHead>
               <TableHead>订单状态</TableHead>
               <TableHead>创建时间</TableHead>
               <TableHead>操作</TableHead>
@@ -340,13 +349,13 @@ function OrdersPanel() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   加载中...
                 </TableCell>
               </TableRow>
             ) : list.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   暂无数据
                 </TableCell>
               </TableRow>
@@ -358,6 +367,7 @@ function OrdersPanel() {
                   <TableCell>{labelOf(row.orderType, ORDER_TYPE_LABELS)}</TableCell>
                   <TableCell>{row.packageName || '-'}</TableCell>
                   <TableCell>¥{(row.payAmount ?? 0).toFixed(2)}</TableCell>
+                  <TableCell>{PAY_CHANNEL_LABELS[row.payChannel ?? ''] ?? '未知渠道'}</TableCell>
                   <TableCell>{orderStatusBadge(row.orderStatus)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {row.createTime ?? '-'}
@@ -402,8 +412,16 @@ function OrdersPanel() {
                 <span>{detail.packageName || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">支付金额</span>
+                <span className="text-muted-foreground">订单金额</span>
                 <span className="font-medium">¥{(detail.payAmount ?? 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">支付渠道</span>
+                <span>{PAY_CHANNEL_LABELS[detail.payChannel ?? ''] ?? '未知渠道'}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="shrink-0 text-muted-foreground">渠道交易单号</span>
+                <span className="break-all font-mono text-right">{detail.channelTradeNo || '暂无'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">订单状态</span>

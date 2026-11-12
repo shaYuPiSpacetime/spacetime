@@ -1,6 +1,5 @@
 package com.spacetime.common.config;
 
-import com.spacetime.common.exception.BusinessException;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -30,24 +29,18 @@ public class WechatPayProperties {
     private String notifyUrl;
     /** 商品描述前缀 */
     private String descriptionPrefix = "时空邂逅";
-    /** 测试环境传给微信的覆盖金额；为空时使用套餐真实金额 */
+    /** 兼容旧环境配置，不再覆盖后台套餐价格。 */
+    @Deprecated
     private BigDecimal testAmount;
-    /** 部署环境是否强制使用测试扣款金额 */
+    /** 兼容旧环境配置，开关不再影响扣款金额。 */
+    @Deprecated
     private boolean forceTestAmount;
-    /** 部署环境测试扣款金额 */
+    /** 兼容旧环境配置，不再作为扣款金额。 */
+    @Deprecated
     private BigDecimal testPayAmount = new BigDecimal("1.00");
 
-    /** 返回当前环境真实扣款金额；订单、页面与网关必须使用同一金额。 */
+    /** 页面、订单与支付网关统一使用后台生效套餐价，忽略遗留测试金额。 */
     public BigDecimal resolvePaymentAmount(BigDecimal packageAmount) {
-        if (testAmount != null && testAmount.signum() > 0) {
-            return testAmount;
-        }
-        if (!forceTestAmount) {
-            return packageAmount;
-        }
-        if (testPayAmount == null || testPayAmount.signum() <= 0) {
-            throw new BusinessException("微信支付测试金额配置不正确");
-        }
-        return testPayAmount;
+        return packageAmount;
     }
 }

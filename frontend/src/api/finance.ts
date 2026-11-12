@@ -9,6 +9,8 @@ export interface TradeOrder {
   packageId: number;
   packageName: string;
   payAmount: number;
+  payChannel?: string;
+  channelTradeNo?: string;
   orderStatus: string;
   successTime?: string;
   expireTime?: string;

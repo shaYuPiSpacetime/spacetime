@@ -758,7 +758,7 @@ function ConfigWorkspace() {
             </tbody>
           </TableWrap>
           <Notice title="价格生效说明">会员价格可随时申请调整。保存后系统自动创建并发布新微信商品；发布、生效期间，小程序仍按“当前支付价”销售，生效后自动切换。新增套餐先保存为下架，再点击上架并保存，待微信商品生效后自动上架。</Notice>
-          <Notice title="购买方式">所有会员套餐均为普通套餐，通过微信支付一次性购买；再次购买只延长会员有效期，不会自动扣费。</Notice>
+          <Notice title="购买方式">会员套餐通过微信虚拟支付一次性购买，按后台已生效的套餐价格收费；再次购买只延长会员有效期，不会自动扣费。</Notice>
         </ConfigPanel>
 
         <ConfigPanel active={activeTab === 'coinPackages'} name="coinPackages">

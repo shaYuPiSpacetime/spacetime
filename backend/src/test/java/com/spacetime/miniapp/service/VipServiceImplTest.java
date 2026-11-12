@@ -62,8 +62,8 @@ class VipServiceImplTest {
     }
 
     @Test
-    @DisplayName("一元测试模式下会员列表展示实付一元且保留原标价")
-    void getPackagesShouldExposeOneYuanTestPrice() {
+    @DisplayName("会员列表展示后台套餐价格，不受遗留测试金额影响")
+    void getPackagesShouldExposeConfiguredPrice() {
         VipPackage entity = new VipPackage();
         entity.setId(10L);
         entity.setPrice(new BigDecimal("1000.00"));
@@ -75,13 +75,13 @@ class VipServiceImplTest {
 
         var result = vipService.getPackages().get(0);
 
-        assertThat(result.getPrice()).isEqualByComparingTo("1.00");
-        assertThat(result.getOriginPrice()).isEqualByComparingTo("1000.00");
+        assertThat(result.getPrice()).isEqualByComparingTo("1000.00");
+        assertThat(result.getOriginPrice()).isNull();
     }
 
     @Test
-    @DisplayName("一元测试模式下隐藏微信标价仅一分的会员商品")
-    void getPackagesShouldHideCatalogPriceBelowTestAmount() {
+    @DisplayName("遗留测试金额不得隐藏合法的低价会员套餐")
+    void getPackagesShouldIncludeConfiguredPriceBelowOneYuan() {
         VipPackage tooCheap = new VipPackage();
         tooCheap.setId(7L);
         tooCheap.setPrice(new BigDecimal("0.01"));
@@ -94,7 +94,7 @@ class VipServiceImplTest {
         wechatPayProperties.setForceTestAmount(true);
         wechatPayProperties.setTestPayAmount(new BigDecimal("1.00"));
 
-        assertThat(vipService.getPackages()).isEmpty();
+        assertThat(vipService.getPackages()).extracting("price").containsExactly(new BigDecimal("0.01"));
     }
 
     @Test

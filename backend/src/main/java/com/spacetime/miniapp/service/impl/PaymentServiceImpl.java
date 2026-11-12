@@ -75,7 +75,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final WechatVirtualPayService wechatVirtualPayService;
     /** 微信小程序开放接口客户端 */
     private final WechatMiniappClient wechatMiniappClient;
-    /** 微信支付配置，用于测试环境统一订单与网关扣款金额 */
+    /** 微信支付配置及统一套餐价格入口 */
     private final WechatPayProperties wechatPayProperties;
     /** 推广事实事件收件箱 */
     private final PromotionEventInboxService promotionEventInboxService;

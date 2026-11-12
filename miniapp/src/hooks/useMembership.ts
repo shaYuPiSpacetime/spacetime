@@ -90,9 +90,10 @@ function formatDisplayDate(value?: string) {
 }
 
 function payChannelName(channel?: string) {
-  if (channel === 'wechat' || channel === 'wechat_virtual') return '微信'
+  if (channel === 'wechat_virtual') return '微信虚拟支付'
+  if (channel === 'wechat') return '微信支付'
   if (channel === 'alipay') return '支付宝'
-  return channel || '微信'
+  return '其他方式'
 }
 
 function orderStatusLabel(status?: string) {
