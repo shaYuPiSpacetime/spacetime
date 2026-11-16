@@ -565,6 +565,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
             if ("VALID".equals(rowResult.status())) {
                 AppUser imported = buildImportedUser(rowResult.rowData());
                 appUserDao.insert(imported);
+                userAssetDao.initializeIfAbsent(imported.getId());
                 importedUserIds.add(imported.getId());
                 row.setUserId(imported.getId());
                 row.setStatus("IMPORTED");

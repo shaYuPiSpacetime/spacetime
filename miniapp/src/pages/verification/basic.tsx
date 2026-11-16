@@ -124,7 +124,10 @@ export default function VerificationBasicPage() {
       <VerificationRuntimeBoundary>
         <View
           style={{
-            minHeight: '100vh',
+            height: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
             background:
               'linear-gradient(90deg, rgba(233,253,251,0.72) 0%, rgba(234,238,249,0.72) 50%, rgba(248,250,239,0.72) 100%)',
           }}
@@ -132,7 +135,7 @@ export default function VerificationBasicPage() {
           <LanhuSubNav title={copy('profile_basic_nav_title')} onBack={handleBack} />
           <ScrollView
             scrollY
-            style={{ height: 'calc(100vh - 164rpx)', width: '750rpx' }}
+            style={{ flex: 1, height: 0, minHeight: 0, width: '750rpx' }}
             showScrollbar={false}
           >
             <View
@@ -169,36 +172,36 @@ export default function VerificationBasicPage() {
                 </Text>
               </View>
               {card}
-              {!editorVisible ? (
-                <View
-                  data-role="profile-basic-save"
+              <View
+                data-role="profile-basic-save"
+                aria-hidden={editorVisible}
+                style={{
+                  position: 'relative',
+                  visibility: editorVisible ? 'hidden' : 'visible',
+                  width: '700rpx',
+                  height: '98rpx',
+                  margin: '48rpx 25rpx 0',
+                  borderRadius: '40rpx',
+                  background: saving ? '#C9DDF7' : '#2876FF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: saving ? 'none' : '0 12rpx 28rpx rgba(40,118,255,0.18)',
+                }}
+                onClick={saving || editorVisible ? undefined : () => save(false)}
+                hoverClass={saving ? undefined : 'btn-hover'}
+              >
+                <Text
                   style={{
-                    position: 'relative',
-                    width: '700rpx',
-                    height: '98rpx',
-                    margin: '48rpx 25rpx 0',
-                    borderRadius: '40rpx',
-                    background: saving ? '#C9DDF7' : '#2876FF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: saving ? 'none' : '0 12rpx 28rpx rgba(40,118,255,0.18)',
+                    color: '#FFFFFF',
+                    fontSize: '32rpx',
+                    fontWeight: 700,
+                    lineHeight: '45rpx',
                   }}
-                  onClick={saving ? undefined : () => save(false)}
-                  hoverClass={saving ? undefined : 'btn-hover'}
                 >
-                  <Text
-                    style={{
-                      color: '#FFFFFF',
-                      fontSize: '32rpx',
-                      fontWeight: 700,
-                      lineHeight: '45rpx',
-                    }}
-                  >
-                    {saving ? copy('common_saving_action') : copy('common_save_action')}
-                  </Text>
-                </View>
-              ) : null}
+                  {saving ? copy('common_saving_action') : copy('common_save_action')}
+                </Text>
+              </View>
             </View>
           </ScrollView>
         </View>

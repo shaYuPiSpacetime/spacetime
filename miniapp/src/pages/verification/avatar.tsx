@@ -36,6 +36,7 @@ export default function VerificationAvatarPage() {
     <VerificationRuntimeBoundary>
       <VerificationShell
         stage="avatar"
+        scroll
         primaryText={choosing ? copy('avatar_choosing_action') : copy('avatar_choose_action')}
         onPrimary={sourceSheetVisible ? undefined : () => setSourceSheetVisible(true)}
         onBack={() => navigateBackOrRedirect('/pages/index/index')}

@@ -32,9 +32,11 @@ public class UserAssetGrantServiceImpl implements UserAssetGrantService {
         if (reason == null || reason.isBlank() || reason.length() > 200)
             throw new BusinessException("赠送原因必填且不超过 200 字");
         if (users.selectById(userId) == null) throw new BusinessException("用户不存在");
-        // 先锁定资产，所有发放及付费会员使用同一行锁串行计算。
+        // 历史导入用户可能没有资产；先幂等补建，避免对空行加锁后并发插入。
+        assets.initializeIfAbsent(userId);
+        // 所有发放及付费会员使用同一资产行锁串行计算。
         UserAsset asset = assets.selectByUserIdForUpdate(userId);
-        if (asset == null) throw new BusinessException("用户资产账户尚未建立，请先完成注册");
+        if (asset == null) throw new BusinessException("用户资产账户不可用，请联系管理员");
         UserAssetGrant existing = grants.findByKeyForUpdate(key);
         if (existing != null) {
             if (!Objects.equals(existing.getUserId(), userId) || !Objects.equals(existing.getVipDays(), vipDays)

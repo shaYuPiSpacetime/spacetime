@@ -3,6 +3,7 @@ package com.spacetime.common.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.spacetime.common.entity.UserAsset;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
@@ -12,6 +13,13 @@ import org.apache.ibatis.annotations.Update;
  */
 @Mapper
 public interface UserAssetMapper extends BaseMapper<UserAsset> {
+
+    /** 依赖既有 user_id 唯一键串行补建；重复请求不修改任何资产值。 */
+    @Insert("INSERT INTO app_user_asset "
+            + "(user_id, vip_status, coin_balance, today_free_whisper_remain, total_recharge, create_time, update_time, deleted) "
+            + "VALUES (#{userId}, 'inactive', 0, 0, 0, NOW(), NOW(), 0) "
+            + "ON DUPLICATE KEY UPDATE user_id = #{userId}")
+    int initializeIfAbsent(@Param("userId") Long userId);
 
     /** 解锁确认事务中锁定当前用户资产，串行化重复确认与扣币。 */
     @Select("SELECT * FROM app_user_asset WHERE user_id = #{userId} AND deleted = 0 LIMIT 1 FOR UPDATE")

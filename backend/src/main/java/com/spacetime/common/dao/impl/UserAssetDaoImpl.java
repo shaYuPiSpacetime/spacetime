@@ -35,6 +35,11 @@ public class UserAssetDaoImpl implements UserAssetDao {
     }
 
     @Override
+    public void initializeIfAbsent(Long userId) {
+        mapper.initializeIfAbsent(userId);
+    }
+
+    @Override
     public int consumeFreeWhisper(Long userId) {
         return mapper.consumeFreeWhisper(userId);
     }

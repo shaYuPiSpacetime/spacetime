@@ -601,9 +601,10 @@ function profileCardStyle(rowCount: number) {
 
 function verificationCardStyle(rowCount: number) {
   return {
-    position: 'absolute',
-    left: '25rpx',
-    top: '558rpx',
+    position: 'relative',
+    marginLeft: '25rpx',
+    // 导航占 176rpx，保留原卡片起点，同时让动态字段撑开滚动内容。
+    marginTop: '382rpx',
     width: '700rpx',
     minHeight: `${profileCardHeight(rowCount)}rpx`,
     borderRadius: '36rpx',

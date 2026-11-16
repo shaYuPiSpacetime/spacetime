@@ -591,6 +591,26 @@ class AppUserAdminServiceImplTest {
     }
 
     @Test
+    @DisplayName("成功导入时同步建立零余额资产账户，失败行不建账户")
+    void importedUserGetsEmptyAssetAccountInSameTransaction() {
+        mockImportRequiredFields(List.of(
+                fieldSetting("phone", "手机号", true, true),
+                fieldSetting("nickname", "昵称", true, true)));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            AppUser user = invocation.getArgument(0);
+            user.setId(201L);
+            return null;
+        }).when(appUserDao).insert(any());
+
+        ImportBatchVO result = service.previewImport("users.csv", "phone,nickname\n13900001111,导入用户\n13900002222,");
+
+        assertThat(result.getImportedCount()).isEqualTo(1);
+        assertThat(result.getFailCount()).isEqualTo(1);
+        verify(userAssetDao).initializeIfAbsent(201L);
+        org.mockito.Mockito.verifyNoMoreInteractions(userAssetDao);
+    }
+
+    @Test
     @DisplayName("导入标签应保存为与小程序筛选一致的 JSON 数组")
     void importedTagsShouldUseJsonArrayStorage() {
         mockImportRequiredFields(List.of(fieldSetting("phone", "手机号", true, true),

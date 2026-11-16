@@ -809,7 +809,7 @@ test('编辑资料保存按钮按蓝湖位于第二张卡片之后，字段弹�
     /onEditorVisibilityChange=\{setEditorVisible\}/,
     '基本资料页必须监听字段弹层开关'
   )
-  assert.match(basic, /\{!editorVisible \? \(/, '字段弹层打开时必须隐藏页面级保存按钮')
+  assert.match(basic, /visibility: editorVisible \? 'hidden' : 'visible'/, '字段弹层打开时隐藏保存按钮但保留占位，避免页面回跳')
   assert.match(basic, /data-role="profile-basic-save"/, '编辑资料保存按钮缺少稳定运行态标识')
   assert.match(
     basic,

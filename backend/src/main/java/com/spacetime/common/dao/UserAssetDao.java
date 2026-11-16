@@ -13,6 +13,8 @@ public interface UserAssetDao {
     UserAsset selectByUserId(Long userId);
     /** 在当前事务内按用户 ID 查询并锁定资产行。 */
     UserAsset selectByUserIdForUpdate(Long userId);
+    /** 幂等补齐空资产账户，不覆盖已有余额、会员或逻辑删除状态。 */
+    void initializeIfAbsent(Long userId);
     /** 原子消费一次免费悄悄话权益。 */
     int consumeFreeWhisper(Long userId);
     /** 同步今日免费悄悄话剩余次数投影，业务事实以悄悄话记录计数为准。 */

@@ -57,7 +57,8 @@ export default function VerificationShell({
         position: 'relative',
         width: '750rpx',
         minHeight: contentHeight,
-        paddingBottom: onPrimary ? '220rpx' : '0',
+        // 弹层临时隐藏主按钮时仍保留底部空间，避免滚动范围收缩。
+        paddingBottom: shouldScroll ? '220rpx' : '0',
         boxSizing: 'border-box',
       }}
     >
