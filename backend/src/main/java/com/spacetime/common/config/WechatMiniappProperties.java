@@ -16,5 +16,5 @@ public class WechatMiniappProperties {
     /** 小程序 AppSecret，仅从环境变量注入 */
     private String appSecret;
     /** 生成小程序码时打开的版本：release/trial/develop */
-    private String codeEnvVersion = "trial";
+    private String codeEnvVersion = "release";
 }

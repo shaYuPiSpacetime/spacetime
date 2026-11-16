@@ -32,14 +32,13 @@ class WechatMiniappCodeServiceImplTest {
     @BeforeEach
     void setUp() {
         properties = new WechatMiniappProperties();
-        properties.setCodeEnvVersion("trial");
         httpClient = mock(HttpClient.class);
         service = new WechatMiniappCodeServiceImpl(
                 properties, objectMapper, httpClient, () -> "access-token");
     }
 
     @Test
-    void generateUnlimitedCodeUsesOfficialEndpointAndTrialVersion() throws Exception {
+    void generateUnlimitedCodeDefaultsToReleaseAndChecksPublishedPage() throws Exception {
         byte[] png = new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47};
         reply(200, "image/png", png);
 
@@ -55,6 +54,18 @@ class WechatMiniappCodeServiceImplTest {
         assertThat(body.path("scene").asText())
                 .isEqualTo("1a7f66e3d9654c81813f3b2b0dafdb45");
         assertThat(body.path("page").asText()).isEqualTo("pages/promotion/invite-home");
+        assertThat(body.path("env_version").asText()).isEqualTo("release");
+        assertThat(body.path("check_path").asBoolean()).isTrue();
+    }
+
+    @Test
+    void explicitlyConfiguredTrialStillSupportsUnpublishedTestPage() throws Exception {
+        properties.setCodeEnvVersion("trial");
+        reply(200, "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47});
+
+        service.generateUnlimitedCode("1a7f66e3d9654c81813f3b2b0dafdb45", "pages/promotion/invite-home");
+
+        var body = objectMapper.readTree(requestBody(request()));
         assertThat(body.path("env_version").asText()).isEqualTo("trial");
         assertThat(body.path("check_path").asBoolean()).isFalse();
     }

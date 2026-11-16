@@ -67,8 +67,10 @@ public class WechatMiniappCodeServiceImpl implements WechatMiniappCodeService {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("scene", scene);
             payload.put("page", page);
-            payload.put("check_path", false);
-            payload.put("env_version", codeEnvVersion());
+            String envVersion = codeEnvVersion();
+            // 正式码必须指向已发布页面，避免生成无法访问的推广码。
+            payload.put("check_path", "release".equals(envVersion));
+            payload.put("env_version", envVersion);
             payload.put("width", 430);
             String body = objectMapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()
