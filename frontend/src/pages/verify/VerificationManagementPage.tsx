@@ -19,6 +19,7 @@ import {
   getAvatarStats,
   getRealNameDetail,
   getEducationDetail,
+  getEducationMaterialPreview,
   getAvatarDetail,
   auditRealName,
   auditEducation,
@@ -159,11 +160,6 @@ function formatFieldValue(label: string, value?: string): string {
   return value;
 }
 
-function isImageUrl(url: string) {
-  const path = url.split(/[?#]/, 1)[0].toLowerCase();
-  return /\.(png|jpe?g|gif|webp|bmp)$/.test(path);
-}
-
 function renderMaybeLinks(value?: string, onPreview?: (url: string, index: number) => void) {
   if (!value) return '-';
   const parts = value.split('、').filter(Boolean);
@@ -218,6 +214,7 @@ export default function VerificationManagementPage() {
   const [materialPreviewOpen, setMaterialPreviewOpen] = useState(false);
   const [materialPreviewLoading, setMaterialPreviewLoading] = useState(false);
   const [materialPreviewError, setMaterialPreviewError] = useState<string | null>(null);
+  const [materialPreviewContentType, setMaterialPreviewContentType] = useState<string | null>(null);
   const [materialPreviewSelection, setMaterialPreviewSelection] = useState<{ recordId: number; index: number } | null>(null);
 
   const [auditOpen, setAuditOpen] = useState(false);
@@ -238,6 +235,12 @@ export default function VerificationManagementPage() {
     setEducationMethod('');
     setDetailOpen(false);
   }, [routeKeyword, tab.key]);
+
+  useEffect(() => {
+    return () => {
+      if (materialPreviewUrl?.startsWith('blob:')) URL.revokeObjectURL(materialPreviewUrl);
+    };
+  }, [materialPreviewUrl]);
 
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -290,20 +293,30 @@ export default function VerificationManagementPage() {
     setMaterialPreviewLoading(true);
     setMaterialPreviewError(null);
     setMaterialPreviewUrl(null);
+    setMaterialPreviewContentType(null);
     try {
-      // 列表和详情里的签名链接有时已过期；每次点击都重新获取一条有效期内的链接。
-      const res = await getEducationDetail(recordId, { historyPage: 1, historySize: 5 });
-      const freshDetail = res.data as VerificationAuditDetailVO;
-      const materialValue = freshDetail.fields?.find((field) => field.label === '证书材料')?.value;
-      const urls = (materialValue || '').split('、').filter((part) => /^https?:\/\//i.test(part));
-      const freshUrl = urls[index];
-      if (!freshUrl) {
-        setMaterialPreviewError('没有获取到有效的学历材料链接，请确认该记录已成功上传材料。');
-        return;
+      // 服务端按审核记录读取原始 OSS 对象，浏览器只加载同源的二进制预览内容。
+      const res = await getEducationMaterialPreview(recordId, index);
+      const contentType = String(res.headers['content-type'] || res.data.type || 'application/octet-stream')
+        .split(';', 1)[0]
+        .toLowerCase();
+      if (contentType.includes('application/json')) {
+        let message = '学历材料读取失败';
+        try {
+          const body = JSON.parse(await res.data.text());
+          message = body.msg || body.message || message;
+        } catch {
+          // 使用默认错误提示。
+        }
+        throw new Error(message);
       }
-      setMaterialPreviewUrl(freshUrl);
-    } catch {
-      setMaterialPreviewError('学历材料加载失败，请点击重新加载。');
+      setMaterialPreviewContentType(contentType);
+      setMaterialPreviewUrl(URL.createObjectURL(res.data));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      setMaterialPreviewError(message && !message.startsWith('Request failed with status code')
+        ? message
+        : '原始学历材料读取失败，请点击重新加载。');
     } finally {
       setMaterialPreviewLoading(false);
     }
@@ -651,7 +664,11 @@ export default function VerificationManagementPage() {
 
       <Dialog
         open={materialPreviewOpen}
-        onClose={() => setMaterialPreviewOpen(false)}
+        onClose={() => {
+          setMaterialPreviewOpen(false);
+          setMaterialPreviewUrl(null);
+          setMaterialPreviewContentType(null);
+        }}
         className="max-w-4xl"
         layer="nested"
       >
@@ -681,12 +698,12 @@ export default function VerificationManagementPage() {
           </div>
         ) : materialPreviewUrl && (
           <div className="mt-4 flex max-h-[72vh] min-h-[320px] items-center justify-center overflow-auto rounded-md border border-[#E6EDF7] bg-[#F7FAFE]">
-            {isImageUrl(materialPreviewUrl) ? (
+            {materialPreviewContentType?.startsWith('image/') ? (
               <img
                 src={materialPreviewUrl}
                 alt="学历认证材料"
                 className="max-h-[70vh] max-w-full object-contain"
-                onError={() => setMaterialPreviewError('学历材料图片加载失败，链接可能已过期或原文件不可用。')}
+                onError={() => setMaterialPreviewError('服务端已返回学历材料，但浏览器无法识别图片内容。')}
               />
             ) : (
               <iframe title="学历认证材料" src={materialPreviewUrl} className="h-[70vh] w-full bg-white" />

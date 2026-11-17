@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.VerificationAuditDetailVO;
+import com.spacetime.admin.dto.response.EducationMaterialPreviewVO;
 import com.spacetime.admin.dto.response.VerificationStatsVO;
 import com.spacetime.admin.dto.response.VerificationVO;
 
@@ -42,6 +43,9 @@ public interface VerificationAdminService {
 
     /** 学历认证详情，支持审核历史分页 */
     VerificationAuditDetailVO getEducationDetail(Long id, int historyPage, int historySize);
+
+    /** 按审核记录和材料序号读取学历材料，供后台同源预览。 */
+    EducationMaterialPreviewVO getEducationMaterialPreview(Long id, int materialIndex);
 
     /** 头像认证详情 */
     VerificationAuditDetailVO getAvatarDetail(Long id);

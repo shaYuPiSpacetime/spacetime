@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.AuditHistoryVO;
+import com.spacetime.admin.dto.response.EducationMaterialPreviewVO;
 import com.spacetime.admin.dto.response.FieldEntry;
 import com.spacetime.admin.dto.response.VerificationAuditDetailVO;
 import com.spacetime.admin.dto.response.VerificationStatsVO;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -57,6 +59,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String PROTECTED_CREDENTIAL_PREFIX = "/miniapp/file/credential/";
+    private static final int MAX_EDUCATION_MATERIAL_BYTES = 10 * 1024 * 1024;
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
     private static final Logger log = LoggerFactory.getLogger(VerificationAdminServiceImpl.class);
 
@@ -288,6 +291,46 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         ));
         vo.setHistoryPage(historyPage(record.getId(), historyPage, historySize));
         return vo;
+    }
+
+    @Override
+    public EducationMaterialPreviewVO getEducationMaterialPreview(Long id, int materialIndex) {
+        if (materialIndex < 0 || materialIndex >= 4) {
+            throw new BusinessException(404, "学历材料不存在");
+        }
+        AppUserAuditRecord record = requireRecord(id, AppUserAuditTypeEnum.EDUCATION);
+        JsonNode materialUrls;
+        try {
+            materialUrls = JSON_MAPPER.readTree(record.getMaterialJson()).path("materialUrls");
+        } catch (JsonProcessingException | IllegalArgumentException exception) {
+            log.warn("学历材料预览数据解析失败，审核记录 ID: {}", id);
+            throw new BusinessException(404, "学历材料数据不可用");
+        }
+        List<String> objectKeys = new ArrayList<>();
+        if (materialUrls.isArray()) {
+            for (JsonNode materialUrl : materialUrls) {
+                if (materialUrl.isTextual()) {
+                    addCredentialObjectKey(objectKeys, materialUrl.asText(), record.getUserId());
+                }
+            }
+        } else {
+            for (String materialUrl : legacyMaterialUrls(record.getMaterialJson())) {
+                addCredentialObjectKey(objectKeys, materialUrl, record.getUserId());
+            }
+        }
+        if (materialIndex >= objectKeys.size()) {
+            throw new BusinessException(404, "学历材料不存在");
+        }
+
+        try {
+            OssUtil.StoredObject object = ossUtil.readCredentialObject(
+                    objectKeys.get(materialIndex), MAX_EDUCATION_MATERIAL_BYTES);
+            return new EducationMaterialPreviewVO(object.contentType(), object.bytes());
+        } catch (RuntimeException exception) {
+            log.warn("学历材料预览读取失败，审核记录 ID: {}，异常类型: {}",
+                    id, exception.getClass().getSimpleName());
+            throw new BusinessException(502, "原始学历材料读取失败");
+        }
     }
 
     @Override
@@ -525,17 +568,8 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         if (value.startsWith("https://") || value.startsWith("http://")) {
             return value;
         }
-        if (!value.startsWith(PROTECTED_CREDENTIAL_PREFIX) || userId == null) {
-            return null;
-        }
-
-        String objectKey = value.substring(PROTECTED_CREDENTIAL_PREFIX.length());
-        String ownerPrefix = "miniapp/" + userId + "/education/";
-        if (StrUtil.isBlank(objectKey)
-                || objectKey.startsWith("/")
-                || objectKey.contains("..")
-                || !objectKey.matches("[A-Za-z0-9._/-]+")
-                || !objectKey.startsWith(ownerPrefix)) {
+        String objectKey = credentialObjectKey(value, userId);
+        if (objectKey == null) {
             return null;
         }
 
@@ -548,7 +582,54 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         }
     }
 
+    private String credentialObjectKey(String value, Long userId) {
+        if (StrUtil.isBlank(value) || userId == null) {
+            return null;
+        }
+
+        String objectKey;
+        if (value.startsWith(PROTECTED_CREDENTIAL_PREFIX)) {
+            objectKey = value.substring(PROTECTED_CREDENTIAL_PREFIX.length());
+        } else if (value.startsWith("https://") || value.startsWith("http://")) {
+            try {
+                objectKey = URI.create(value).getPath();
+                if (objectKey != null && objectKey.startsWith("/")) {
+                    objectKey = objectKey.substring(1);
+                }
+                String credentialPrefix = PROTECTED_CREDENTIAL_PREFIX.substring(1);
+                if (objectKey != null && objectKey.startsWith(credentialPrefix)) {
+                    objectKey = objectKey.substring(credentialPrefix.length());
+                }
+            } catch (IllegalArgumentException exception) {
+                return null;
+            }
+        } else {
+            return null;
+        }
+
+        String ownerPrefix = "miniapp/" + userId + "/education/";
+        if (StrUtil.isBlank(objectKey)
+                || objectKey.startsWith("/")
+                || objectKey.contains("..")
+                || !objectKey.matches("[A-Za-z0-9._/-]+")
+                || !objectKey.startsWith(ownerPrefix)) {
+            return null;
+        }
+        return objectKey;
+    }
+
+    private void addCredentialObjectKey(List<String> objectKeys, String value, Long userId) {
+        String objectKey = credentialObjectKey(value, userId);
+        if (StrUtil.isNotBlank(objectKey)) {
+            objectKeys.add(objectKey);
+        }
+    }
+
     private String legacyMaterialLinks(String json) {
+        return String.join("、", legacyMaterialUrls(json));
+    }
+
+    private List<String> legacyMaterialUrls(String json) {
         List<String> links = new ArrayList<>();
         int index = 0;
         while (index < json.length()) {
@@ -563,7 +644,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
             links.add(json.substring(start, end));
             index = end;
         }
-        return String.join("、", links);
+        return links;
     }
 
     private String reason(AppUserAuditRecord record) {

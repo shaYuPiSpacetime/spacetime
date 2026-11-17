@@ -3,6 +3,7 @@ package com.spacetime.admin.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
+import com.spacetime.admin.dto.response.EducationMaterialPreviewVO;
 import com.spacetime.admin.dto.response.VerificationAuditDetailVO;
 import com.spacetime.admin.dto.response.VerificationStatsVO;
 import com.spacetime.admin.dto.response.VerificationVO;
@@ -11,6 +12,9 @@ import com.spacetime.common.annotation.RequirePermission;
 import com.spacetime.common.result.R;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -82,6 +86,19 @@ public class VerificationAdminController {
             @RequestParam(defaultValue = "1") int historyPage,
             @RequestParam(defaultValue = "5") int historySize) {
         return R.ok(verificationAdminService.getEducationDetail(id, historyPage, historySize));
+    }
+
+    /** 同源读取学历材料并以内联方式返回，避免浏览器直接访问 OSS 签名链接。 */
+    @GetMapping("/education/{id}/materials/{index}/preview")
+    @RequirePermission("verify:education:list")
+    public ResponseEntity<byte[]> educationMaterialPreview(@PathVariable Long id, @PathVariable int index) {
+        EducationMaterialPreviewVO preview = verificationAdminService.getEducationMaterialPreview(id, index);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .header("X-Content-Type-Options", "nosniff")
+                .contentType(MediaType.parseMediaType(preview.contentType()))
+                .body(preview.bytes());
     }
 
     /** 头像认证审核详情（含头像URL/历史记录） */

@@ -131,6 +131,27 @@ public class OssUtil {
         }
     }
 
+    /** 学历材料由后台服务端读取，浏览器不直接访问 OSS 签名地址。 */
+    public StoredObject readCredentialObject(String key, int maxBytes) {
+        String contentType = inlineContentType(key);
+        if (!contentType.startsWith("image/") && !"application/pdf".equals(contentType)) {
+            throw new IllegalArgumentException("学历材料格式不支持预览");
+        }
+        OSS oss = new OSSClientBuilder().build(
+                ossConfig.getEndpoint(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
+        try (OSSObject object = oss.getObject(ossConfig.getBucketName(), key)) {
+            byte[] bytes = object.getObjectContent().readNBytes(maxBytes + 1);
+            if (bytes.length > maxBytes) throw new IllegalStateException("学历材料大小超限");
+            return new StoredObject(contentType, bytes);
+        } catch (IOException ex) {
+            throw new IllegalStateException("学历材料读取失败", ex);
+        } finally {
+            oss.shutdown();
+        }
+    }
+
+    public record StoredObject(String contentType, byte[] bytes) {}
+
     /** 为小程序签发 5 分钟有效、限定对象 Key 和文件大小的 OSS 表单直传凭证。 */
     public DirectUploadPolicy createDirectUploadPolicy(String originalFilename, long maxBytes) {
         return createDirectUploadPolicy(originalFilename, maxBytes, null);

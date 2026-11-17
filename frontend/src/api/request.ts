@@ -33,6 +33,7 @@ request.interceptors.request.use((config) => {
 
 request.interceptors.response.use(
   (res) => {
+    if (res.config.responseType === 'blob') return res;
     if (res.data.code !== 200) {
       const msg = res.data.msg || '请求失败';
       if (res.data.code === 401 && !isLoginRequest(res.config)) {

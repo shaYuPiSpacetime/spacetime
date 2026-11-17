@@ -189,6 +189,10 @@ export function getEducationDetail(id: number, params?: { historyPage?: number; 
   return request.get(`/admin/verify/education/${id}`, { params });
 }
 
+export function getEducationMaterialPreview(id: number, index: number) {
+  return request.get(`/admin/verify/education/${id}/materials/${index}/preview`, { responseType: 'blob' });
+}
+
 export function getAvatarDetail(id: number, params?: { historyPage?: number; historySize?: number }) {
   return request.get(`/admin/verify/avatar/${id}`, { params });
 }
