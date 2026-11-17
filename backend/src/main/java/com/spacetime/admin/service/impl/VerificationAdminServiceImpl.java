@@ -3,6 +3,9 @@ package com.spacetime.admin.service.impl;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spacetime.admin.dto.request.ModerationAuditReq;
 import com.spacetime.admin.dto.request.VerificationPageReq;
 import com.spacetime.admin.dto.response.AuditHistoryVO;
@@ -28,7 +31,10 @@ import com.spacetime.common.service.AppUserAuditService;
 import com.spacetime.common.service.AppUserAuditContentService;
 import com.spacetime.common.service.ProfileDictionaryService;
 import com.spacetime.common.service.RelationLifecycleService;
+import com.spacetime.common.util.OssUtil;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +56,9 @@ import java.util.stream.Collectors;
 public class VerificationAdminServiceImpl implements VerificationAdminService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String PROTECTED_CREDENTIAL_PREFIX = "/miniapp/file/credential/";
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+    private static final Logger log = LoggerFactory.getLogger(VerificationAdminServiceImpl.class);
 
     private final AppUserAuditRecordDao auditRecordDao;
     private final AppUserAuditHistoryDao historyDao;
@@ -58,6 +67,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
     private final AppUserDao appUserDao;
     private final AppUserAuditContentService auditContentService;
     private final RelationLifecycleService relationLifecycleService;
+    private final OssUtil ossUtil;
 
     @Override
     public Page<VerificationVO> getRealNamePage(VerificationPageReq req) {
@@ -417,8 +427,8 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
             return firstJsonValue(record.getMaterialJson(), "diplomaNo", "certificateNo", "certNo");
         }
         if ("MATERIAL_UPLOAD".equals(method) || "STUDENT_CARD".equals(method)) {
-            String links = materialLinks(record.getMaterialJson());
-            return StrUtil.blankToDefault(links, "材料链接");
+            String links = materialLinks(record.getMaterialJson(), record.getId(), record.getUserId());
+            return StrUtil.blankToDefault(links, "材料暂不可用");
         }
         return StrUtil.blankToDefault(record.getMaterialJson(), StrUtil.blankToDefault(method, "-"));
     }
@@ -480,10 +490,65 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         return null;
     }
 
-    private String materialLinks(String json) {
+    private String materialLinks(String json, Long auditRecordId, Long userId) {
         if (StrUtil.isBlank(json)) {
             return "";
         }
+
+        try {
+            JsonNode materialUrls = JSON_MAPPER.readTree(json).path("materialUrls");
+            if (materialUrls.isArray()) {
+                List<String> links = new ArrayList<>();
+                for (JsonNode materialUrl : materialUrls) {
+                    if (!materialUrl.isTextual()) {
+                        continue;
+                    }
+                    String accessibleUrl = accessibleMaterialUrl(materialUrl.asText(), auditRecordId, userId);
+                    if (StrUtil.isNotBlank(accessibleUrl)) {
+                        links.add(accessibleUrl);
+                    }
+                }
+                return String.join("、", links);
+            }
+        } catch (JsonProcessingException exception) {
+            log.debug("学历材料 JSON 解析失败，审核记录 ID: {}", auditRecordId);
+        }
+
+        // 兼容早期直接把公网 URL 写入审核快照的记录。
+        return legacyMaterialLinks(json);
+    }
+
+    private String accessibleMaterialUrl(String value, Long auditRecordId, Long userId) {
+        if (StrUtil.isBlank(value)) {
+            return null;
+        }
+        if (value.startsWith("https://") || value.startsWith("http://")) {
+            return value;
+        }
+        if (!value.startsWith(PROTECTED_CREDENTIAL_PREFIX) || userId == null) {
+            return null;
+        }
+
+        String objectKey = value.substring(PROTECTED_CREDENTIAL_PREFIX.length());
+        String ownerPrefix = "miniapp/" + userId + "/education/";
+        if (StrUtil.isBlank(objectKey)
+                || objectKey.startsWith("/")
+                || objectKey.contains("..")
+                || !objectKey.matches("[A-Za-z0-9._/-]+")
+                || !objectKey.startsWith(ownerPrefix)) {
+            return null;
+        }
+
+        try {
+            return ossUtil.toSignedUrl(objectKey);
+        } catch (RuntimeException exception) {
+            log.warn("学历材料临时链接生成失败，审核记录 ID: {}，异常类型: {}",
+                    auditRecordId, exception.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    private String legacyMaterialLinks(String json) {
         List<String> links = new ArrayList<>();
         int index = 0;
         while (index < json.length()) {
