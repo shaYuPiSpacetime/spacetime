@@ -164,7 +164,7 @@ function isImageUrl(url: string) {
   return /\.(png|jpe?g|gif|webp|bmp)$/.test(path);
 }
 
-function renderMaybeLinks(value?: string, onPreview?: (url: string) => void) {
+function renderMaybeLinks(value?: string, onPreview?: (url: string, index: number) => void) {
   if (!value) return '-';
   const parts = value.split('、').filter(Boolean);
   if (parts.length > 0 && parts.every((part) => /^https?:\/\//i.test(part))) {
@@ -173,14 +173,16 @@ function renderMaybeLinks(value?: string, onPreview?: (url: string) => void) {
         {parts.map((url, index) => (
           <div key={`${url}-${index}`} className="flex flex-wrap items-center gap-2">
             {onPreview && (
-              <Button type="button" variant="outline" size="sm" onClick={() => onPreview(url)}>
+              <Button type="button" variant="outline" size="sm" onClick={() => onPreview(url, index)}>
                 <Eye className="mr-1 h-4 w-4" />
-                预览材料{parts.length > 1 ? index + 1 : ''}
+                预览材料{parts.length > 1 ? ` ${index + 1}` : ''}
               </Button>
             )}
-            <a className="text-primary font-medium underline underline-offset-2 hover:opacity-80" href={url} target="_blank" rel="noopener noreferrer">
-              {onPreview ? '新窗口打开' : `查看材料${parts.length > 1 ? index + 1 : ''}`}
-            </a>
+            {!onPreview && (
+              <a className="text-primary font-medium underline underline-offset-2 hover:opacity-80" href={url} target="_blank" rel="noopener noreferrer">
+                查看材料{parts.length > 1 ? index + 1 : ''}
+              </a>
+            )}
           </div>
         ))}
       </div>
@@ -213,6 +215,10 @@ export default function VerificationManagementPage() {
   const [historyPage, setHistoryPage] = useState(1);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [materialPreviewUrl, setMaterialPreviewUrl] = useState<string | null>(null);
+  const [materialPreviewOpen, setMaterialPreviewOpen] = useState(false);
+  const [materialPreviewLoading, setMaterialPreviewLoading] = useState(false);
+  const [materialPreviewError, setMaterialPreviewError] = useState<string | null>(null);
+  const [materialPreviewSelection, setMaterialPreviewSelection] = useState<{ recordId: number; index: number } | null>(null);
 
   const [auditOpen, setAuditOpen] = useState(false);
   const [auditAction, setAuditAction] = useState<'APPROVE' | 'REJECT' | 'EXPIRE'>('APPROVE');
@@ -275,6 +281,31 @@ export default function VerificationManagementPage() {
       setDetail(res.data as VerificationAuditDetailVO);
     } finally {
       setDetailLoading(false);
+    }
+  }
+
+  async function openEducationMaterialPreview(recordId: number, index: number) {
+    setMaterialPreviewSelection({ recordId, index });
+    setMaterialPreviewOpen(true);
+    setMaterialPreviewLoading(true);
+    setMaterialPreviewError(null);
+    setMaterialPreviewUrl(null);
+    try {
+      // 列表和详情里的签名链接有时已过期；每次点击都重新获取一条有效期内的链接。
+      const res = await getEducationDetail(recordId, { historyPage: 1, historySize: 5 });
+      const freshDetail = res.data as VerificationAuditDetailVO;
+      const materialValue = freshDetail.fields?.find((field) => field.label === '证书材料')?.value;
+      const urls = (materialValue || '').split('、').filter((part) => /^https?:\/\//i.test(part));
+      const freshUrl = urls[index];
+      if (!freshUrl) {
+        setMaterialPreviewError('没有获取到有效的学历材料链接，请确认该记录已成功上传材料。');
+        return;
+      }
+      setMaterialPreviewUrl(freshUrl);
+    } catch {
+      setMaterialPreviewError('学历材料加载失败，请点击重新加载。');
+    } finally {
+      setMaterialPreviewLoading(false);
     }
   }
 
@@ -430,7 +461,11 @@ export default function VerificationManagementPage() {
                     {tab.key === 'education' && (
                       <>
                         <TableCell>{row.educationIdentity || '-'}</TableCell>
-                        <TableCell className="max-w-[260px] text-muted-foreground">{renderMaybeLinks(row.educationMaterialSummary)}</TableCell>
+                        <TableCell className="max-w-[260px] text-muted-foreground">
+                          {renderMaybeLinks(row.educationMaterialSummary, (_url, index) => {
+                            void openEducationMaterialPreview(row.id, index);
+                          })}
+                        </TableCell>
                         <TableCell className="text-muted-foreground">{row.submitTime || '-'}</TableCell>
                       </>
                     )}
@@ -518,7 +553,9 @@ export default function VerificationManagementPage() {
                             <span className="font-medium">
                               {renderMaybeLinks(
                                 formatFieldValue(field.label, field.value),
-                                field.label === '证书材料' ? setMaterialPreviewUrl : undefined,
+                                field.label === '证书材料'
+                                  ? (_url, index) => { void openEducationMaterialPreview(detail.id, index); }
+                                  : undefined,
                               )}
                             </span>
                           </div>
@@ -612,14 +649,45 @@ export default function VerificationManagementPage() {
         )}
       </Dialog>
 
-      <Dialog open={!!materialPreviewUrl} onClose={() => setMaterialPreviewUrl(null)} className="max-w-4xl">
+      <Dialog
+        open={materialPreviewOpen}
+        onClose={() => setMaterialPreviewOpen(false)}
+        className="max-w-4xl"
+        layer="nested"
+      >
         <DialogHeader>
           <DialogTitle>学历材料预览</DialogTitle>
         </DialogHeader>
-        {materialPreviewUrl && (
+        {materialPreviewLoading ? (
+          <div className="mt-4 flex min-h-[320px] items-center justify-center rounded-md border border-[#E6EDF7] bg-[#F7FAFE] text-sm text-muted-foreground">
+            正在加载学历材料...
+          </div>
+        ) : materialPreviewError ? (
+          <div className="mt-4 flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-md border border-[#E6EDF7] bg-[#F7FAFE] p-6 text-center text-sm text-muted-foreground">
+            <p>{materialPreviewError}</p>
+            {materialPreviewSelection && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void openEducationMaterialPreview(
+                  materialPreviewSelection.recordId,
+                  materialPreviewSelection.index,
+                )}
+              >
+                重新加载
+              </Button>
+            )}
+          </div>
+        ) : materialPreviewUrl && (
           <div className="mt-4 flex max-h-[72vh] min-h-[320px] items-center justify-center overflow-auto rounded-md border border-[#E6EDF7] bg-[#F7FAFE]">
             {isImageUrl(materialPreviewUrl) ? (
-              <img src={materialPreviewUrl} alt="学历认证材料" className="max-h-[70vh] max-w-full object-contain" />
+              <img
+                src={materialPreviewUrl}
+                alt="学历认证材料"
+                className="max-h-[70vh] max-w-full object-contain"
+                onError={() => setMaterialPreviewError('学历材料图片加载失败，链接可能已过期或原文件不可用。')}
+              />
             ) : (
               <iframe title="学历认证材料" src={materialPreviewUrl} className="h-[70vh] w-full bg-white" />
             )}
