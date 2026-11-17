@@ -1,5 +1,6 @@
 import Taro from '@tarojs/taro'
 import { post } from './request'
+import { resolveVoiceUploadFileName } from '@/domain/voiceUpload'
 import {
   prepareCommunityImageForUpload,
   runCommunityImageUploadWithRetry,
@@ -15,6 +16,27 @@ export async function uploadDirectToOss(ticketPath: string, filePath: string): P
   const fileSizeBytes = 'size' in fileInfo ? fileInfo.size : 0
   if (fileSizeBytes <= 0) throw new OssDirectUploadError('invalid_file_size')
   const fileName = safeFileName(filePath)
+  return uploadPreparedFile(ticketPath, { filePath, fileName, fileSizeBytes, compressed: false })
+}
+
+/** 录音按真实文件头签票，上传原始文件，不把临时路径后缀当成编码格式。 */
+export async function uploadVoiceDirectToOss(ticketPath: string, filePath: string): Promise<FileUploadResult> {
+  const fileInfo = await Taro.getFileInfo({ filePath })
+  const fileSizeBytes = 'size' in fileInfo ? fileInfo.size : 0
+  if (fileSizeBytes <= 0) throw new OssDirectUploadError('录音文件为空，请重新录制')
+  const header = await new Promise<ArrayBuffer>((resolve, reject) => {
+    Taro.getFileSystemManager().readFile({
+      filePath,
+      position: 0,
+      length: Math.min(64, fileSizeBytes),
+      success: result => {
+        if (typeof result.data === 'string') reject(new OssDirectUploadError('读取录音失败，请重新录制'))
+        else resolve(result.data)
+      },
+      fail: () => reject(new OssDirectUploadError('读取录音失败，请重新录制')),
+    })
+  })
+  const fileName = resolveVoiceUploadFileName(header)
   return uploadPreparedFile(ticketPath, { filePath, fileName, fileSizeBytes, compressed: false })
 }
 

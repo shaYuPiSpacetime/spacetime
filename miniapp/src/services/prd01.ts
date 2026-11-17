@@ -1,5 +1,5 @@
 import { del, get, post, put } from './request'
-import { uploadCommunityImageDirectToOss, uploadDirectToOss, uploadEducationImageDirectToOss } from './ossUpload'
+import { uploadCommunityImageDirectToOss, uploadDirectToOss, uploadEducationImageDirectToOss, uploadVoiceDirectToOss } from './ossUpload'
 import { PRD01_API_PATHS } from '@/constants/prd01ApiPaths'
 import type {
   AboutMeDetail,
@@ -134,5 +134,5 @@ export const prd01Api = {
   uploadEducation: (filePath: string) => uploadEducationImageDirectToOss(PRD01_API_PATHS.uploadEducationTicket, filePath),
   uploadAlbum: (filePath: string) => uploadCommunityImageDirectToOss(PRD01_API_PATHS.uploadAlbumTicket, filePath),
   uploadBackground: (filePath: string) => uploadDirectToOss(PRD01_API_PATHS.uploadBackgroundTicket, filePath),
-  uploadVoice: (filePath: string) => uploadDirectToOss(PRD01_API_PATHS.uploadVoiceTicket, filePath),
+  uploadVoice: (filePath: string) => uploadVoiceDirectToOss(PRD01_API_PATHS.uploadVoiceTicket, filePath),
 }

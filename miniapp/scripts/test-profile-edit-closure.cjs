@@ -1011,3 +1011,5 @@ test('语音录制完成后支持真实试听、确认上传、删除与退出�
 })
 // Province/city recovery runs with the existing profile prebuild regression gate.
 require('./test-profile-region-picker.cjs')
+// 资料页构建检查同时覆盖电脑端录音临时文件的上传格式。
+require('./test-voice-upload.cjs')
