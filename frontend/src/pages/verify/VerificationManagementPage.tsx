@@ -159,16 +159,29 @@ function formatFieldValue(label: string, value?: string): string {
   return value;
 }
 
-function renderMaybeLinks(value?: string) {
+function isImageUrl(url: string) {
+  const path = url.split(/[?#]/, 1)[0].toLowerCase();
+  return /\.(png|jpe?g|gif|webp|bmp)$/.test(path);
+}
+
+function renderMaybeLinks(value?: string, onPreview?: (url: string) => void) {
   if (!value) return '-';
   const parts = value.split('、').filter(Boolean);
   if (parts.length > 0 && parts.every((part) => /^https?:\/\//i.test(part))) {
     return (
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col items-start gap-2">
         {parts.map((url, index) => (
-          <a key={url} className="text-primary hover:underline" href={url} target="_blank" rel="noreferrer">
-            材料链接{parts.length > 1 ? index + 1 : ''}
-          </a>
+          <div key={`${url}-${index}`} className="flex flex-wrap items-center gap-2">
+            {onPreview && (
+              <Button type="button" variant="outline" size="sm" onClick={() => onPreview(url)}>
+                <Eye className="mr-1 h-4 w-4" />
+                预览材料{parts.length > 1 ? index + 1 : ''}
+              </Button>
+            )}
+            <a className="text-primary font-medium underline underline-offset-2 hover:opacity-80" href={url} target="_blank" rel="noopener noreferrer">
+              {onPreview ? '新窗口打开' : `查看材料${parts.length > 1 ? index + 1 : ''}`}
+            </a>
+          </div>
         ))}
       </div>
     );
@@ -199,6 +212,7 @@ export default function VerificationManagementPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [materialPreviewUrl, setMaterialPreviewUrl] = useState<string | null>(null);
 
   const [auditOpen, setAuditOpen] = useState(false);
   const [auditAction, setAuditAction] = useState<'APPROVE' | 'REJECT' | 'EXPIRE'>('APPROVE');
@@ -501,7 +515,12 @@ export default function VerificationManagementPage() {
                         {(detail.fields || []).filter((field) => field.value).map((field: FieldEntry) => (
                           <div key={field.label} className="rounded bg-[#F7FAFE] px-3 py-2">
                             <span className="text-muted-foreground">{field.label}:</span>{' '}
-                            <span className="font-medium">{renderMaybeLinks(formatFieldValue(field.label, field.value))}</span>
+                            <span className="font-medium">
+                              {renderMaybeLinks(
+                                formatFieldValue(field.label, field.value),
+                                field.label === '证书材料' ? setMaterialPreviewUrl : undefined,
+                              )}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -589,6 +608,21 @@ export default function VerificationManagementPage() {
                 失效
               </Button>
             </div>
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog open={!!materialPreviewUrl} onClose={() => setMaterialPreviewUrl(null)} className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>学历材料预览</DialogTitle>
+        </DialogHeader>
+        {materialPreviewUrl && (
+          <div className="mt-4 flex max-h-[72vh] min-h-[320px] items-center justify-center overflow-auto rounded-md border border-[#E6EDF7] bg-[#F7FAFE]">
+            {isImageUrl(materialPreviewUrl) ? (
+              <img src={materialPreviewUrl} alt="学历认证材料" className="max-h-[70vh] max-w-full object-contain" />
+            ) : (
+              <iframe title="学历认证材料" src={materialPreviewUrl} className="h-[70vh] w-full bg-white" />
+            )}
           </div>
         )}
       </Dialog>
