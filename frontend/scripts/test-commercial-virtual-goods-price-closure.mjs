@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import ts from 'typescript';
 
 const source = readFileSync(new URL('../src/pages/commercial/CommercialManagement.tsx', import.meta.url), 'utf8');
 const vipModal = source.slice(source.indexOf('function VipPackageModal('), source.indexOf('function CoinPackageModal('));
@@ -21,5 +22,18 @@ for (const [modal, kind] of [[vipModal, '会员'], [coinModal, '千寻币']]) {
   assert.match(modal, /pendingPrice/, `${kind} 套餐应回显待生效报价`);
   assert.match(modal, /status: 'DISABLED'/, `${kind} 新套餐应默认下架`);
 }
+
+const rowHelperSource = source.slice(source.indexOf('function toCoinPackageRow('), source.indexOf('function toScenePriceRow('));
+const helperJavascript = ts.transpileModule(`
+function priceChangeView(item: unknown) { return item; }
+${rowHelperSource}
+export { toCoinPackageRow };
+`, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+const { toCoinPackageRow } = await import(`data:text/javascript;base64,${Buffer.from(helperJavascript).toString('base64')}`);
+const first = { id: 14, packageName: '币包甲', coinCount: 500, amount: 30 };
+const second = { id: 16, packageName: '币包乙', coinCount: 500, amount: 50 };
+assert.notEqual(toCoinPackageRow(first, 0).id, toCoinPackageRow(second, 1).id, '币数相同的两个套餐不能复用同一列表行');
+assert.equal(toCoinPackageRow(first, 0).id, toCoinPackageRow({ ...first, coinCount: 350 }, 0).id, '编辑币数不能改变套餐行的身份');
+assert.notEqual(toCoinPackageRow({ ...first, id: undefined }, 13).id, toCoinPackageRow(first, 0).id, '新增草稿不能和已保存套餐编号冲突');
 
 console.log('商业化虚拟商品灵活调价静态回归通过');

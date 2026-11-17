@@ -390,7 +390,7 @@ function normalizeCommercialConfig(value: CommercialConfig): CommercialConfig {
 function toCoinPackageRow(item: CoinPackageConfig, index: number): CoinPackageRow {
   const priceChange = priceChangeView(item);
   return {
-    id: `COIN-${item.coinCount || index + 1}`,
+    id: item.id == null ? `COIN-NEW-${index + 1}` : `COIN-${item.id}`,
     name: item.packageName,
     originalPrice: Number(item.originAmount ?? item.amount),
     payAmount: Number(item.discountAmount ?? item.amount),
@@ -859,7 +859,7 @@ function ConfigWorkspace() {
 
       <Modal id="configSaveModal" title="保存配置确认" open={saveOpen} onClose={() => setSaveOpen(false)}>
         <p>本次变更会写入审计日志。会员或千寻币的新价格需等待微信商品发布生效；等待期间用户仍按当前价支付。</p>
-        <label className="field">变更原因<textarea value={saveReason} onChange={(event) => setSaveReason(event.target.value)} /></label>
+        <label className="field">变更原因（必填）<textarea placeholder="例如：按运营定价表调整套餐，填写后点击确认保存" value={saveReason} onChange={(event) => setSaveReason(event.target.value)} /></label>
         <div className="modal-actions"><button className="btn" type="button" onClick={() => setSaveOpen(false)}>取消</button><button className="btn primary" type="button" disabled={saving || !saveReason.trim()} onClick={save}>确认保存</button></div>
       </Modal>
 
@@ -1468,8 +1468,9 @@ function VipPackageModal({
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
         <label className="field">套餐类型<input value="普通套餐" readOnly /></label>
         <label className="field">当前微信商品 ID<input value={activeProductId('vip', initial)} readOnly /></label>
-        <label className="field">当前可支付价<input value={activePrice == null ? '新套餐待创建' : money(activePrice)} readOnly /></label>
+        <div className="field"><span>当前可支付价（仅展示）</span><strong>{activePrice == null ? '新套餐待创建' : money(activePrice)}</strong></div>
         <label className="field">优惠价（申请新价）<input type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: Number(event.target.value) })} /></label>
+        <p className="helper">在“优惠价”中填写要修改的价格；当前支付价将在微信商品生效后更新。</p>
         <label className="field">原价<input type="number" value={form.originPrice ?? ''} onChange={(event) => setForm({ ...form, originPrice: event.target.value ? Number(event.target.value) : undefined })} /></label>
         <label className="field">时长（天）<input type="number" value={form.durationDays} onChange={(event) => setForm({ ...form, durationDays: Number(event.target.value) })} /></label>
         <label className="field">购买方式<input value="一次性购买" readOnly /></label>
@@ -1477,7 +1478,7 @@ function VipPackageModal({
       </div>
       <Notice title="价格切换规则">{initial ? '保存新价格后，系统自动创建并发布微信商品；新价生效前，小程序仍按当前可支付价销售。再次改价会提交最新申请。' : '新增套餐默认下架。首次保存后点击上架并确认保存，系统发布微信商品，生效后自动上架。'}</Notice>
       {priceChange?.pendingPrice != null ? <Notice title="当前调价进度">申请价 {money(priceChange.pendingPrice)}，{priceChangeStatusText(priceChange.priceChangeStatus)}；新商品 ID：{priceChange.pendingProductId || '待生成'}。{priceChange.priceChangeError || ''}</Notice> : null}
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || !Number.isFinite(form.price) || form.price <= 0} onClick={() => onSubmit(normalizeVipPackage({ ...form, status: initial ? form.status : 'DISABLED' }))}>确认并继续保存</button></div>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || !Number.isFinite(form.price) || form.price <= 0} onClick={() => onSubmit(normalizeVipPackage({ ...form, status: initial ? form.status : 'DISABLED' }))}>下一步：填写变更原因</button></div>
     </Modal>
   );
 }
@@ -1513,9 +1514,10 @@ function CoinPackageModal({
         <label className="field">套餐类型<select disabled><option>千寻币套餐</option></select></label>
         <label className="field">套餐名称<input value={form.packageName} onChange={(event) => setForm({ ...form, packageName: event.target.value })} /></label>
         <label className="field">当前微信商品 ID<input value={activeProductId('coin', initial)} readOnly /></label>
-        <label className="field">当前可支付价<input value={activePrice == null ? '新币包待创建' : money(activePrice)} readOnly /></label>
+        <div className="field"><span>当前可支付价（仅展示）</span><strong>{activePrice == null ? '新币包待创建' : money(activePrice)}</strong></div>
         <label className="field">原价<input type="number" value={form.originAmount ?? ''} onChange={(event) => setForm({ ...form, originAmount: event.target.value ? Number(event.target.value) : undefined })} /></label>
         <label className="field">优惠价（申请新价）<input type="number" min="0.01" step="0.01" value={configuredPrice} onChange={(event) => setForm({ ...form, amount: Number(event.target.value), discountAmount: Number(event.target.value) })} /></label>
+        <p className="helper">在“优惠价”中填写要修改的价格；当前支付价将在微信商品生效后更新。</p>
         <label className="field">到账币数<input type="number" value={form.coinCount} onChange={(event) => setForm({ ...form, coinCount: Number(event.target.value) })} /></label>
         <label className="field">赠送币数<input type="number" value={form.bonusCoinCount ?? 0} onChange={(event) => setForm({ ...form, bonusCoinCount: Number(event.target.value) })} /></label>
         <label className="field">标签<input value={form.packageTag || ''} onChange={(event) => setForm({ ...form, packageTag: event.target.value })} /></label>
@@ -1525,7 +1527,7 @@ function CoinPackageModal({
       <Notice title="价格切换规则">{initial ? '保存新价格后，系统自动创建并发布微信商品；新价生效前，小程序仍按当前可支付价销售。再次改价会提交最新申请。' : '新增币包默认下架。首次保存后点击上架并确认保存，系统发布微信商品，生效后自动上架。'}</Notice>
       {priceChange?.pendingPrice != null ? <Notice title="当前调价进度">申请价 {money(priceChange.pendingPrice)}，{priceChangeStatusText(priceChange.priceChangeStatus)}；新商品 ID：{priceChange.pendingProductId || '待生成'}。{priceChange.priceChangeError || ''}</Notice> : null}
       <Notice title="保存说明">同一时间最多 1 个推荐档；确认套餐后还需填写变更原因。</Notice>
-      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || !Number.isFinite(configuredPrice) || configuredPrice <= 0 || form.coinCount <= 0} onClick={() => onSubmit({ ...form, amount: configuredPrice, discountAmount: configuredPrice, status: initial ? form.status : 'DISABLED' })}>确认并继续保存</button></div>
+      <div className="modal-actions"><button className="btn" type="button" onClick={onClose}>取消</button><button className="btn primary" type="button" disabled={!form.packageName.trim() || !Number.isFinite(configuredPrice) || configuredPrice <= 0 || form.coinCount <= 0} onClick={() => onSubmit({ ...form, amount: configuredPrice, discountAmount: configuredPrice, status: initial ? form.status : 'DISABLED' })}>下一步：填写变更原因</button></div>
     </Modal>
   );
 }
