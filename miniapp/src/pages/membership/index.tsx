@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { useMembership, type MembershipPayState } from '@/hooks/useMembership'
 import { useAuthStore } from '@/stores/authStore'
+import { formatMembershipAveragePrice } from '@/domain/membershipPriceDisplay'
 import { prd01Api } from '@/services/prd01'
 import type { MembershipPlan, MemberStatus, MyMembership } from '@/types/membership'
 import {
@@ -339,9 +340,7 @@ function PlanRail({
         {displayPlans.map((plan, index) => {
           const isActive = plan.id === activePlanId
           const label = plan.tag ?? (index === 0 ? '专属优惠' : '限时优惠')
-          const months = plan.duration >= 365 ? 12 : plan.duration >= 90 ? 3 : 1
-          const pricePerMonth = (plan.price / months).toFixed(2)
-          const pricePerMonthText = plan.monthlyPriceLabel ?? `¥${pricePerMonth}/月`
+          const pricePerMonthText = plan.monthlyPriceLabel ?? formatMembershipAveragePrice(plan.price, plan.duration)
           const duration = splitDurationLabel(plan.durationLabel)
           const header = getPlanHeader(plan)
 

@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react'
 import Taro from '@tarojs/taro'
 import { resolvePaymentFailureFeedback } from '@/domain/paymentFailureFeedback'
+import { formatMembershipDuration as durationLabel, formatMembershipAveragePrice as monthlyPriceLabel } from '@/domain/membershipPriceDisplay'
 import type { MembershipPlan, MembershipRecord, MyMembership, MemberStatus } from '@/types/membership'
 import {
   confirmWechatPayment,
@@ -24,19 +25,6 @@ export interface MembershipBenefit {
 }
 
 export type MembershipPayState = 'idle' | 'paying' | 'pay-success' | 'pay-cancel' | 'pay-failed' | 'unpaid-sheet'
-
-function durationLabel(days?: number) {
-  if (!days) return '1个月'
-  if (days >= 365) return '12个月'
-  if (days >= 90) return '3个月'
-  if (days >= 30) return '1个月'
-  return `${days}天`
-}
-
-function monthlyPriceLabel(price: number, days?: number) {
-  const months = days && days >= 365 ? 12 : days && days >= 90 ? 3 : 1
-  return `¥${(price / months).toFixed(2)}/月`
-}
 
 function adaptVipPackage(pkg: VipPackageVO): MembershipPlan {
   const price = Number(pkg.price || 0)
