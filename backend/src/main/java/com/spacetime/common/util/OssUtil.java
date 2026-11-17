@@ -9,6 +9,7 @@ import com.aliyun.oss.model.CannedAccessControlList;
 import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.aliyun.oss.model.PutObjectRequest;
+import com.aliyun.oss.model.ResponseHeaderOverrides;
 import com.spacetime.common.config.OssConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -185,12 +187,31 @@ public class OssUtil {
         return toSignedUrlForBucket(ossConfig.getBucketName(), key, expireSeconds);
     }
 
+    /**
+     * 获取用于浏览器内嵌预览的私有文件临时 URL。
+     * @param key OSS 对象 Key
+     * @return 响应头强制为 inline 且不缓存的签名 URL
+     */
+    public String toInlineSignedUrl(String key) {
+        ResponseHeaderOverrides responseHeaders = new ResponseHeaderOverrides();
+        responseHeaders.setContentDisposition("inline");
+        responseHeaders.setContentType(inlineContentType(key));
+        responseHeaders.setCacheControl("private, no-store");
+        return toSignedUrlForBucket(
+                ossConfig.getBucketName(), key, ossConfig.getUrlExpireSeconds(), responseHeaders);
+    }
+
     /** 官网审核后台只能签发私有 Bucket 中的临时访问地址。 */
     public String toWebsiteSignedUrl(String key) {
         return toSignedUrlForBucket(websiteBucketName(), key, ossConfig.getUrlExpireSeconds());
     }
 
     private String toSignedUrlForBucket(String bucketName, String key, int expireSeconds) {
+        return toSignedUrlForBucket(bucketName, key, expireSeconds, null);
+    }
+
+    private String toSignedUrlForBucket(String bucketName, String key, int expireSeconds,
+                                        ResponseHeaderOverrides responseHeaders) {
         OSS oss = new OSSClientBuilder().build(
                 ossConfig.getEndpoint(), ossConfig.getAccessKeyId(), ossConfig.getAccessKeySecret());
         try {
@@ -198,12 +219,35 @@ public class OssUtil {
             GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(
                     bucketName, key);
             request.setExpiration(expiration);
+            if (responseHeaders != null) {
+                request.setResponseHeaders(responseHeaders);
+            }
             URL url = oss.generatePresignedUrl(request);
             // OSS SDK 返回的 URL 默认是 http，强制 https
             return url.toString().replaceFirst("^http://", "https://");
         } finally {
             oss.shutdown();
         }
+    }
+
+    private String inlineContentType(String key) {
+        String normalizedKey = StrUtil.blankToDefault(key, "").toLowerCase(Locale.ROOT);
+        if (normalizedKey.endsWith(".jpg") || normalizedKey.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (normalizedKey.endsWith(".png")) {
+            return "image/png";
+        }
+        if (normalizedKey.endsWith(".gif")) {
+            return "image/gif";
+        }
+        if (normalizedKey.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (normalizedKey.endsWith(".pdf")) {
+            return "application/pdf";
+        }
+        return "application/octet-stream";
     }
 
     private String websiteBucketName() {

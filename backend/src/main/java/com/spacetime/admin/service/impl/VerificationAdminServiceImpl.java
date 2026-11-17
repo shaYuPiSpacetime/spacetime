@@ -540,7 +540,7 @@ public class VerificationAdminServiceImpl implements VerificationAdminService {
         }
 
         try {
-            return ossUtil.toSignedUrl(objectKey);
+            return ossUtil.toInlineSignedUrl(objectKey);
         } catch (RuntimeException exception) {
             log.warn("学历材料临时链接生成失败，审核记录 ID: {}，异常类型: {}",
                     auditRecordId, exception.getClass().getSimpleName());
