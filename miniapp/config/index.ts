@@ -58,6 +58,9 @@ const config = {
   sourceRoot: 'src',
   outputRoot: 'dist',
   enableSourceMap: false,
+  plugins: process.env.TARO_ENV === 'weapp'
+    ? [path.resolve(__dirname, 'weapp-tab-first-paint.js')]
+    : [],
 
   defineConstants: {
     'process.env.API_BASE_URL': JSON.stringify(

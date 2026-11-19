@@ -17,6 +17,16 @@ const routes = [
 ]
 assert.equal(routes.length, 89, `dist/app.json 页面数应为 89，实际为 ${routes.length}`)
 
+// 检查实际打包的原生模板，React 组件测试覆盖不到微信首次 setData 之前的画面。
+for (const { pagePath } of appConfig.tabBar.list) {
+  const wxml = fs.readFileSync(path.join(distRoot, `${pagePath}.wxml`), 'utf8')
+  const config = JSON.parse(fs.readFileSync(path.join(distRoot, `${pagePath}.json`), 'utf8'))
+  assert.match(wxml, /<view\s+wx:if="{{!root\.cn\.length}}"\s+id="tab-first-paint"/, `${pagePath} 缺少首批数据前可显示的原生布局`)
+  assert.equal(config.initialRenderingCache, 'static', `${pagePath} 应使用仅包含静态布局的首屏缓存`)
+  assert.match(config.backgroundColor, /^#[0-9a-f]{6}$/i, `${pagePath} 缺少页面底色`)
+  assert.notEqual(config.backgroundColor.toLowerCase(), '#ffffff', `${pagePath} 的微信窗口不应先显示纯白底色`)
+}
+
 function countRegistrations(source, expression) {
   return [...source.matchAll(expression)].length
 }

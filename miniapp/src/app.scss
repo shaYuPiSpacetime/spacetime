@@ -36,3 +36,36 @@ page {
   word-break: break-all;
   overflow-wrap: anywhere;
 }
+
+/* 微信底栏页首帧，业务视图提交后由同一次原生渲染移除。 */
+.tab-first-paint {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
+  padding: calc(env(safe-area-inset-top) + 36rpx) 28rpx 0;
+  pointer-events: none;
+
+  &__heading,
+  &__avatar,
+  &__line {
+    background-color: #d9e4ef;
+    border-radius: 12rpx;
+  }
+
+  &__heading { width: 120rpx; height: 32rpx; }
+  &__card {
+    display: flex;
+    align-items: center;
+    margin-top: 44rpx;
+    padding: 32rpx;
+    border-radius: 20rpx;
+    background-color: #fff;
+  }
+  &__avatar { width: 80rpx; height: 80rpx; border-radius: 50%; }
+  &__lines { margin-left: 24rpx; }
+  &__line { width: 220rpx; height: 20rpx; }
+  &__line--short { width: 140rpx; height: 16rpx; margin-top: 18rpx; }
+}
