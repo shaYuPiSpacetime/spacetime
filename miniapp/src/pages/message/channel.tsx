@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { isSafeSystemJump, resolveAssistantActionPage } from '@/domain/messageRuntime'
 import { messageService, mockMessageService } from '@/services/message'
 import { messagePlatformRuntime } from '@/services/messagePlatformRuntime'
+import { TAB_ROUTES, navigateToOrRedirect } from '@/utils/navigation'
 import type {
   AssistantMessageItem,
   OfficialChannelType,
@@ -35,7 +36,7 @@ export default function MessageChannelPage() {
   const [items, setItems] = useState<ChannelItem[]>([])
   const [cursor, setCursor] = useState<string>()
   const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const acknowledged = useRef(new Set<string>())
   const loadingRef = useRef(false)
@@ -121,14 +122,27 @@ export default function MessageChannelPage() {
       ? resolveAssistantActionPage(actionType, actionValue)
       : null
     if (assistantActionPage) {
-      await Taro.navigateTo({ url: assistantActionPage })
+      await navigateToOrRedirect(assistantActionPage)
       return
     }
     if (!isSafeSystemJump('miniapp_page', actionValue)) {
       await Taro.showToast({ title: '当前跳转暂不可用', icon: 'none' })
       return
     }
-    if (actionValue) await Taro.navigateTo({ url: actionValue })
+    if (!actionValue) return
+    const [path, query = ''] = actionValue.split('?')
+    if (!TAB_ROUTES.has(path)) {
+      await navigateToOrRedirect(actionValue)
+      return
+    }
+    const heartTab = path === '/pages/community/index' && /(?:^|&)tab=(likes|visitors)(?:&|$)/.exec(query)?.[1]
+    if (heartTab) Taro.setStorageSync('community_requested_tab', heartTab)
+    try {
+      await Taro.switchTab({ url: path })
+    } catch {
+      if (heartTab) Taro.removeStorageSync('community_requested_tab')
+      await Taro.showToast({ title: '暂时无法打开，请重试', icon: 'none' })
+    }
   }
 
   return (

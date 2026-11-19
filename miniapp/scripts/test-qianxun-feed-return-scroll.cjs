@@ -23,7 +23,7 @@ function post(id) {
   }
 }
 
-function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamilyPage.tsx') {
+function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamilyPage.tsx', options = {}) {
   const lifecycle = { show: new Set(), hide: new Set() }
   const navigation = []
   const requests = []
@@ -32,6 +32,8 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   let feedScrollProps
   let nextFirstPage = false
   let nextSincerePage = false
+  let relationResponse
+  let sincereRequests = 0
   let hiddenAuthorId
   let detailFails = false
   let unavailableCode
@@ -39,7 +41,8 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   let instanceKey = 0
   let authUserId = 1
   const taro = {
-    useRouter: () => ({ params: {} }),
+    getCurrentPages: () => [{ route: 'pages/index/index' }],
+    useRouter: () => ({ params: options.params || {} }),
     useLoad: callback => React.useEffect(() => { callback({ topicId: '8' }) }, []),
     getStorageSync: key => storage.get(key),
     setStorageSync: (key, value) => storage.set(key, value),
@@ -104,7 +107,10 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
       return { records, current: page, pages: 3 }
     },
     getSoulmatePosts: async () => ({ records: [post(51)] }),
-    getSincerePosts: async () => ({ records: nextSincerePage ? [post(62), post(61)] : [post(61), post(60)] }),
+    getSincerePosts: async () => {
+      sincereRequests++
+      return { records: nextSincerePage ? [post(62), post(61)] : [post(61), post(60)] }
+    },
     getCommunityPostDetail: async id => {
       detailRequests.push(id)
       if (unavailableCode) throw Object.assign(new Error('动态已不可访问'), { code: unavailableCode })
@@ -117,7 +123,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   const store = selector => selector({ optionLabel: (_, code) => code, userId: authUserId })
   const stubs = {
     '@/components/MatchPopupHost': { __esModule: true, default: () => null },
-    '@tarojs/components': { View, Text, Image, ScrollView, Button: host('button') },
+    '@tarojs/components': { View, Text, Image, ScrollView, Input: host('input'), Button: host('button') },
     '@tarojs/taro': { ...taro, default: taro, __esModule: true },
     '@/constants/ossIcons': { miniappOssIcons: new Proxy({}, { get: () => 'icon.png' }) },
     '@/services/community': community,
@@ -156,6 +162,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
       markRecentViewersRead: async () => ({}),
       ...Object.fromEntries(['getLikesMePage', 'getRecentViewersPage'].map(method => [method, async (page, size, cursor) => {
         requests.push({ method, page, cursor })
+        if (relationResponse) return relationResponse()
         return { current: page, total: 6, hasMore: true, accessMode: 'VIP_ALL_CLEAR', newCount: 0, todayVisitorUv: 0,
           readCursor: 'snapshot-1', records: (page === 3 ? [5, 6] : page === 2 ? [3, 4] : [1, 2]).map(id => ({ recordNo: `record-${id}`, userId: id, nickname: `关系${id}`, displayStatus: 'clear', likedTime: '2026-10-10', groupKey: 'today' })) }
       }])),
@@ -230,6 +237,7 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     },
     getWhisper: async whisperNo => ({ whisperNo, status: 'replied', displayStatus: '已回复', peerUser: { nickname: '申请3' }, actions: { canReply: false } }),
   } }
+  Object.assign(stubs, options.stubs)
   const Component = load(pageFile).default
   const container = document.createElement('div')
   document.body.appendChild(container)
@@ -241,6 +249,8 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
   const run = async key => act(async () => { for (const callback of lifecycle[key]) callback() })
   return {
     container, navigation, requests, detailRequests, shareHandlers, storage,
+    setRelationResponse: response => { relationResponse = response },
+    sincereRequests: () => sincereRequests,
     render: () => act(async () => root.render(React.createElement(Component, { snapshotNo: 'SNAPSHOT-1' }))),
     remount: () => act(async () => root.render(React.createElement(Component, { key: `rebuilt-${++instanceKey}`, snapshotNo: 'SNAPSHOT-1' }))),
     changeUser: value => { authUserId = value },
@@ -516,6 +526,83 @@ test('关系列表后台同步保留第二页和快照游标', async t => {
   assert.equal(app.requests.filter(item => item.method === 'getLikesMePage').at(-1).cursor, 'snapshot-1')
 })
 
+for (const label of ['对我心动', '最近访客']) {
+  test(label + '空列表切回时保留原画面，后台请求完成后显示新记录', async t => {
+    const app = mount(t, 'HOT', 'pages/community/index.tsx')
+    const empty = { current: 1, total: 0, newCount: 0, todayVisitorUv: 0, hasMore: false, accessMode: 'VIP_ALL_CLEAR', records: [] }
+    app.setRelationResponse(() => empty)
+    if (label === '最近访客') app.storage.set('community_requested_tab', 'visitors')
+    await app.render()
+    await app.show()
+    const panel = app.container.querySelector('#relation-empty-state')
+    assert.ok(panel)
+    assert.match(panel.textContent, label === '最近访客' ? /没有访客/ : /没有对我心动/)
+    await app.hide()
+    let finish
+    const pending = new Promise(resolve => { finish = resolve })
+    app.setRelationResponse(() => pending)
+    await app.show()
+    assert.equal(app.container.querySelector('#relation-empty-state'), panel)
+    assert.equal(app.container.querySelector('#relation-loading-state'), null)
+    await act(async () => finish({ ...empty, total: 1, records: [
+      { recordNo: 'new-1', userId: 1, nickname: '新访客', displayStatus: 'clear', groupKey: 'today', likedTime: '2026-11-19' },
+    ] }))
+    assert.ok(app.container.textContent.includes('新访客'))
+  })
+}
+
+test('在时空邂逅和千寻之间往返保留站台、列表及阅读位置', async t => {
+  const app = mount(t)
+  await app.render()
+  const click = id => act(async () => app.container.querySelector(id).click())
+  await click('#open-kindred')
+  await click('#qianxun-zhiyin-sincere')
+  await app.scroll(640)
+  assert.equal(app.sincereRequests(), 1)
+  await click('#open-family')
+  assert.ok(app.container.querySelector('.qianxun-community-card'))
+  await click('#open-kindred')
+  assert.ok(app.container.textContent.includes('第61条图片动态'))
+  assert.equal(app.scrollTop(), 640)
+  assert.equal(app.sincereRequests(), 1)
+})
+
+test('千寻翻到第二页后切走超过一分钟，返回时保留已经看到的动态', async t => {
+  const app = mount(t)
+  await app.render()
+  await app.loadMore()
+  await app.scroll(850)
+  await app.hide()
+  const later = Date.now() + 61_000
+  t.mock.method(Date, 'now', () => later)
+  const before = app.requests.filter(item => item.scene === 'FOLLOWING').length
+  await app.show()
+  assert.ok(app.container.querySelector('[data-post-id="1"]'))
+  assert.equal(app.scrollTop(), 850)
+  assert.equal(app.requests.filter(item => item.scene === 'FOLLOWING').length, before)
+})
+
+for (const kindred of [false, true]) {
+  test((kindred ? '时空站台' : '千寻') + '快速连点两条动态只打开第一条，返回后可正常打开下一条', async t => {
+    const app = mount(t)
+    await app.render()
+    if (kindred) {
+      await act(async () => app.container.querySelector('#open-kindred').click())
+      await act(async () => app.container.querySelector('#qianxun-zhiyin-sincere').click())
+    }
+    const selector = kindred ? '.qianxun-zhiyin-body' : '.qianxun-community-card'
+    const cards = app.container.querySelectorAll(selector)
+    assert.ok(cards.length >= 2)
+    await act(async () => { cards[0].click(); cards[1].click() })
+    assert.equal(app.navigation.length, 1)
+    await app.hide()
+    await app.show()
+    await act(async () => app.container.querySelectorAll(selector)[1].click())
+    assert.equal(app.navigation.length, 2)
+    assert.notEqual(app.navigation[0].url, app.navigation[1].url)
+  })
+}
+
 test('话题详情隐藏作者后返回移除对应动态', async t => {
   const app = mount(t, 'HOT', 'pages/qianxun/topic.tsx')
   await app.render()
@@ -524,6 +611,32 @@ test('话题详情隐藏作者后返回移除对应动态', async t => {
   app.hideAuthor(5)
   await app.show()
   assert.deepEqual([...app.container.querySelectorAll('.qianxun-topic-body')].map(node => node.textContent), [4, 3].map(id => `第${id}条图片动态`))
+})
+
+test('搜索请求逆序返回时只显示当前分类，重复点击当前分类保留结果', async t => {
+  const pending = []
+  const app = mount(t, 'CITY', 'pages/search/result.tsx', {
+    params: { keyword: '校园' },
+    stubs: {
+      '@/components/LanhuSubNav': { __esModule: true, default: () => null },
+      '@/stores/authStore': { useAuthStore: { getState: () => ({ userId: 1 }) } },
+      '@/services/settings': { settingsApi: {
+        searchConfig: async () => ({}), publicConfig: async () => ({}),
+        search: (keyword, type) => new Promise(resolve => pending.push({ keyword, type, resolve })),
+      } },
+    },
+  })
+  await app.render()
+  const tab = [...app.container.querySelectorAll('.search-tab')].find(button => button.textContent === '动态')
+  await act(async () => tab.click())
+  assert.deepEqual(pending.map(item => item.type), ['user', 'post'])
+  const result = (title, type) => ({ hasMore: false, items: [{ id: 1, type, title }] })
+  await act(async () => pending[1].resolve(result('当前动态', 'post')))
+  await act(async () => pending[0].resolve(result('之前的用户', 'user')))
+  assert.equal(app.container.querySelector('.search-result-title').textContent, '当前动态')
+  await act(async () => tab.click())
+  assert.equal(app.container.querySelector('.search-result-title').textContent, '当前动态')
+  assert.equal(pending.length, 2)
 })
 
 test('时空站台三点面板关闭后，复用原滚动容器且不刷新动态', async t => {

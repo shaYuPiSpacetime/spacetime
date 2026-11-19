@@ -1,6 +1,6 @@
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import {
@@ -21,12 +21,15 @@ export default function QianxunTopicsPage() {
   const [topics, setTopics] = useState<CommunityTopicCardVO[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [config, setConfig] = useState<CommunityConfig>()
 
+  const loadingRef = useRef(false)
+
   const loadPage = async (nextPage: number, reset = false) => {
-    if (loading || (!reset && !hasMore)) return
+    if (loadingRef.current || (!reset && !hasMore)) return
+    loadingRef.current = true
     setLoading(true)
     setErrorMessage('')
     try {
@@ -42,6 +45,7 @@ export default function QianxunTopicsPage() {
     } catch (error) {
       setErrorMessage(resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, error))
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
   }

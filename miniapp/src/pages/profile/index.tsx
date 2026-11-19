@@ -133,7 +133,7 @@ export default function ProfilePage() {
       <VerificationEntryView
         role="profile-unverified"
         unreadCount={unreadCount}
-        loading={loading || !data.entryResolved}
+        loading={!data.entryResolved && (loading || !error)}
         error={error || ''}
         hasPartialProfile={hasPartialProfile}
         checklist={checklist}

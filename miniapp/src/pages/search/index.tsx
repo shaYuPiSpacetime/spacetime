@@ -12,7 +12,7 @@ import {
 import { settingsApi } from '@/services/settings'
 import { useAuthStore } from '@/stores/authStore'
 import type { SearchResultTab, SearchRuntimeConfig, SearchSourceScene } from '@/types/settings'
-import { navigateBackOrRedirect } from '@/utils/navigation'
+import { navigateBackOrSwitchTab } from '@/utils/navigation'
 import './search.scss'
 
 const API_TYPE: Record<SearchResultTab, string> = {
@@ -106,7 +106,7 @@ export default function SearchHomePage() {
 
   return (
     <View className="prd06-search-page">
-      <LanhuSubNav title="搜索" onBack={() => navigateBackOrRedirect('/pages/index/index')} />
+      <LanhuSubNav title="搜索" onBack={() => navigateBackOrSwitchTab('/pages/index/index')} />
       <View className="search-toolbar">
         <View className="search-input-wrap">
           <View className="search-magnifier" />

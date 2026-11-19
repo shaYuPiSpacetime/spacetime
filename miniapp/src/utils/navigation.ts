@@ -2,7 +2,20 @@ import Taro from '@tarojs/taro'
 
 export const PROFILE_EDIT_FALLBACK_URL = '/pages/profile/edit'
 
-let navigationTask: Promise<void> | null = null
+export const TAB_ROUTES = new Set([
+  '/pages/index/index',
+  '/pages/recommend/index',
+  '/pages/community/index',
+  '/pages/chat/index',
+  '/pages/profile/index',
+])
+
+let pendingNavigation: { source: string; task: Promise<void> } | null = null
+
+function currentPageKey() {
+  const pages = Taro.getCurrentPages()
+  return pages.length + '/' + (pages[pages.length - 1]?.route || '')
+}
 
 /** 页面已打开或导航尚未落地时，重复点击不再新增页面栈。 */
 function isCurrentDestination(url: string) {
@@ -18,20 +31,21 @@ function isCurrentDestination(url: string) {
 
 /** 普通入栈失败（例如页面栈已满）时，降级为替换当前页。 */
 export async function navigateToOrRedirect(url: string) {
-  if (navigationTask) return navigationTask
+  const source = currentPageKey()
+  if (pendingNavigation?.source === source) return pendingNavigation.task
   if (isCurrentDestination(url)) return
   const task = (async () => {
     try {
       await Taro.navigateTo({ url })
     } catch {
-      await Taro.redirectTo({ url })
+      if (currentPageKey() === source) await Taro.redirectTo({ url })
     }
   })()
-  navigationTask = task
+  pendingNavigation = { source, task }
   try {
     await task
   } finally {
-    if (navigationTask === task) navigationTask = null
+    if (pendingNavigation?.task === task) pendingNavigation = null
   }
 }
 

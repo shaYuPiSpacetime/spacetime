@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { OpenTextDetail } from '@/types/prd01'
-import { navigateBackOrRedirect } from '@/utils/navigation'
+import { navigateBackOrSwitchTab } from '@/utils/navigation'
 import { loginByWechatPhone } from '@/services/auth'
 import { useAuthStore } from '@/stores/authStore'
 import { normalizeAvatarUrl } from '@/utils/avatar'
@@ -93,7 +93,7 @@ export default function VerificationIntroPage() {
     <VerificationRuntimeBoundary loadData={loadIntroduction}>
       <VerificationShell
         stage="intro"
-        onBack={() => navigateBackOrRedirect('/pages/index/index')}
+        onBack={() => navigateBackOrSwitchTab('/pages/index/index')}
       >
         <View style={{ position: 'absolute', left: '25rpx', top: '558rpx', width: '700rpx', height: '976rpx', borderRadius: '18rpx', background: '#FFFFFF', padding: '52rpx 30rpx', boxSizing: 'border-box' }}>
           <Text style={{ display: 'block', color: '#0C285A', fontSize: '30rpx', fontWeight: 800, lineHeight: '42rpx' }}>{copy('intro_section_title')}</Text>

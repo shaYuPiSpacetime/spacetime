@@ -251,8 +251,11 @@ export default function RecommendFamilyPage() {
     setWhisperTarget(null)
     setSheet(null)
     refreshFamily()
-    // 初始化完成后同步逻辑入口，不能在渲染期间广播到其他 TabBar 实例。
-    setActiveTabKey(primaryTab === 'KINDRED' ? 'kindred' : 'index')
+    // 准入请求可能在用户切走后才返回，只允许当前可见的首页更新底栏。
+    const pages = Taro.getCurrentPages()
+    if (pages[pages.length - 1]?.route === 'pages/index/index') {
+      setActiveTabKey(primaryTab === 'KINDRED' ? 'kindred' : 'index')
+    }
   }, [currentUserId])
 
   useEffect(() => subscribeCommunityPersonalChanged(change => {
@@ -276,6 +279,15 @@ export default function RecommendFamilyPage() {
     if (key === 'kindred') setPrimaryTab('KINDRED')
     if (key === 'index') setPrimaryTab('FAMILY')
   }), [])
+
+  useEffect(() => {
+    if (primaryTab !== 'FAMILY') {
+      setSheet(null)
+      setWhisperTarget(null)
+    } else if (dirtyScenesRef.current.has(activeTab) && !loadingBySceneRef.current[activeTab]) {
+      void loadScene(activeTab)
+    }
+  }, [primaryTab])
 
   useDidHide(() => {
     resumeRefreshRef.current = true
@@ -302,7 +314,7 @@ export default function RecommendFamilyPage() {
     resumeRefreshRef.current = false
     const returnFromPostDetail = returnFromPostDetailRef.current
     returnFromPostDetailRef.current = undefined
-    if (primaryTab === 'FAMILY') {
+    if (requested === 'FAMILY' && !requestedScene) {
       if (dirtyScenesRef.current.has(activeTab)) {
         void loadContext()
         void loadScene(activeTab)
@@ -315,8 +327,8 @@ export default function RecommendFamilyPage() {
       }
       else {
         void loadContext()
-        if (Date.now() - (sceneLoadedAtRef.current[activeTab] || 0) > 60_000) {
-          feedScroll.reset()
+        if (feedScroll.getScrollTop() === 0 && pageBySceneRef.current[activeTab] <= 1
+          && Date.now() - (sceneLoadedAtRef.current[activeTab] || 0) > 60_000) {
           void loadScene(activeTab)
         }
       }
@@ -324,6 +336,7 @@ export default function RecommendFamilyPage() {
   })
 
   const openPostDetail = async (postId: number, focusComments = false) => {
+    if (returnFromPostDetailRef.current !== undefined) return
     returnFromPostDetailRef.current = postId
     try {
       await Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${postId}${focusComments ? '&focus=comment' : ''}` })
@@ -334,6 +347,7 @@ export default function RecommendFamilyPage() {
   }
 
   const openPostAuthor = async (post: CommunityPostVO) => {
+    if (returnFromPostDetailRef.current !== undefined) return
     returnFromPostDetailRef.current = post.id
     try {
       await openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)
@@ -346,7 +360,9 @@ export default function RecommendFamilyPage() {
   const changeTab = (tab: CommunityScene) => {
     if (tab === activeTab) return
     setActiveTab(tab)
-    if ((dirtyScenesRef.current.has(tab) || postsByScene[tab] === undefined || Date.now() - (sceneLoadedAtRef.current[tab] || 0) > 60_000) && !loadingBySceneRef.current[tab]) void loadScene(tab)
+    if ((dirtyScenesRef.current.has(tab) || postsByScene[tab] === undefined
+      || (pageBySceneRef.current[tab] <= 1 && Date.now() - (sceneLoadedAtRef.current[tab] || 0) > 60_000))
+      && !loadingBySceneRef.current[tab]) void loadScene(tab)
     if (tab === 'HOT' && !topicHome) void loadTopicHome()
   }
 
@@ -498,7 +514,7 @@ export default function RecommendFamilyPage() {
         onChange={changePrimaryTab}
         onProfile={() => runWithCoreAccess(() => void Taro.navigateTo({ url: '/pages/qianxun/interactions?section=mine' }))}
       />
-      {primaryTab === 'FAMILY' ? <>
+      {primaryTab === 'FAMILY' && <>
         <FamilyTabs active={activeTab} tabs={tabs} top={headerMetrics.secondaryTop} onChange={changeTab} />
         <ScrollView
           scrollY
@@ -533,7 +549,15 @@ export default function RecommendFamilyPage() {
           </View>
         </ScrollView>
         <View onClick={() => requireCoreAccess() && Taro.navigateTo({ url: '/pages/qianxun/compose' })} style={{ position: 'fixed', right: '30rpx', bottom: getTabBarBottom(90), width: '104rpx', height: '104rpx', borderRadius: '52rpx', background: BLUE, boxShadow: '0 10rpx 28rpx rgba(40,118,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}><Text style={{ color: '#FFFFFF', fontSize: '56rpx', lineHeight: '60rpx', fontWeight: 300 }}>＋</Text></View>
-      </> : <QianxunZhiyinTab onSharePostChange={setZhiyinSharePost} secondaryTop={headerMetrics.secondaryTop} contentTop={headerMetrics.contentTop} />}
+      </>}
+      <QianxunZhiyinTab
+        key={currentUserId ?? 'guest'}
+        secondaryTop={headerMetrics.secondaryTop}
+        contentTop={headerMetrics.contentTop}
+        active={primaryTab === 'KINDRED'}
+        canInteract={access.status?.coreAccessStatus === 'CORE_ALLOWED'}
+        onSharePostChange={setZhiyinSharePost}
+      />
 
       <CommunityPostActionSheet
         visible={sheet === 'actions' && selectedPost !== undefined}

@@ -35,6 +35,7 @@ function createTabBar(Taro) {
     if (name === 'react') return { useEffect: () => {} }
     if (name === '@tarojs/taro') return { default: Taro, useDidShow: () => {} }
     if (name === '@tarojs/components') return { View: 'View', Text: 'Text', Image: 'Image' }
+    if (name.includes('tabState')) return { setActiveTabKey: () => {} }
     if (name.includes('authStore')) return { useAuthStore: selector => selector({ userId: 7, isLoggedIn: false }) }
     if (name.includes('messageRuntimeStore')) return { useMessageRuntimeStore: selector => selector({ unreadSummary: { messageUnreadCount: 0 } }) }
     if (name.includes('recommendBadgeStore')) return { useRecommendBadgeStore: () => ({ count: 0 }), refreshRecommendBadge: () => {} }
@@ -86,6 +87,41 @@ test('N-01: 失败释放导航锁，可再次打开不同目标', async () => {
   await nav.navigateToOrRedirect('/pages/heart/user?targetUserId=43')
   assert.equal(calls, 2)
   assert.equal(redirects, 1)
+})
+
+test('新页面先于微信回调显示时可继续点击，旧页面失败不再覆盖新页面', async () => {
+  const pages = [{ route: 'pages/profile/index' }]
+  const pending = []
+  const nav = loadNavigation({
+    getCurrentPages: () => pages,
+    navigateTo: ({ url }) => new Promise((resolve, reject) => pending.push({ url, resolve, reject })),
+    redirectTo: () => assert.fail('过期的跳转不能替换当前页面'),
+  })
+  const first = nav.navigateToOrRedirect('/pages/profile/edit')
+  pages.push({ route: 'pages/profile/edit' })
+  const second = nav.navigateToOrRedirect('/pages/profile-edit/tags')
+  assert.deepEqual(pending.map(item => item.url), ['/pages/profile/edit', '/pages/profile-edit/tags'])
+  pending[0].reject(Error('原页面的回调延迟'))
+  await first
+  const repeated = nav.navigateToOrRedirect('/pages/profile-edit/tags')
+  assert.equal(pending.length, 2)
+  pending[1].resolve()
+  await Promise.all([second, repeated])
+})
+
+test('认证或搜索返回时优先上一页，单页入口或返回失败时只切一次首页', async () => {
+  const home = '/pages/index/index'
+  for (const [depth, backFails, expected] of [[2, false, ['返回']], [1, false, [home]], [2, true, ['返回', home]]]) {
+    const calls = []
+    const nav = loadNavigation({
+      getCurrentPages: () => Array(depth).fill({}),
+      navigateBack: async () => { calls.push('返回'); if (backFails) throw Error('页面栈变化') },
+      switchTab: async ({ url }) => { calls.push(url) },
+      reLaunch: () => assert.fail('切换成功不应重启小程序'),
+    })
+    await nav.navigateBackOrSwitchTab(home)
+    assert.deepEqual(calls, expected)
+  }
 })
 
 test('N-01: 等待页两个往日推荐入口使用同一防重复导航', async () => {
@@ -143,9 +179,9 @@ test('R-01: 取消喜欢成功仅从我喜欢列表来源返回，失败不返�
   }
 })
 
-test('I-01: 换一批只请求当前快照的下一游标且替换结果', async () => {
+test('I-01: 翻到下一页只请求当前快照的下一游标', async () => {
   const source = read('components/IdealResultsContent/index.tsx')
-  const start = source.indexOf('  const changeBatch =')
+  const start = source.indexOf('  const changePage =')
   const end = source.indexOf('  const refreshResults =', start)
   assert.ok(start >= 0 && end > start)
   const snippet = ts.transpileModule(source.slice(start, end), {
@@ -153,12 +189,12 @@ test('I-01: 换一批只请求当前快照的下一游标且替换结果', async
   }).outputText
   const calls = []
   const deps = {
-    page: { nextCursor: 'next-20' }, loading: false, loadingMore: false, resolvingSnapshot: false,
-    load: async (...args) => calls.push(args),
-    Taro: { showToast: async () => {}, redirectTo: () => assert.fail('不能重新筛选') },
+    page: { snapshotNo: '当前', nextCursor: 'next-20' }, snapshotNo: '当前', pageNumber: 1,
+    loadInFlight: { current: false }, unlockInFlight: { current: false }, loading: false, unlocking: false,
+    resolvingSnapshot: false, scroll: { reset() {} }, load: async (...args) => calls.push(args),
   }
-  await Function(...Object.keys(deps), `${snippet}; return changeBatch()`)(...Object.values(deps))
-  assert.deepEqual(calls, [['next-20', false]])
+  await Function(...Object.keys(deps), `${snippet}; return changePage(1)`)(...Object.values(deps))
+  assert.deepEqual(calls, [['next-20', 2]])
 })
 
 test('N-02: 旧 Tab 成功回调不能解除后一次切换的锁', () => {
@@ -214,10 +250,10 @@ test('N-04: 等待页切理想型立即废弃旧刷新且连续点击只切一�
   await Promise.all([first, second])
 })
 
-test('N-04: 页面重新创建保留理想型，显式推荐入口优先于缓存', () => {
+test('N-04: 页面重新创建默认推荐，显式理想型入口优先于缓存', () => {
   const source = read('pages/recommend/index.tsx')
   const snippet = source.slice(source.indexOf('  const [activeTab,'), source.indexOf('  const [page,'))
-  for (const [tab, cached, expected] of [[undefined, 'ideal', 'ideal'], ['recommend', 'ideal', 'recommend'], ['ideal', '', 'ideal'], [undefined, '', 'recommend']]) {
+  for (const [tab, cached, expected] of [[undefined, 'ideal', 'recommend'], ['recommend', 'ideal', 'recommend'], ['ideal', '', 'ideal'], [undefined, '', 'recommend']]) {
     const actual = evaluateSnippet(snippet, { router: { params: { tab } }, Taro: { getStorageSync: () => cached }, useState: init => [typeof init === 'function' ? init() : init, () => {}] }, 'activeTab')
     assert.equal(actual, expected)
   }
@@ -226,13 +262,13 @@ test('N-04: 页面重新创建保留理想型，显式推荐入口优先于缓�
 test('N-05: 无刷新标记的页面重显保留候选，到新周期才重取', () => {
   const source = read('pages/recommend/index.tsx')
   const start = source.indexOf('  useDidShow(')
-  const snippet = source.slice(start, source.indexOf('  usePullDownRefresh(', start))
+  const snippet = source.slice(start, source.indexOf('  useDidHide(', start))
   for (const expired of [false, true]) {
     let show
     let loads = 0
     evaluateSnippet(snippet, {
       useDidShow: handler => { show = handler },
-      useDidHide: () => {}, pageVisibleRef: { current: true }, setPageVisible: () => {},
+      setActiveTabKey: () => {}, pageVisibleRef: { current: true }, setPageVisible: () => {},
       Taro: { getStorageSync: () => undefined, removeStorageSync: () => {} },
       RECOMMEND_TAB_STORAGE_KEY: 'tab', RECOMMEND_PREFERENCE_REFRESH_STORAGE_KEY: 'preference',
       RECOMMEND_REFRESH_STORAGE_KEY: 'refresh', RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY: 'exhausted',

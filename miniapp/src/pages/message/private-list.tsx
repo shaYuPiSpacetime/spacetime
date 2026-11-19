@@ -23,19 +23,21 @@ export default function PrivateListPage() {
   const [conversations, setConversations] = useState<MessageConversationItem[]>([])
   const [cursor, setCursor] = useState<string>()
   const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const loadingRef = useRef(false)
+  const resolvedRef = useRef(false)
   const scroll = useRetainedScroll('conversations')
 
   const load = async (append = false, preserve = false) => {
     if (loadingRef.current) return
     loadingRef.current = true
-    setLoading(true)
+    if (!preserve || !resolvedRef.current) setLoading(true)
     setErrorMessage('')
     try {
       const service = isMockScene ? mockMessageService : messageService
       const page = await service.listConversations(append ? cursor : undefined, 20)
+      resolvedRef.current = true
       const normalized = applyConversationReadCache(page.list)
       setConversations(current => applyConversationReadCache(append ? [...current, ...normalized]
         : preserve ? refreshRetainedItems(current, normalized, item => item.conversationNo) : normalized))

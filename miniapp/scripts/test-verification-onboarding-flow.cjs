@@ -161,7 +161,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
 
   assert.match(basic, /stage="basic"/)
   assert.match(basic, /primaryText=.*verification_next_action/)
-  assert.match(basic, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
+  assert.match(basic, /navigateBackOrSwitchTab\('\/pages\/index\/index'\)/)
   assert.doesNotMatch(basic, /title: '暂不认证'/)
 
   assert.match(avatar, /VerificationShell/)
@@ -171,7 +171,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   assert.match(avatar, /verificationAvatarGuideCheck/)
   assert.match(avatar, /verificationAvatarRuleSelf/)
   assert.doesNotMatch(avatar, /avatar-good\.webp/)
-  assert.match(avatar, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
+  assert.match(avatar, /navigateBackOrSwitchTab\('\/pages\/index\/index'\)/)
   assert.doesNotMatch(avatar, /VerificationSubShell/)
 
   const avatarCrop = read('src/pages/verification/avatar-crop.tsx')
@@ -187,7 +187,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   assert.match(intro, /submitIntroduction/)
   assert.doesNotMatch(intro, /optionLabel\('auditStatus'/, '自我介绍页不得展示“未提交”等审核状态文案')
   assert.match(intro, /pages\/verification\/triple/)
-  assert.match(intro, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
+  assert.match(intro, /navigateBackOrSwitchTab\('\/pages\/index\/index'\)/)
   assert.doesNotMatch(intro, /pages\/profile-edit\/intro/)
 
   assert.match(triple, /VerificationCenterPage onboarding/)
@@ -196,7 +196,7 @@ test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
   const verificationCenter = read('src/pages/verification/components/VerificationCenterPage.tsx')
   assert.match(verificationCenter, /VerificationShell stage="triple"/)
   assert.match(verificationCenter, /onboarding/)
-  assert.match(verificationCenter, /navigateBackOrRedirect\('\/pages\/index\/index'\)/)
+  assert.match(verificationCenter, /navigateBackOrSwitchTab\('\/pages\/index\/index'\)/)
 })
 
 test('蓝湖关键几何尺寸和构建门禁不可回退', () => {

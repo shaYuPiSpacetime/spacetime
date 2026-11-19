@@ -166,6 +166,9 @@ export default function ChatPage() {
     ? [...(isMockScene ? mockHomeRows : fixedRows), ...conversationRows]
     : (isMockScene ? mockHomeRows : fixedRows).slice(0, 3)
 
+  const listError = pageError || runtimeError
+  const waitingForHome = loading || (certified && !activeHome && !listError)
+
   if (!certified && !unverified) return <AccessBlockedPage {...access} />
 
   return (
@@ -196,11 +199,11 @@ export default function ChatPage() {
           )}
           <View style={{ width: designRpx(700), minHeight: designRpx(certified ? 1264 : 760), margin: `${designRpx(24)} auto 0`, padding: `0 ${designRpx(17)}`, borderRadius: designRpx(8), background: '#FFFFFF', boxSizing: 'border-box' }}>
             {rows.map(row => <MessageListRow key={row.id} row={row} isMockScene={isMockScene} />)}
-            {!loading && rows.length === 0 ? <Text style={{ display: 'block', padding: designRpx(60), color: '#999999', fontSize: designRpx(24), textAlign: 'center' }}>暂无消息</Text> : null}
-            {loading && rows.length === 0 ? <Text style={{ display: 'block', padding: designRpx(60), color: '#999999', fontSize: designRpx(24), textAlign: 'center' }}>消息加载中...</Text> : null}
-            {pageError || runtimeError ? (
+            {!listError && !waitingForHome && rows.length === 0 ? <Text style={{ display: 'block', padding: designRpx(60), color: '#999999', fontSize: designRpx(24), textAlign: 'center' }}>暂无消息</Text> : null}
+            {!listError && waitingForHome && rows.length === 0 ? <Text style={{ display: 'block', padding: designRpx(60), color: '#999999', fontSize: designRpx(24), textAlign: 'center' }}>消息加载中...</Text> : null}
+            {listError ? (
               <View onClick={() => void load()} style={{ padding: designRpx(36), textAlign: 'center' }}>
-                <Text style={{ color: '#EE2525', fontSize: designRpx(24) }}>{pageError || runtimeError}，点击重试</Text>
+                <Text style={{ color: '#EE2525', fontSize: designRpx(24) }}>{listError}，点击重试</Text>
               </View>
             ) : null}
           </View>

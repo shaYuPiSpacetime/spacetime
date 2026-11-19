@@ -6,7 +6,7 @@ import { prd01Api } from '@/services/prd01'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { VerificationStatus } from '@/types/prd01'
 import { getErrorMessage } from '@/utils/errorMessage'
-import { navigateBackOrRedirect } from '@/utils/navigation'
+import { navigateBackOrRedirect, navigateBackOrSwitchTab } from '@/utils/navigation'
 import { isTripleVerificationComplete } from '@/domain/verificationOnboardingFlow'
 import VerificationRuntimeBoundary from './VerificationRuntimeBoundary'
 import VerificationShell from './VerificationShell'
@@ -100,7 +100,7 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
   return (
     <VerificationRuntimeBoundary loadData={async () => { await loadStatus() }}>
       {onboarding ? (
-        <VerificationShell stage="triple" onBack={() => navigateBackOrRedirect('/pages/index/index')}>
+        <VerificationShell stage="triple" onBack={() => navigateBackOrSwitchTab('/pages/index/index')}>
           {content}
         </VerificationShell>
       ) : (

@@ -16,7 +16,7 @@ export default function AccessBlockedPage({ status, loading, error, blockReasons
   const reasons = accountRestricted ? [...blockReasons, error].filter(Boolean) : error ? [error] : blockReasons
   const title = accountRestricted
     ? status?.accountStatus === 'FROZEN' ? '账号已冻结' : '账号已注销'
-    : loading ? '正在校验准入状态' : '当前功能暂不可用'
+    : loading && !status ? '正在校验准入状态' : '当前功能暂不可用'
   return (
     <View style={{ minHeight: '100vh', background: '#F3F7FB', padding: '360rpx 50rpx 180rpx', boxSizing: 'border-box' }}>
       <Text style={{ display: 'block', color: '#0C285A', fontSize: '42rpx', fontWeight: 800, textAlign: 'center' }}>

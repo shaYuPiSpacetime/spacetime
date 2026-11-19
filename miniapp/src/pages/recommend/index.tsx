@@ -159,7 +159,7 @@ export default function RecommendPage() {
     const resumeCursor = retryCandidateCursorRef.current
     retryCandidateCursorRef.current = null
     setRefreshing(true)
-    if (!page?.items.length) setState('loading')
+    if (!page || state === 'error') setState('loading')
     setErrorMessage('')
     try {
       let data = resumeCursor

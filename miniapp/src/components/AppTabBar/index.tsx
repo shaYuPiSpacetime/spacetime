@@ -140,7 +140,10 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
       return
     }
     // 底部推荐是明确的推荐入口；子页返回仍由推荐页保留原面板。
-    if (tab.key === 'recommend') Taro.setStorageSync('prd08RecommendTab', 'recommend')
+    if (tab.key === 'recommend') {
+      Taro.setStorageSync('prd08RecommendTab', 'recommend')
+      Taro.eventCenter.trigger('recommendTabReselect')
+    }
     tabSwitchInFlight = true
     tabSwitchSourceRoute = currentRoute
     const generation = ++tabSwitchGeneration

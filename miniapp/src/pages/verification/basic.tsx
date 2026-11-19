@@ -12,7 +12,7 @@ import { prd01Api } from '@/services/prd01'
 import { useAuthStore } from '@/stores/authStore'
 import { usePrd01Store } from '@/stores/prd01Store'
 import type { BasicProfile, ProfileFieldSetting, RegionTreeOption } from '@/types/prd01'
-import { navigateBackOrRedirect } from '@/utils/navigation'
+import { navigateBackOrRedirect, navigateBackOrSwitchTab } from '@/utils/navigation'
 import { emitProfileUpdated } from '@/utils/profileEditEvents'
 import VerificationShell from './components/VerificationShell'
 import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
@@ -62,7 +62,7 @@ export default function VerificationBasicPage() {
       void navigateBackOrRedirect()
       return
     }
-    void navigateBackOrRedirect('/pages/index/index')
+    void navigateBackOrSwitchTab('/pages/index/index')
   }
 
   const updateField = (fieldId: string, value: unknown) => {

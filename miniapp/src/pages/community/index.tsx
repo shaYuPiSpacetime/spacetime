@@ -45,7 +45,7 @@ import {
 
 type HeartTab = 'likes' | 'visitors'
 type UnlockStage = 'closed' | 'confirm' | 'quote' | 'success'
-type LoadState = 'idle' | 'loading' | 'ready' | 'empty' | 'error'
+type LoadState = 'loading' | 'ready' | 'empty' | 'error'
 type RelationCard = LikesMeItemVO | RecentViewerItemVO
 type UnlockAttempt = { quoteToken: string; requestId: string }
 const REQUESTED_TAB_KEY = 'community_requested_tab'
@@ -84,8 +84,8 @@ export default function CommunityPage() {
   const [visitorRecords, setVisitorRecords] = useState<RecentViewerItemVO[]>([])
   const [likesPageNo, setLikesPageNo] = useState(1)
   const [visitorsPageNo, setVisitorsPageNo] = useState(1)
-  const [likesState, setLikesState] = useState<LoadState>('idle')
-  const [visitorsState, setVisitorsState] = useState<LoadState>('idle')
+  const [likesState, setLikesState] = useState<LoadState>('loading')
+  const [visitorsState, setVisitorsState] = useState<LoadState>('loading')
   const [likesError, setLikesError] = useState('')
   const [visitorsError, setVisitorsError] = useState('')
   const [likesLoadingMore, setLikesLoadingMore] = useState(false)
@@ -127,7 +127,7 @@ export default function CommunityPage() {
   }
 
   const loadLikes = async (page = 1, preserve = false) => {
-    let retaining = preserve && likesRecords.length > 0
+    let retaining = preserve && likesPage !== null
     if (likesLoadingRef.current) return
     likesLoadingRef.current = true
     if (page === 1) {
@@ -169,7 +169,7 @@ export default function CommunityPage() {
   }
 
   const loadVisitors = async (page = 1, preserve = false) => {
-    let retaining = preserve && visitorRecords.length > 0
+    let retaining = preserve && visitorsPage !== null
     if (visitorsLoadingRef.current) return
     visitorsLoadingRef.current = true
     if (page === 1) {

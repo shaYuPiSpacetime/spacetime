@@ -107,7 +107,7 @@ export default function IndexPage() {
   })
 
   const continueFlow = async () => {
-    if (loading) return
+    if (loading && !verification) return
     const route = resolveVerificationOnboardingRoute({
       basicCompleted: basic?.basicProfileCompleted,
       avatarStatus: verification?.avatarVerifyStatus,
@@ -138,7 +138,7 @@ export default function IndexPage() {
     <VerificationEntryView
       role="index-unverified"
       unreadCount={unreadCount}
-      loading={!ready || loading}
+      loading={!ready || (loading && !verification)}
       error={entryError}
       hasPartialProfile={hasPartialProfile}
       checklist={checklist}

@@ -48,7 +48,8 @@ test('冷启动推荐不读取旧理想型选中态，显式理想型路由仍�
 test('从其他页面点击底部推荐时，覆盖遗留的理想型请求', () => {
   const result = tabPress('pages/index/index')
   assert.equal(result.storage.get('prd08RecommendTab'), 'recommend')
-  assert.ok(result.calls.includes('/pages/recommend/index'))
+  const prepare = result.calls.indexOf('recommendTabReselect')
+  assert.ok(prepare >= 0 && prepare < result.calls.indexOf('/pages/recommend/index'), '切换前应让已挂载的推荐页显示正确面板')
 })
 
 test('在理想型面板重选底部推荐时发出推荐重选事件', () => {

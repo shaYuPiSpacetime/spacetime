@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { navigateBackOrSwitchTab } from '@/utils/navigation'
 import { getNativeNavigationMetrics, MiniappBackIcon } from '@/components/NativeNavigation'
 import { usePrd01Store } from '@/stores/prd01Store'
 import bg from '@/assets/lanhu/verification/verification-bg.webp'
@@ -43,12 +43,7 @@ export default function VerificationShell({
       onBack()
       return
     }
-    const pages = Taro.getCurrentPages()
-    if (pages.length > 1) {
-      Taro.navigateBack()
-      return
-    }
-    void Taro.redirectTo({ url: '/pages/index/index' })
+    void navigateBackOrSwitchTab('/pages/index/index')
   }
 
   const content = (

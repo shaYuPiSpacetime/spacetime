@@ -1,6 +1,6 @@
 import { Button, Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import LanhuSubNav from '@/components/LanhuSubNav'
 import {
   normalizeSourceScene,
@@ -37,7 +37,10 @@ export default function SearchResultPage() {
   const [records, setRecords] = useState<SearchResultItem[]>([])
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(Boolean(initialKeyword))
+  const requestSequence = useRef(0)
+  const requestPending = useRef(false)
+  const submittedKeyword = useRef(initialKeyword)
   const [message, setMessage] = useState('')
   const [runtimeConfig, setRuntimeConfig] = useState<SearchRuntimeConfig>({})
   const [copyConfig, setCopyConfig] = useState<Record<string, string>>({})
@@ -62,23 +65,35 @@ export default function SearchResultPage() {
   }, [])
 
   useEffect(() => {
-    void loadResults(activeTab, 1, initialKeyword, false)
-  }, [activeTab, initialKeyword])
+    setActiveTab(tabs[0])
+    void loadResults(tabs[0], 1, initialKeyword, false)
+    return () => { requestSequence.current++ }
+  }, [tabs, initialKeyword])
 
   async function loadResults(tab: SearchResultTab, targetPage: number, value: string, append: boolean) {
     const submission = resolveSearchSubmission(value)
-    if (!submission.allowed || loading) {
+    if (!submission.allowed || (append && requestPending.current)) {
       if (submission.reason === 'empty') {
         await Taro.showToast({ title: copyConfig['search.empty_keyword_text'] || '', icon: 'none' })
       }
       return
     }
+    const sequence = ++requestSequence.current
+    requestPending.current = true
     setLoading(true)
+    if (!append) {
+      submittedKeyword.current = submission.keyword
+      setRecords([])
+      setHasMore(false)
+      setPage(1)
+      setMessage('')
+    }
     try {
       const result = await settingsApi.search(submission.keyword, API_TYPE[tab], targetPage, 20, sourceScene)
+      if (sequence !== requestSequence.current) return
       if (result.violation) {
         await Taro.showToast({ title: result.message || runtimeConfig.violationText || '', icon: 'none' })
-        navigateBackOrRedirect(`/pages/search/index?sourceScene=${sourceScene}`)
+        if (sequence === requestSequence.current) void navigateBackOrRedirect(`/pages/search/index?sourceScene=${sourceScene}`)
         return
       }
       setRecords(current => append ? [...current, ...(result.items || [])] : (result.items || []))
@@ -88,12 +103,16 @@ export default function SearchResultPage() {
       const currentHistory = Taro.getStorageSync(storageKey)
       Taro.setStorageSync(storageKey, pushSearchHistory(Array.isArray(currentHistory) ? currentHistory : [], submission.keyword))
     } catch (error) {
+      if (sequence !== requestSequence.current) return
       await Taro.showToast({
         title: error instanceof Error ? error.message : copyConfig['search.load_failed_text'] || '',
         icon: 'none',
       })
     } finally {
-      setLoading(false)
+      if (sequence === requestSequence.current) {
+        requestPending.current = false
+        setLoading(false)
+      }
     }
   }
 
@@ -146,9 +165,9 @@ export default function SearchResultPage() {
             key={tab}
             className={`search-tab ${activeTab === tab ? 'is-active' : ''}`}
             onClick={() => {
+              if (tab === activeTab) return
               setActiveTab(tab)
-              setRecords([])
-              setMessage('')
+              void loadResults(tab, 1, submittedKeyword.current, false)
             }}
           >
             {TAB_LABELS[tab]}
@@ -160,7 +179,7 @@ export default function SearchResultPage() {
         scrollY
         className="search-result-scroll"
         lowerThreshold={120}
-        onScrollToLower={() => hasMore && !loading && void loadResults(activeTab, page + 1, keyword, true)}
+        onScrollToLower={() => hasMore && !loading && void loadResults(activeTab, page + 1, submittedKeyword.current, true)}
       >
         <View className="search-result-list">
           {records.map(item => (

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { usePrd01Store } from '@/stores/prd01Store'
 import { chooseAndCropAvatar } from '@/utils/avatar'
-import { navigateBackOrRedirect } from '@/utils/navigation'
+import { navigateBackOrSwitchTab } from '@/utils/navigation'
 import VerificationRuntimeBoundary from './components/VerificationRuntimeBoundary'
 import VerificationShell from './components/VerificationShell'
 
@@ -39,7 +39,7 @@ export default function VerificationAvatarPage() {
         scroll
         primaryText={choosing ? copy('avatar_choosing_action') : copy('avatar_choose_action')}
         onPrimary={sourceSheetVisible ? undefined : () => setSourceSheetVisible(true)}
-        onBack={() => navigateBackOrRedirect('/pages/index/index')}
+        onBack={() => navigateBackOrSwitchTab('/pages/index/index')}
       >
         <AvatarGuide copy={copy} />
         {sourceSheetVisible ? (

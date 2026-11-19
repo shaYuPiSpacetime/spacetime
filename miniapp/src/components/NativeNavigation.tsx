@@ -2,14 +2,7 @@ import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { CSSProperties } from 'react'
 import { getWindowMetrics } from '@/utils/system'
-
-const TAB_ROUTES = new Set([
-  '/pages/index/index',
-  '/pages/recommend/index',
-  '/pages/community/index',
-  '/pages/chat/index',
-  '/pages/profile/index',
-])
+import { TAB_ROUTES, navigateBackOrRedirect, navigateBackOrSwitchTab } from '@/utils/navigation'
 
 export interface NativeNavigationMetrics {
   menuTop: number
@@ -101,13 +94,8 @@ export default function NativeNavigation({
       onBack()
       return
     }
-    if (Taro.getCurrentPages().length > 1) {
-      void Taro.navigateBack()
-    } else if (TAB_ROUTES.has(fallbackUrl)) {
-      void Taro.switchTab({ url: fallbackUrl })
-    } else {
-      void Taro.redirectTo({ url: fallbackUrl })
-    }
+    if (TAB_ROUTES.has(fallbackUrl)) void navigateBackOrSwitchTab(fallbackUrl)
+    else void navigateBackOrRedirect(fallbackUrl)
   }
 
   return (

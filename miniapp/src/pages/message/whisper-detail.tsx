@@ -47,7 +47,7 @@ export default function WhisperDetailPage() {
   )
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const idempotencyCache = useRef(createWhisperIdempotencyCache()).current
 

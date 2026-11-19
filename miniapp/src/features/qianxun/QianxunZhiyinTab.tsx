@@ -13,7 +13,6 @@ import { QIANXUN_BODY_FONT_SIZE, QIANXUN_BODY_LINE_HEIGHT, QIANXUN_BODY_PREVIEW_
 import { navigateToPendingVerification } from '@/features/verification/navigateToVerification'
 import { resolveStableWhisperTargetUserNo } from '@/domain/whisperRuntime'
 import { openCommunityAuthorProfile } from '@/domain/communityAuthorProfile'
-import { useAccessStatus } from '@/hooks/useAccessStatus'
 import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import {
   COMMUNITY_COPY_KEYS,
@@ -42,12 +41,14 @@ type ZhiyinTab = 'YUEMU' | 'SINCERE'
 type Sheet = 'actions' | 'report' | 'uncertified' | null
 
 interface QianxunZhiyinTabProps {
+  active: boolean
+  canInteract: boolean
   onSharePostChange?: (post: CommunityPostVO | undefined) => void
   secondaryTop: number
   contentTop: number
 }
 
-export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePostChange }: QianxunZhiyinTabProps) {
+export default function QianxunZhiyinTab({ active, canInteract, secondaryTop, contentTop, onSharePostChange }: QianxunZhiyinTabProps) {
   const currentUserId = useAuthStore(state => state.userId)
   const [activeTab, setActiveTab] = useState<ZhiyinTab>('YUEMU')
   const scroll = useRetainedScroll(`${currentUserId}:${activeTab}`)
@@ -60,11 +61,11 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   const [sheet, setSheet] = useState<Sheet>(null)
   const [whisperTarget, setWhisperTarget] = useState<WhisperComposeTarget | null>(null)
   const resumedRef = useRef(false)
+  const visitedRef = useRef(false)
   const dirtyTabsRef = useRef(new Set<ZhiyinTab>())
   const sequenceRef = useRef({ YUEMU: 0, SINCERE: 0 })
   const loadedAtRef = useRef({ YUEMU: 0, SINCERE: 0 })
   const returnFromPostDetailRef = useRef<number>()
-  const access = useAccessStatus('canBrowseCards')
   const optionLabel = usePrd01Store(state => state.optionLabel)
   useEffect(() => {
     onSharePostChange?.(sheet === 'actions' ? selectedPost : undefined)
@@ -132,18 +133,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
     }
   }
 
-  useEffect(() => {
-    sequenceRef.current.YUEMU++
-    sequenceRef.current.SINCERE++
-    setSoulmatePosts(undefined)
-    setSincerePosts(undefined)
-    setSelectedPost(undefined)
-    setWhisperTarget(null)
-    setSheet(null)
-    void getCommunityMeta().then(setConfig).catch(() => undefined)
-    void refreshActive()
-    return () => { sequenceRef.current.YUEMU++; sequenceRef.current.SINCERE++ }
-  }, [currentUserId])
+  useEffect(() => () => { sequenceRef.current.YUEMU++; sequenceRef.current.SINCERE++ }, [])
 
   useEffect(() => subscribeCommunityPersonalChanged(change => {
     if (change.kind === 'interaction') return
@@ -161,9 +151,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
     resumedRef.current = true
   })
 
-  useDidShow(() => {
-    if (!resumedRef.current) return
-    resumedRef.current = false
+  const resumeTab = () => {
     if (dirtyTabsRef.current.has(activeTab)) {
       returnFromPostDetailRef.current = undefined
       void refreshActive()
@@ -176,13 +164,34 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
       void refreshReturnedPost(returnFromPostDetail)
       return
     }
-    if (Date.now() - loadedAtRef.current[activeTab] > 60_000) {
-      scroll.reset()
+    if (!loading[activeTab] && scroll.getScrollTop() === 0 && Date.now() - loadedAtRef.current[activeTab] > 60_000) {
       void refreshActive()
     }
+  }
+
+  useEffect(() => {
+    if (!active) {
+      setSheet(null)
+      setWhisperTarget(null)
+      return
+    }
+    if (visitedRef.current) {
+      resumeTab()
+      return
+    }
+    visitedRef.current = true
+    void getCommunityMeta().then(setConfig).catch(() => undefined)
+    void refreshActive()
+  }, [active])
+
+  useDidShow(() => {
+    if (!resumedRef.current) return
+    resumedRef.current = false
+    if (active) resumeTab()
   })
 
   const openPostDetail = async (postId: number, focusComments = false) => {
+    if (returnFromPostDetailRef.current !== undefined) return
     returnFromPostDetailRef.current = postId
     try {
       await Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${postId}${focusComments ? '&focus=comment' : ''}` })
@@ -200,6 +209,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   }
 
   const openPostAuthor = async (post: CommunityPostVO) => {
+    if (returnFromPostDetailRef.current !== undefined) return
     returnFromPostDetailRef.current = post.id
     try {
       await openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)
@@ -210,7 +220,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
   }
 
   const requireInteraction = () => {
-    if (access.status?.coreAccessStatus === 'CORE_ALLOWED') return true
+    if (canInteract) return true
     setSheet('uncertified')
     return false
   }
@@ -301,6 +311,7 @@ export default function QianxunZhiyinTab({ secondaryTop, contentTop, onSharePost
     })
   }
 
+  if (!active) return null
   return (
     <>
       <ZhiyinTabs active={activeTab} top={secondaryTop} onChange={changeTab} />
