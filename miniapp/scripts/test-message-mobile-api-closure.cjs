@@ -372,7 +372,7 @@ test('悄悄话来源严格对齐 handoff 且所有入口使用稳定用户编�
     assert.match(source, /resolveStableWhisperTargetUserNo/)
   }
 
-  const recommendation = read('src/pages/recommend/index.tsx')
+  const recommendation = read('src/pages/recommend/panel.tsx')
   assert.match(recommendation, /sourceScene:\s*'recommendation'/)
 })
 
@@ -394,7 +394,7 @@ test('LiteChat 网关固定精确版本并具备凭证刷新、文本发送、�
   assert.doesNotMatch(runtime, /setStorageSync[^\n]*userSig/i)
 
   const app = read('src/app.tsx')
-  const home = read('src/pages/chat/index.tsx')
+  const home = read('src/pages/chat/panel.tsx')
   assert.doesNotMatch(app, /from ['"]\.\/im\//)
   assert.doesNotMatch(home, /from ['"]@\/im/)
   assert.match(app, /messagePlatformRuntime/)
@@ -604,7 +604,7 @@ test('悄悄话详情直接使用平台正文且不扫描 TIM 历史', () => {
 })
 
 test('页面移除硬编码私信和退役悄悄话交互，接入受限态与精确已读', () => {
-  const home = read('src/pages/chat/index.tsx')
+  const home = read('src/pages/chat/panel.tsx')
   const privateList = read('src/pages/message/private-list.tsx')
   const privateChat = read('src/pages/message/private-chat.tsx')
   const whisperList = read('src/pages/message/whisper-list.tsx')
@@ -639,7 +639,7 @@ test('页面移除硬编码私信和退役悄悄话交互，接入受限态与�
 test('私信首页与列表严格消费生产 DTO 且列表不提前初始化 TIM', () => {
   const types = read('src/types/message.ts')
   const service = read('src/services/message.ts')
-  const home = read('src/pages/chat/index.tsx')
+  const home = read('src/pages/chat/panel.tsx')
   const privateList = read('src/pages/message/private-list.tsx')
   const runtimeStore = read('src/stores/messageRuntimeStore.ts')
 

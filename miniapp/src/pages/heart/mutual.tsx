@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
@@ -59,7 +60,7 @@ export default function MutualLikesPage() {
           {state === 'loading' ? <MutualState id="mutual-loading-state" text="正在加载相互喜欢" /> : null}
           {state === 'empty' ? <MutualState id="mutual-empty-state" text="还没有相互喜欢的人" action="去发现心动" onAction={() => {
             Taro.setStorageSync('prd08RecommendTab', 'recommend')
-            void Taro.switchTab({ url: '/pages/recommend/index' })
+            void switchMainTab({ url: '/pages/recommend/index' })
           }} /> : null}
           {state === 'error' ? <MutualState id="mutual-error-state" text={error} action="重新加载" onAction={() => void load(1)} /> : null}
           {records.map((person, index) => (

@@ -13,7 +13,7 @@ const service = read('src/services/community.ts')
 const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
 const topicDetail = read('src/pages/qianxun/topic.tsx')
 const compose = read('src/pages/qianxun/compose.tsx')
-const chat = read('src/pages/chat/index.tsx')
+const chat = read('src/pages/chat/panel.tsx')
 const interactions = read('src/pages/qianxun/interactions.tsx')
 
 assert.ok(exists('src/features/qianxun/QianxunTopicSpotlight.tsx'), '热门页缺少社区话题板块组件')

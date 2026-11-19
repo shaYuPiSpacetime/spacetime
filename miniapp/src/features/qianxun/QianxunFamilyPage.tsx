@@ -3,7 +3,8 @@ import { shareMessage } from '@/utils/shareMessage'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
 import { postShare } from '@/domain/sharePresentation'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
+import Taro, { useShareAppMessage } from '@tarojs/taro'
+import { useDidHide, useDidShow } from '@/features/main-tabs/activity'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { miniappOssIcons } from '@/constants/ossIcons'
 import { QIANXUN_BODY_FONT_SIZE, QIANXUN_BODY_LINE_HEIGHT, QIANXUN_BODY_PREVIEW_MAX_HEIGHT } from '@/constants/qianxunTypography'
@@ -43,6 +44,7 @@ import { subscribeCommunityPersonalChanged } from '@/domain/communityPersonalEve
 import { getApiErrorCode } from '@/services/request'
 import defaultAvatar from '@/assets/profile/default-avatar.webp'
 import { getActiveTabKey, setActiveTabKey, subscribeActiveTabKey } from '@/custom-tab-bar/tabState'
+import { getRouteTab, selectHostedTab } from '@/custom-tab-bar/tabHost'
 import { getQianxunHeaderMetrics, QianxunHeader, type QianxunPrimaryTab } from './QianxunHeader'
 import QianxunZhiyinTab from './QianxunZhiyinTab'
 import QianxunTopicSpotlight from './QianxunTopicSpotlight'
@@ -64,10 +66,7 @@ function readCachedCommunityConfig() {
 function readRequestedPrimaryTab(): QianxunPrimaryTab {
   if (['FOLLOWING', 'CITY', 'SCHOOL', 'HOT'].includes(String(Taro.getStorageSync(REQUESTED_SCENE_KEY)))) return 'FAMILY'
   const requested = Taro.getStorageSync(REQUESTED_PRIMARY_TAB_KEY)
-  if (requested === 'KINDRED') {
-    Taro.removeStorageSync(REQUESTED_PRIMARY_TAB_KEY)
-    return 'KINDRED'
-  }
+  if (requested === 'KINDRED') return 'KINDRED'
   return getActiveTabKey() === 'kindred' ? 'KINDRED' : 'FAMILY'
 }
 
@@ -253,9 +252,9 @@ export default function RecommendFamilyPage() {
     refreshFamily()
     // 准入请求可能在用户切走后才返回，只允许当前可见的首页更新底栏。
     const pages = Taro.getCurrentPages()
-    if (pages[pages.length - 1]?.route === 'pages/index/index') {
-      setActiveTabKey(primaryTab === 'KINDRED' ? 'kindred' : 'index')
-    }
+    const route = pages[pages.length - 1]?.route
+    const current = route && getRouteTab(route)
+    if (current === 'index' || current === 'kindred') setPrimaryTab(current === 'kindred' ? 'KINDRED' : 'FAMILY')
   }, [currentUserId])
 
   useEffect(() => subscribeCommunityPersonalChanged(change => {
@@ -295,12 +294,16 @@ export default function RecommendFamilyPage() {
 
   useDidShow(() => {
     const requested = readRequestedPrimaryTab()
+    Taro.removeStorageSync(REQUESTED_PRIMARY_TAB_KEY)
     setPrimaryTab(requested)
-    setActiveTabKey(requested === 'KINDRED' ? 'kindred' : 'index')
+    const key = requested === 'KINDRED' ? 'kindred' : 'index'
+    const pages = Taro.getCurrentPages()
+    const route = pages[pages.length - 1]?.route
+    if (!route || !selectHostedTab(route, key)) setActiveTabKey(key)
     const requestedScene = readRequestedScene()
     if (requestedScene) {
       setPrimaryTab('FAMILY')
-      setActiveTabKey('index')
+      if (!route || !selectHostedTab(route, 'index')) setActiveTabKey('index')
       setActiveTab(requestedScene)
       void loadScene(requestedScene)
       if (requestedScene === 'HOT') void loadTopicHome()

@@ -10,7 +10,7 @@ const rootDir = path.resolve(__dirname, '..')
 const read = relativePath => fs.readFileSync(path.join(rootDir, relativePath), 'utf8')
 
 const requiredPages = [
-  'src/pages/chat/index.tsx',
+  'src/pages/chat/panel.tsx',
   'src/pages/message/whisper-list.tsx',
   'src/pages/message/whisper-detail.tsx',
   'src/pages/message/private-list.tsx',

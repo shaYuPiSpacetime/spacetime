@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
@@ -31,7 +32,7 @@ export function LanhuNav({
     if (pages.length > 1) {
       Taro.navigateBack()
     } else {
-      Taro.switchTab({ url: '/pages/index/index' })
+      switchMainTab({ url: '/pages/index/index' })
     }
   }
 

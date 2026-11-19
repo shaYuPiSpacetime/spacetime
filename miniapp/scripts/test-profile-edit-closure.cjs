@@ -491,7 +491,7 @@ test('编辑资料返回按钮具备足够点击区域且单页栈回到我的�
 
   assert.match(
     edit,
-    /Taro\.switchTab\(\{ url: '\/pages\/profile\/index' \}\)/,
+    /switchMainTab\(\{ url: '\/pages\/profile\/index' \}\)/,
     '编辑资料单页直达时必须回到“我的”Tab'
   )
   assert.match(nav, /data-role="profile-edit-back"/, '返回按钮必须提供稳定的运行态点击标识')
@@ -789,7 +789,7 @@ test('主页预览移除语音播放入口并按蓝湖展示三重认证和单�
   assert.match(publicProfile, /relationshipStatus: profile\.emotionalStatus \|\| ''/, '公开主页必须只映射感情状态字段')
   assert.doesNotMatch(publicProfile, /profile\.emotionalStatus \|\| profile\.maritalStatus/, '婚姻状况不得冒充感情状态')
 
-  const recommend = read('src/pages/recommend/index.tsx')
+  const recommend = read('src/pages/recommend/panel.tsx')
   assert.match(recommend, /data-role="recommend-relationship-status"[\s\S]{0,620}\{profile\.emotionalStatus\}/, '推荐首页头像区必须同步展示感情状态')
   assert.match(recommend, /data-role="recommend-dating-goal"[\s\S]{0,360}脱单目标：\{profile\.datingGoal\}/, '推荐首页资料卡必须同步独立展示脱单目标')
 })

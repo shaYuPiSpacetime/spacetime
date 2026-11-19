@@ -8,7 +8,7 @@ const test = require('node:test')
 const projectRoot = path.resolve(__dirname, '..')
 
 test('我的页面编辑资料文字使用 26rpx', () => {
-  const profileSource = fs.readFileSync(path.join(projectRoot, 'src/pages/profile/index.tsx'), 'utf8')
+  const profileSource = fs.readFileSync(path.join(projectRoot, 'src/pages/profile/panel.tsx'), 'utf8')
 
   assert.match(
     profileSource,

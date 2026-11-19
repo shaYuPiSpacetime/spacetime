@@ -101,7 +101,7 @@ test('运行时文案快照更新后发布新的读取器并触发页面重绘',
 })
 
 test('千寻准入页保留蓝湖顶部页签，认证文案由运行时配置提供', () => {
-  const indexSource = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/index.tsx'), 'utf8')
+  const indexSource = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/panel.tsx'), 'utf8')
   const source = fs.readFileSync(path.join(miniappRoot, 'src/features/verification/VerificationEntryView.tsx'), 'utf8')
 
   assert.match(indexSource, /<VerificationEntryView\b/)
@@ -619,7 +619,7 @@ test('核心页面准入只消费 access-status，不在前端自行拼认证规
   assert.match(hook, /prd01Api\.getAccessStatus/)
   assert.match(hook, /status\?\.\[capability\]/)
   assert.match(hook, /blockReasons/)
-  ;['chat/index.tsx', 'community/index.tsx'].forEach(file => {
+  ;['chat/panel.tsx', 'community/panel.tsx'].forEach(file => {
     const source = fs.readFileSync(path.join(miniappRoot, 'src/pages', file), 'utf8')
     assert.match(source, /useAccessStatus/)
     assert.match(source, /AccessBlockedPage/)
@@ -674,7 +674,7 @@ test('相册、背景图和语音介绍使用真实查询、直传、保存与�
 })
 
 test('认证入口根据资料与认证接口续接下一个未完成步骤', () => {
-  const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/index.tsx'), 'utf8')
+  const source = fs.readFileSync(path.join(miniappRoot, 'src/pages/index/panel.tsx'), 'utf8')
   const verificationEntry = fs.readFileSync(path.join(miniappRoot, 'src/features/verification/VerificationEntryView.tsx'), 'utf8')
   assert.match(source, /prd01Api\.getBasicProfile/)
   assert.match(source, /prd01Api\.getVerificationStatus/)

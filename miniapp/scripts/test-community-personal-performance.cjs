@@ -111,7 +111,7 @@ async function mount(t, pageName, options = {}) {
   const hook = load('src/hooks/useCommunityPersonalSummary.ts').useCommunityPersonalSummary
   let state
   const HookPage = () => { state = hook(); return React.createElement('div', null, state.summary?.stats.postCount ?? '—') }
-  const Page = pageName ? load(pageName === 'community' ? 'src/pages/community/index.tsx' : `src/pages/qianxun/${pageName}.tsx`).default : HookPage
+  const Page = pageName ? load(pageName === 'community' ? 'src/pages/community/panel.tsx' : `src/pages/qianxun/${pageName}.tsx`).default : HookPage
   const element = document.createElement('div'); document.body.append(element)
   const root = createRoot(element)
   await act(async () => { root.render(React.createElement(Page)) })

@@ -13,7 +13,7 @@ const exists = relativePath => fs.existsSync(path.join(miniappRoot, relativePath
 
 const familySource = read('src/features/qianxun/QianxunFamilyPage.tsx')
 const headerSource = read('src/features/qianxun/QianxunHeader.tsx')
-const indexSource = read('src/pages/index/index.tsx')
+const indexSource = read('src/pages/index/panel.tsx')
 const verificationEntrySource = read('src/features/verification/VerificationEntryView.tsx')
 const communityService = read('src/services/community.ts')
 const appConfig = read('src/app.config.ts')

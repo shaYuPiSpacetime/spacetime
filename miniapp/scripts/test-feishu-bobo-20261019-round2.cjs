@@ -28,7 +28,8 @@ function tabPress(currentRoute) {
   const Taro = { setStorageSync: (k, v) => storage.set(k, v), eventCenter: { trigger: name => calls.push(name) },
     switchTab: p => calls.push(p.url) }
   const handle = extract('components/AppTabBar/index.tsx', '  const handlePress =', '\n  return (', {
-    Taro, getCurrentRoute: () => currentRoute, TABS: [{ key: 'index', path: '/pages/index/index' }], active: 'index',
+    Taro, getCurrentRoute: () => currentRoute, TABS: ['index', 'recommend'].map(key => ({ key, path: '/pages/' + key + '/index' })), active: 'index',
+    getRouteTab: route => route.split('/')[1], selectHostedTab: () => false, switchMainTab: Taro.switchTab,
     tabSwitchInFlight: false, tabSwitchSourceRoute: '', tabSwitchGeneration: 0,
     releaseTabSwitch() {}, updateActive: key => calls.push(key),
   }, 'handlePress')
@@ -38,7 +39,7 @@ function tabPress(currentRoute) {
 
 test('冷启动推荐不读取旧理想型选中态，显式理想型路由仍可打开', () => {
   for (const params of [{}, { tab: 'ideal' }]) {
-    const selected = extract('pages/recommend/index.tsx', '  const [activeTab, setActiveTab]', '  const [page, setPage]', {
+    const selected = extract('pages/recommend/panel.tsx', '  const [activeTab, setActiveTab]', '  const [page, setPage]', {
       router: { params }, Taro: { getStorageSync: () => 'ideal' }, useState: fn => [fn(), () => {}],
     }, 'activeTab')
     assert.equal(selected, params.tab === 'ideal' ? 'ideal' : 'recommend')
@@ -62,7 +63,7 @@ test('推荐页消费显式入口请求，理想型子页返回不重置面板',
   for (const requested of [undefined, 'recommend']) {
     const activeTabRef = { current: 'ideal' }
     let selected = 'ideal', removed = false
-    const show = extract('pages/recommend/index.tsx', '  useDidShow(() => {', '  useDidHide(() => {', {
+    const show = extract('pages/recommend/panel.tsx', '  useDidShow(() => {', '  useDidHide(() => {', {
       useDidShow: fn => fn(), setActiveTabKey() {}, pageVisibleRef: {}, setPageVisible() {},
       Taro: { getStorageSync: key => key === 'prd08RecommendTab' ? requested : undefined,
         removeStorageSync: () => { removed = true } },

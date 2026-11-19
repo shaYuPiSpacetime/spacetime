@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
 import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
@@ -53,7 +54,7 @@ export default function RecommendWaitingPage() {
       )) {
         Taro.removeStorageSync(RECOMMEND_EXHAUSTED_CYCLE_STORAGE_KEY)
         Taro.setStorageSync(RECOMMEND_REFRESH_STORAGE_KEY, true)
-        await Taro.switchTab({ url: '/pages/recommend/index' })
+        await switchMainTab({ url: '/pages/recommend/index' })
         return
       }
       if (!candidates.nextResetAt) {
@@ -91,7 +92,7 @@ export default function RecommendWaitingPage() {
     refreshGeneration.current += 1
     Taro.setStorageSync(RECOMMEND_TAB_STORAGE_KEY, 'ideal')
     try {
-      await Taro.switchTab({ url: '/pages/recommend/index' })
+      await switchMainTab({ url: '/pages/recommend/index' })
     } catch {
       await Taro.showToast({ title: '理想型打开失败，请重试', icon: 'none' })
       void refreshRecommendation()
@@ -182,7 +183,7 @@ export default function RecommendWaitingPage() {
               textColor="#B56B13"
               onClick={() => {
                 Taro.setStorageSync('qianxun_requested_scene', 'CITY')
-                void Taro.switchTab({ url: '/pages/index/index' })
+                void switchMainTab({ url: '/pages/index/index' })
               }}
             />
           </View>
@@ -368,7 +369,7 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
   const open = () =>
     post
       ? void Taro.navigateTo({ url: `/pages/qianxun/post-detail?id=${post.id}` })
-      : void Taro.switchTab({ url: '/pages/index/index' })
+      : void switchMainTab({ url: '/pages/index/index' })
   const openAuthor = (event: { stopPropagation: () => void }) => {
     event.stopPropagation()
     if (post) void openCommunityAuthorProfile(post.authorId, currentUserId, Taro.navigateTo)
@@ -379,7 +380,7 @@ function CommunityPreview({ post }: { post: CommunityPostVO | null }) {
       style={{ marginTop: '20rpx', padding: '30rpx', borderRadius: '12rpx', background: '#FFFFFF' }}
     >
       <Text style={{ color: '#999999', fontSize: '30rpx' }}>千寻动态</Text>
-      <Text onClick={(event) => { event.stopPropagation(); void Taro.switchTab({ url: '/pages/index/index' }) }} style={{ float: 'right', color: '#999999', fontSize: '26rpx' }}>查看更多 ＞</Text>
+      <Text onClick={(event) => { event.stopPropagation(); void switchMainTab({ url: '/pages/index/index' }) }} style={{ float: 'right', color: '#999999', fontSize: '26rpx' }}>查看更多 ＞</Text>
       {post ? (
         <>
           <View style={{ display: 'flex', alignItems: 'center', marginTop: '28rpx' }}>

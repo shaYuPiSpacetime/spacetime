@@ -18,7 +18,7 @@ const demoData = read('miniapp/src/data/lanhuDemo.json')
 const avatarUtils = read('miniapp/src/utils/avatar.ts')
 const loginPage = read('miniapp/src/pages/login/index.tsx')
 const phoneLoginPage = read('miniapp/src/pages/login/phone.tsx')
-const profilePage = read('miniapp/src/pages/profile/index.tsx')
+const profilePage = read('miniapp/src/pages/profile/panel.tsx')
 
 assert.ok(!demoData.includes(forbiddenAvatarUrl), '蓝湖 demo 数据不得继续引用会 403 的 zcool 热链头像')
 assert.ok(avatarUtils.includes('normalizeAvatarUrl'), '头像工具必须提供 normalizeAvatarUrl 兜底函数')

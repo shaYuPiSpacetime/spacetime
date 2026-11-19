@@ -57,7 +57,7 @@ test('分享单页面中拉黑成功后正确落地，不误报操作失败', as
     showActionSheet: async () => ({ tapIndex: 2 }), showModal: async () => ({ confirm: true }),
     showToast: async p => calls.push(['toast', p.title]), navigateBack: async () => { throw { errMsg: 'navigateBack:fail cannot navigate back at first page' } },
     switchTab: async p => calls.push(['switch', p.url]), reLaunch: async p => calls.push(['relaunch', p.url]) }
-  const navigation = simpleModule('utils/navigation.ts', { '@tarojs/taro': { default: taro } })
+  const navigation = simpleModule('utils/navigation.ts', { '@tarojs/taro': { default: taro }, '@/custom-tab-bar/tabHost': { switchMainTab: taro.switchTab } })
   const goBack = extract('pages/heart/user.tsx', '  const goBack =', '  const runCertifiedAction =', {
     Taro: taro, isLoggedIn: true, openLogin: async () => {}, ...navigation,
   }, 'goBack')
@@ -91,7 +91,7 @@ test('学历认证返回真实上一页，不进入首次认证自动跳首页�
   const calls = []
   const taro = { getCurrentPages: () => [{ route: 'pages/verification/my-certification' }, { route: 'pages/verification/education-mainland' }],
     navigateBack: async () => calls.push('back'), redirectTo: async p => calls.push(p.url) }
-  const navigation = simpleModule('utils/navigation.ts', { '@tarojs/taro': { default: taro } })
+  const navigation = simpleModule('utils/navigation.ts', { '@tarojs/taro': { default: taro }, '@/custom-tab-bar/tabHost': { switchMainTab: taro.switchTab } })
   const back = extract('pages/verification/components/VerificationSubShell.tsx', '  const handleBack =', '  const content =', { Taro: taro, onBack: undefined, ...navigation }, 'handleBack')
   await back()
   assert.deepEqual(calls, ['back'])
@@ -100,7 +100,7 @@ test('学历认证返回真实上一页，不进入首次认证自动跳首页�
 test('学历认证单页进入时返回资料页', async () => {
   const calls = []
   const taro = { getCurrentPages: () => [{ route: 'pages/verification/education-mainland' }], redirectTo: async p => calls.push(p.url) }
-  const navigation = simpleModule('utils/navigation.ts', { '@tarojs/taro': { default: taro } })
+  const navigation = simpleModule('utils/navigation.ts', { '@tarojs/taro': { default: taro }, '@/custom-tab-bar/tabHost': { switchMainTab: taro.switchTab } })
   const back = extract('pages/verification/components/VerificationSubShell.tsx', '  const handleBack =', '  const content =', { Taro: taro, onBack: undefined, ...navigation }, 'handleBack')
   await back()
   assert.deepEqual(calls, ['/pages/profile/edit'])

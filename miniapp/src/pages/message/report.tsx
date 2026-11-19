@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Button, Image, ScrollView, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
@@ -104,7 +105,7 @@ export default function MessageReportPage() {
   const backToMessage = () => {
     const pages = Taro.getCurrentPages()
     if (pages.length > 1) void Taro.navigateBack()
-    else void Taro.switchTab({ url: '/pages/chat/index' })
+    else void switchMainTab({ url: '/pages/chat/index' })
   }
 
   const submit = async () => {

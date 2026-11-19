@@ -7,9 +7,9 @@ const assert = (condition, message) => {
   if (!condition) throw new Error(message)
 }
 
-const community = read('src/pages/community/index.tsx')
+const community = read('src/pages/community/panel.tsx')
 const verification = read('src/features/verification/VerificationEntryView.tsx')
-const recommend = read('src/pages/recommend/index.tsx')
+const recommend = read('src/pages/recommend/panel.tsx')
 const idealResults = read('src/pages/prd08/ideal/results/index.tsx')
 const tabBar = read('src/components/AppTabBar/index.tsx')
 const profileEdit = read('src/pages/profile/edit.tsx')

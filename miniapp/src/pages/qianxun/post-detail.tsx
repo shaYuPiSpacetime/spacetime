@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { shareMessage } from '@/utils/shareMessage'
 import { postShare } from '@/domain/sharePresentation'
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
@@ -177,7 +178,7 @@ export default function QianxunPostDetailPage() {
       setShowActions(false)
       if (result.message) await Taro.showToast({ title: result.message, icon: 'none' })
       if (result.hidden) {
-        const returnToFeed = () => { void Taro.switchTab({ url: '/pages/index/index' }) }
+        const returnToFeed = () => { void switchMainTab({ url: '/pages/index/index' }) }
         const backResult = Taro.navigateBack({ fail: returnToFeed })
         void Promise.resolve(backResult).catch(returnToFeed)
       } else {

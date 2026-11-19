@@ -9,7 +9,7 @@ const rootDir = path.resolve(__dirname, '..')
 const read = relativePath => fs.readFileSync(path.join(rootDir, relativePath), 'utf8')
 
 const relationService = read('src/services/relation.ts')
-const communityPage = read('src/pages/community/index.tsx')
+const communityPage = read('src/pages/community/panel.tsx')
 const mutualPage = read('src/pages/heart/mutual.tsx')
 const userPage = read('src/pages/heart/user.tsx')
 const requestService = read('src/services/request.ts')

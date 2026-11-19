@@ -134,7 +134,7 @@ test('所有消费认证文案的页面都由统一运行态边界托管', () =>
     'common_retry_action',
   ].forEach(copyKey => assert.match(boundary, new RegExp(`copy\\('${copyKey}'\\)`)))
 
-  const index = source('src/pages/index/index.tsx')
+  const index = source('src/pages/index/panel.tsx')
   const verificationEntry = source('src/features/verification/VerificationEntryView.tsx')
   assert.match(index, /validateVerificationRuntime/, '千寻准入页必须先校验认证运行态')
   const loadingProp = index.match(/<VerificationEntryView\b[\s\S]*?\bloading=\{([^}]+)\}/)

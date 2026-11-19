@@ -61,7 +61,7 @@ test('会员协议可阅读，待支付面板有显式关闭和遮罩关闭路�
 })
 
 test('关系页重新显示会刷新会员权益和关系数据', () => {
-  const community = read('src/pages/community/index.tsx')
+  const community = read('src/pages/community/panel.tsx')
   assert.match(community, /useDidShow/, '关系页必须监听页面重新显示')
   assert.match(community, /refreshRelationFeedback/, '关系页缺少统一刷新动作')
   assert.match(community, /useDidShow\(\(\) =>[\s\S]{0,280}refreshRelationFeedback/, '返回关系页后没有刷新列表')
@@ -78,7 +78,7 @@ test('最近访客徽章按当日已查看快照计算增量', async () => {
   assert.equal(resolveVisitorBadge(1, snapshot, '2026-09-15'), 1)
   assert.equal(resolveVisitorBadge(5, snapshot, '2026-09-14', 4), 4)
 
-  const community = read('src/pages/community/index.tsx')
+  const community = read('src/pages/community/panel.tsx')
   assert.match(community, /pageData\.unreadCount/, '服务端返回未读数时必须优先使用服务端口径')
   assert.match(community, /markRecentViewersRead\(readCursor\)/, '访客列表展示后必须确认服务端已读')
 })
@@ -153,7 +153,7 @@ test('已实现的弹窗居中、微信分享图标和友好错误文案保持�
 })
 
 test('推荐真实无匹配时说明筛选原因并提供调整与重试入口', () => {
-  const recommend = read('src/pages/recommend/index.tsx')
+  const recommend = read('src/pages/recommend/panel.tsx')
   const preference = read('src/pages/prd08/recommend/preference/index.tsx')
   assert.match(recommend, /当前偏好下暂无匹配/, '推荐空态没有说明当前筛选条件无匹配')
   assert.match(recommend, /调整偏好/, '推荐空态缺少放宽筛选入口')

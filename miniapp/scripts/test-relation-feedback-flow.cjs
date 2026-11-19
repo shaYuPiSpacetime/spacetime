@@ -37,7 +37,7 @@ function renderUnlockSheet(tab, balance = 8882, price = 8, quoteError = false, c
     showToast: async () => {},
   }
   const makeElement = (type, props) => ({ type, props })
-  let source = read('src/pages/community/index.tsx').replace('useState<RelationCard | null>(null)', "useState<RelationCard | null>({ recordNo: 'LIK-test' } as RelationCard)")
+  let source = read('src/pages/community/panel.tsx').replace('useState<RelationCard | null>(null)', "useState<RelationCard | null>({ recordNo: 'LIK-test' } as RelationCard)")
   if (confirmPending) source = source.replace('useState<UnlockQuoteVO | null>(null)', "useState<UnlockQuoteVO | null>({ quoteToken: 'quote', targetBizNo: 'LIK-test' } as UnlockQuoteVO)")
   const transpiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
@@ -55,6 +55,7 @@ function renderUnlockSheet(tab, balance = 8882, price = 8, quoteError = false, c
       }
       if (name === '@/hooks/useRetainedScroll') return { useRetainedScroll: () => ({ scrollTop: 0, onScroll: () => {}, reset: () => {} }) }
       if (name === 'react/jsx-runtime') return { jsx: makeElement, jsxs: makeElement }
+      if (name === '@/features/main-tabs/activity') return taro
       if (name === '@tarojs/taro') return { ...taro, default: taro }
       if (name === '@tarojs/components') return { View: 'View', Text: 'Text', Image: 'Image', ScrollView: 'ScrollView' }
       if (name === '@/hooks/useAccessStatus') return { useAccessStatus: () => ({ status: { coreAccessStatus: 'CORE_ALLOWED' } }) }
@@ -197,7 +198,7 @@ test('访客分组顺序固定为今天、昨天和更早', async () => {
 })
 
 test('页面源码不得保留假数据、URL 会员覆盖或文案猜错误码', () => {
-  const community = read('src/pages/community/index.tsx')
+  const community = read('src/pages/community/panel.tsx')
   const mutual = read('src/pages/heart/mutual.tsx')
   const request = read('src/services/request.ts')
   const config = read('src/constants/config.ts')
@@ -248,7 +249,7 @@ test('公开资料必须成功加载后才上报访问', () => {
 })
 
 test('列表翻页使用同步防重锁，连续点击不得重复请求同一页', () => {
-  const community = read('src/pages/community/index.tsx')
+  const community = read('src/pages/community/panel.tsx')
   const mutual = read('src/pages/heart/mutual.tsx')
 
   assert.match(community, /likesLoadingRef\.current/)

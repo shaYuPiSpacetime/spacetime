@@ -23,8 +23,8 @@ test('all numeric notification badge surfaces use the shared component', () => {
   const consumers = [
     'src/components/AppTabBar/index.tsx',
     'src/features/verification/VerificationEntryView.tsx',
-    'src/pages/chat/index.tsx',
-    'src/pages/community/index.tsx',
+    'src/pages/chat/panel.tsx',
+    'src/pages/community/panel.tsx',
     'src/pages/message/private-list.tsx',
     'src/pages/message/shared.tsx',
   ]
@@ -35,6 +35,6 @@ test('all numeric notification badge surfaces use the shared component', () => {
 
   const legacyStyles = read('src/pages/message/message.scss')
   assert.doesNotMatch(legacyStyles, /\.message-unread\s*\{/, '消息分包仍保留旧的 13px 数字角标')
-  assert.doesNotMatch(read('src/pages/chat/index.tsx'), /minWidth: designRpx\((20|28)\)/, '消息首页仍保留旧尺寸数字角标')
+  assert.doesNotMatch(read('src/pages/chat/panel.tsx'), /minWidth: designRpx\((20|28)\)/, '消息首页仍保留旧尺寸数字角标')
   assert.doesNotMatch(read('src/components/AppTabBar/index.tsx'), /minWidth: '(26|30)rpx'/, '底部栏仍保留旧尺寸数字角标')
 })

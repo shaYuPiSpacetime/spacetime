@@ -48,7 +48,7 @@ function loadMyLikesModule() {
 }
 
 test('查看认证信息时不再展示平台不保证真实性的免责声明', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   assert.doesNotMatch(source, /平台不保证真实性|对认证结果不保证/)
 })
 
@@ -65,7 +65,7 @@ test('基础资料保存事件同步刷新编辑页昵称', () => {
 })
 
 test('我喜欢的和喜欢我的使用不同且确定的列表入口', () => {
-  const profile = read('src/pages/profile/index.tsx')
+  const profile = read('src/pages/profile/panel.tsx')
   const appConfig = read('src/app.config.ts')
   const service = read('src/services/relation.ts')
   const pagePath = path.join(root, 'src/pages/heart/my-likes.tsx')
@@ -103,7 +103,7 @@ test('iOS 商户支付资质限制展示明确且不承诺代码绕过', () => {
 })
 
 test('推荐已无候选或达到上限时底部推荐红点归零', async () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const domain = await import('data:text/javascript;base64,' + Buffer.from(read('src/domain/recommendBadge.js')).toString('base64'))
   assert.match(source, /publishRecommendBadge\(userId,\s*\{\s*\.\.\.page, items: page.items.slice\(candidateIndex\)/)
   assert.equal(domain.resolveRecommendBadgeCount({ items: [], remainingBrowseCount: 20 }), 0)
@@ -111,7 +111,7 @@ test('推荐已无候选或达到上限时底部推荐红点归零', async () =>
 })
 
 test('心动先确认曝光，成功后离开当前卡片，曝光失败不能绕过额度', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const toggleLike = source.slice(source.indexOf('  const toggleLike ='), source.indexOf('  const updateCandidate ='))
   assert.ok(toggleLike.indexOf('await awaitCurrentCandidateView()') < toggleLike.indexOf('await sendRelationLike('))
   assert.match(source, /!await awaitCurrentCandidateView\(\)\) \{\s*await loadCandidates\(\)\s*return/)

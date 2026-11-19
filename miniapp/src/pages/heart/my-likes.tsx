@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import MatchPopupHost from '@/components/MatchPopupHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
@@ -179,7 +180,7 @@ export default function MyLikesPage() {
       <ScrollView id="my-likes-scroll" scrollY scrollTop={scroll.scrollTop} onScroll={scroll.onScroll} style={{ height: 'calc(100vh - 176rpx)' }}>
         <View style={{ width: '700rpx', minHeight: '520rpx', margin: '0 auto' }}>
           {state === 'loading' ? <ListState id="my-likes-loading-state" text="正在加载我喜欢的人" /> : null}
-          {state === 'empty' ? <ListState id="my-likes-empty-state" text="还没有喜欢的人" action="去发现心动" onAction={() => void Taro.switchTab({ url: '/pages/recommend/index' })} /> : null}
+          {state === 'empty' ? <ListState id="my-likes-empty-state" text="还没有喜欢的人" action="去发现心动" onAction={() => void switchMainTab({ url: '/pages/recommend/index' })} /> : null}
           {state === 'error' ? <ListState id="my-likes-error-state" text={error} action="重新加载" onAction={() => void load(1)} /> : null}
           {records.map((person, index) => (
             <View key={person.likeNo} style={{ width: '700rpx', height: '160rpx', borderTop: index ? '1rpx solid #EFF4FC' : 0, display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>

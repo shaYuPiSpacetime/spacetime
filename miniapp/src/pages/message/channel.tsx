@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Button, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
@@ -138,7 +139,7 @@ export default function MessageChannelPage() {
     const heartTab = path === '/pages/community/index' && /(?:^|&)tab=(likes|visitors)(?:&|$)/.exec(query)?.[1]
     if (heartTab) Taro.setStorageSync('community_requested_tab', heartTab)
     try {
-      await Taro.switchTab({ url: path })
+      await switchMainTab({ url: path })
     } catch {
       if (heartTab) Taro.removeStorageSync('community_requested_tab')
       await Taro.showToast({ title: '暂时无法打开，请重试', icon: 'none' })

@@ -11,7 +11,7 @@ const preview = read('src/pages/profile/components/ProfilePreviewPage.tsx')
 const visibility = read('src/domain/profilePreviewVisibility.ts')
 const edit = read('src/pages/profile/edit.tsx')
 const basicInfo = read('src/pages/verification/components/BasicInfoCard.tsx')
-const profile = read('src/pages/profile/index.tsx')
+const profile = read('src/pages/profile/panel.tsx')
 const workflow = read('../.github/workflows/deploy-backend-prod.yml')
 
 assert.match(compose, /const MAX_COMMUNITY_IMAGES = 9/, '发布动态必须以产品上限 9 张为客户端安全边界')

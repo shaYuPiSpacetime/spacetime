@@ -135,7 +135,7 @@ assert.ok(appTabSource.includes('mode="aspectFit"'), '底部 icon 切图必须�
 assert.ok(!appTabSource.includes('function TabIcon'), '底部 icon 禁止继续使用手绘 TabIcon')
 assert.ok(!appTabSource.includes('TAB_ICON_COLORS'), '底部 icon 禁止继续用颜色重绘替代切图')
 
-const indexSource = read('src/pages/index/index.tsx')
+const indexSource = read('src/pages/index/panel.tsx')
 const verificationEntrySource = read('src/features/verification/VerificationEntryView.tsx')
 assert.ok(indexSource.includes('VerificationEntryView'), '未认证首页需要接入共享认证引导视图')
 assert.ok(verificationEntrySource.includes('CertificationArtwork'), '未认证视图需要使用专门认证插画组件')

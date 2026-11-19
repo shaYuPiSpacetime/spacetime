@@ -19,13 +19,13 @@ test('只有当前仍展示的访客游标成功后才可清零角标', async ()
   assert.equal(domain.shouldApplyVisitorReadResult('cursor-b', 'cursor-a'), false)
   assert.equal(domain.shouldApplyVisitorReadResult(null, 'cursor-a'), false)
 
-  const community = read('src/pages/community/index.tsx')
+  const community = read('src/pages/community/panel.tsx')
   assert.match(community, /shouldApplyVisitorReadResult/, '异步确认结果必须经过当前展示游标校验')
 })
 
 test('最近访客翻页沿用第一页快照且不会替换可确认游标', () => {
   const relation = read('src/services/relation.ts')
-  const community = read('src/pages/community/index.tsx')
+  const community = read('src/pages/community/panel.tsx')
 
   assert.match(relation, /getRecentViewersPage\([^)]*snapshotCursor\?/, '访客列表接口缺少可选快照游标')
   assert.match(community, /visitorSnapshotCursorRef/, '页面缺少第一页访客快照引用')

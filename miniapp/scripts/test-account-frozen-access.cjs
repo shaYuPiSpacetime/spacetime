@@ -44,6 +44,8 @@ function harness(initialStatus) {
       useDidShow: () => {},
       useLoad: () => {},
     },
+    '@/features/main-tabs/activity': { useDidShow: () => {} },
+    '@/custom-tab-bar/tabHost': { switchMainTab: args => navigations.push(args.url) },
     '@/stores/authStore': { useAuthStore: selector => selector({ accessStatus: status, setAccessStatus: next => { status = next } }) },
     '@/stores/messageRuntimeStore': { useMessageRuntimeStore: selector => selector({ unreadSummary: { messageUnreadCount: 0 } }) },
     '@/stores/prd01Store': { usePrd01Store },
@@ -143,7 +145,7 @@ test('冻结时加载失败仍保留账号说明，可刷新且不进入认证',
   assert.deepEqual(app.navigations, [])
 })
 
-for (const page of ['pages/index/index.tsx', 'pages/profile/index.tsx']) {
+for (const page of ['pages/index/panel.tsx', 'pages/profile/panel.tsx']) {
   test(`${page} 冻结且资料未完成时优先展示账号拦截页`, () => {
     const app = harness(frozen)
     const element = app.render(page)
@@ -164,14 +166,14 @@ for (const page of ['pages/index/index.tsx', 'pages/profile/index.tsx']) {
 
 test('千寻已有可见内容缓存时，新冻结状态必须覆盖缓存', () => {
   const app = harness(normal)
-  assert.ok(nodes(app.render('pages/index/index.tsx')).some(item => item?.type === 'QianxunFamilyPage'))
+  assert.ok(nodes(app.render('pages/index/panel.tsx')).some(item => item?.type === 'QianxunFamilyPage'))
   app.setStatus(frozen)
-  assert.equal(app.render('pages/index/index.tsx').type, app.load('components/AccessBlockedPage.tsx').default)
+  assert.equal(app.render('pages/index/panel.tsx').type, app.load('components/AccessBlockedPage.tsx').default)
 })
 
 test('正常未认证与旧缓存保持原有入口', () => {
   const app = harness(unverified)
-  assert.equal(app.render('pages/profile/index.tsx').type, 'VerificationEntryView')
+  assert.equal(app.render('pages/profile/panel.tsx').type, 'VerificationEntryView')
   const legacy = { ...frozen, accountStatus: undefined }
   const view = harness(legacy).blocked()
   assert.match(textOf(view), /去完善资料与认证/)

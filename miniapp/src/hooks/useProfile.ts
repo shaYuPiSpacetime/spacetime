@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { useState, useCallback } from 'react';
 import Taro from '@tarojs/taro';
 import { useAuthStore } from '@/stores/authStore';
@@ -295,7 +296,7 @@ export function useProfile(): UseProfileReturn {
 
   /** 统计项统一跳转心动 Tab，避免普通路由与 Tab 路由混用。 */
   const goToHeart = useCallback(() => {
-    Taro.switchTab({ url: '/pages/community/index' });
+    switchMainTab({ url: '/pages/community/index' });
   }, []);
 
   return {

@@ -1,6 +1,8 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro from '@tarojs/taro'
+import { useDidShow } from '@/features/main-tabs/activity'
 import { useEffect, useRef, useState } from 'react'
 import AppTabBar, { getCapsuleLeftActionsLayout } from '@/components/AppTabBar'
 import { getNativeNavigationMetrics } from '@/components/NativeNavigation'
@@ -430,7 +432,7 @@ function IdealResultsHeader({ onRecommend }: { onRecommend?: () => void }) {
             if (onRecommend) onRecommend()
             else {
               Taro.setStorageSync('prd08RecommendTab', 'recommend')
-              void Taro.switchTab({ url: '/pages/recommend/index' })
+              void switchMainTab({ url: '/pages/recommend/index' })
             }
           }}
           style={{ color: '#FFFFFF', fontSize: '30rpx' }}

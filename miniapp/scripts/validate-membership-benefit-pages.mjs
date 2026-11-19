@@ -14,7 +14,7 @@ const membershipPage = read('src/pages/membership/index.tsx')
 const membershipHook = read('src/hooks/useMembership.ts')
 const recordsPage = read('src/pages/membership/records.tsx')
 const recordDetailPage = read('src/pages/membership/record-detail.tsx')
-const profilePage = read('src/pages/profile/index.tsx')
+const profilePage = read('src/pages/profile/panel.tsx')
 const demoData = JSON.parse(read('src/data/lanhuDemo.json'))
 const expectedBenefits = [
   ['heart-list', '心动名单一键揭晓：', '123人'],

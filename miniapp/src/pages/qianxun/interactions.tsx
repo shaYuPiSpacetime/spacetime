@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import { useRetainedScroll } from '@/hooks/useRetainedScroll'
 import Taro, { useDidHide, useDidShow, useLoad } from '@tarojs/taro'
@@ -681,7 +682,7 @@ function HistoryEmpty({ config }: { config?: CommunityConfig }) {
 
 function openQianxunCity() {
   Taro.setStorageSync(REQUESTED_SCENE_KEY, 'CITY')
-  void Taro.switchTab({ url: '/pages/index/index' })
+  void switchMainTab({ url: '/pages/index/index' })
 }
 
 function openInteractionUserProfile(userId?: number, event?: { stopPropagation: () => void }) {

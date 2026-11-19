@@ -2,15 +2,7 @@ import { useEffect, useState } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
 import AppTabBar, { releaseTabSwitch, type TabKey } from '@/components/AppTabBar'
 import { getActiveTabKey, setActiveTabKey, subscribeActiveTabKey } from './tabState'
-
-/** Tab 路径映射 — 从当前页面路径推导激活的 Tab */
-const PATH_TO_TAB: Record<string, TabKey> = {
-  'pages/index/index': 'index',
-  'pages/community/index': 'community',
-  'pages/recommend/index': 'recommend',
-  'pages/chat/index': 'chat',
-  'pages/profile/index': 'profile',
-}
+import { getRouteTab } from './tabHost'
 
 function getCurrentRoute() {
   const pages = Taro.getCurrentPages()
@@ -18,9 +10,7 @@ function getCurrentRoute() {
 }
 
 function resolveInitialActiveKey() {
-  // 一个原生页面承载两个逻辑入口，返回详情或跨页切换时保留时空邂逅点亮态。
-  if (getCurrentRoute() === 'pages/index/index' && getActiveTabKey() === 'kindred') return 'kindred'
-  return PATH_TO_TAB[getCurrentRoute()] ?? getActiveTabKey()
+  return getRouteTab(getCurrentRoute()) ?? getActiveTabKey()
 }
 
 /**
@@ -37,7 +27,7 @@ export default function CustomTabBar() {
   const updateActiveTab = () => {
     const route = getCurrentRoute()
     if (route) {
-      const key = route === 'pages/index/index' ? resolveInitialActiveKey() : PATH_TO_TAB[route]
+      const key = getRouteTab(route)
       if (key) {
         setActiveTabKey(key)
         setActiveKey(key)

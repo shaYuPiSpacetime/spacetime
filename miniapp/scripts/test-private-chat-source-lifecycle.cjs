@@ -203,7 +203,7 @@ test('登录会话切换后旧预检查结果不得导航', async t => {
 
 test('用户主页和推荐页都用页面代次废弃隐藏前的会话解析结果', () => {
   const profile = fs.readFileSync(path.join(__dirname, '../src/pages/heart/user.tsx'), 'utf8')
-  const recommend = fs.readFileSync(path.join(__dirname, '../src/pages/recommend/index.tsx'), 'utf8')
+  const recommend = fs.readFileSync(path.join(__dirname, '../src/pages/recommend/panel.tsx'), 'utf8')
   for (const [name, source] of [['用户主页', profile], ['推荐页', recommend]]) {
     assert.match(source, /pageGeneration(?:Ref)?\.current \+= 1/, `${name}隐藏时必须推进页面代次`)
     assert.match(source, /sourceGeneration !== pageGeneration(?:Ref)?\.current/, `${name}异步返回必须校验发起代次`)

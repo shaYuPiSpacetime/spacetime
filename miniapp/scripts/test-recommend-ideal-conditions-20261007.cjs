@@ -23,7 +23,7 @@ test('资料刷新保留理想型未保存草稿，只移除已不可用条件',
 })
 
 test('推荐切理想型只切内容，底部入口保持共享组件与常驻互斥图标', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const openIdeal = source.slice(source.indexOf('const openIdealTab'), source.indexOf('const handleTabChange'))
   assert.doesNotMatch(openIdeal, /Taro\.navigateTo/, '切换理想型不能跳离推荐页替换底部导航')
   assert.match(source, /<IdealResultsContent/, '有结果时应内嵌内容而不是重挂导航')

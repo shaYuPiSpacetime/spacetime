@@ -88,6 +88,7 @@ for (const allowed of [true, false]) {
     const auth = { isLoggedIn: true, userId: 7, nickname: '', avatar: '', accessStatus: null, setAccessStatus() {}, updateIdentity() {} }
     const { useProfile } = load('hooks/useProfile.ts', {
       '@tarojs/taro': {},
+      '@/custom-tab-bar/tabHost': { switchMainTab: () => {} },
       '@/stores/authStore': { useAuthStore: { getState: () => auth } },
       '@/stores/prd01Store': { usePrd01Store: { getState: () => ({
         bootstrap: () => { calls.push('配置'); return config.promise },
@@ -125,3 +126,98 @@ for (const allowed of [true, false]) {
     assert.equal(latest.error, null)
   })
 }
+
+function createTabNavigation() {
+  const pages = [{ route: 'pages/index/index' }]
+  const nativeCalls = []
+  const taro = {
+    ENV_TYPE: { WEAPP: 'WEAPP' },
+    getEnv: () => 'WEAPP',
+    getCurrentPages: () => pages,
+    switchTab: options => {
+      nativeCalls.push(options)
+      return Promise.resolve({ errMsg: 'switchTab:ok' })
+    },
+  }
+  return { ...load('custom-tab-bar/tabHost.ts', { '@tarojs/taro': taro }), pages, nativeCalls }
+}
+
+test('六个底栏入口首次及重复切换均保留同一微信页面', async () => {
+  const navigation = createTabNavigation()
+  const route = navigation.pages[0].route
+  let active = 'index'
+  navigation.registerTabHost(route, { selected: () => active, select: key => { active = key } })
+  for (const key of ['community', 'recommend', 'chat', 'profile', 'index', 'kindred', 'chat', 'community']) {
+    const url = '/pages/' + (key === 'kindred' ? 'index' : key) + '/index'
+    let completed = 0
+    await navigation.switchMainTab({ url, complete: () => { completed++ } }, key)
+    assert.equal(navigation.getRouteTab(route), key)
+    assert.equal(completed, 1)
+  }
+  assert.equal(navigation.nativeCalls.length, 0)
+})
+
+test('从详情页指定栏目时回到原宿主，失败不保留错误的目标栏目', async () => {
+  const navigation = createTabNavigation()
+  const host = 'pages/profile/index'
+  navigation.pages[0].route = host
+  navigation.registerTabHost(host, { selected: () => 'profile', select: () => assert.fail('详情页仍可见') })
+  navigation.pages.push({ route: 'pages/message/channel' })
+  await navigation.switchMainTab({ url: '/pages/chat/index' })
+  assert.equal(navigation.nativeCalls[0].url, '/' + host)
+  assert.equal(navigation.getRouteTab(host), 'chat')
+  assert.equal(navigation.takeRequestedTab(host), 'chat')
+  assert.equal(navigation.takeRequestedTab(host), undefined)
+  let failed = false
+  await navigation.switchMainTab({ url: '/pages/community/index', fail: () => { failed = true } })
+  navigation.nativeCalls[1].fail({ errMsg: 'switchTab:fail' })
+  assert.equal(failed, true)
+  assert.equal(navigation.getRouteTab(host), 'profile')
+})
+
+test('单独打开旧入口时使用原生路由，注销旧页面不能误删新宿主', async () => {
+  const navigation = createTabNavigation()
+  navigation.pages[0].route = 'pages/login/index'
+  const target = 'pages/chat/index'
+  await navigation.switchMainTab({ url: '/' + target })
+  assert.equal(navigation.nativeCalls[0].url, '/' + target)
+  assert.equal(navigation.takeRequestedTab(target), 'chat')
+  const removeOld = navigation.registerTabHost(target, { selected: () => 'chat', select() {} })
+  const removeNew = navigation.registerTabHost(target, { selected: () => 'kindred', select() {} })
+  removeOld()
+  assert.equal(navigation.getRouteTab(target), 'kindred')
+  removeNew()
+  assert.equal(navigation.selectHostedTab(target, 'profile'), false)
+})
+
+test('底栏栏目保留节点，显隐各触发一次，直达参数只交给入口栏目', async t => {
+  const dom = new JSDOM('<div id="root"></div>')
+  global.window = dom.window
+  global.document = dom.window.document
+  global.IS_REACT_ACT_ENVIRONMENT = true
+  const activity = load('features/main-tabs/activity.ts', {
+    '@tarojs/taro': { useDidShow() {}, useDidHide() {}, useRouter: () => ({ params: { tab: 'visitors' } }) },
+  })
+  const events = []
+  function Section({ name }) {
+    activity.useDidShow(() => events.push('显示' + name))
+    activity.useDidHide(() => events.push('隐藏' + name))
+    return React.createElement('span', { id: name }, activity.useRouter().params.tab || '')
+  }
+  const root = createRoot(document.getElementById('root'))
+  t.after(async () => { await React.act(async () => root.unmount()); dom.window.close() })
+  const render = current => React.act(async () => {
+    root.render(['community', 'chat'].map(name => React.createElement(activity.TabActivity.Provider,
+      { key: name, value: { visible: name === current, isEntry: name === 'community' } }, React.createElement(Section, { name }))))
+  })
+  await render('community')
+  const message = document.getElementById('chat')
+  await render('chat')
+  await render('chat')
+  await render(null)
+  await render('chat')
+  assert.deepEqual(events, ['显示community', '隐藏community', '显示chat', '隐藏chat', '显示chat'])
+  assert.equal(document.getElementById('chat'), message)
+  assert.equal(message.textContent, '')
+  assert.equal(document.getElementById('community').textContent, 'visitors')
+})

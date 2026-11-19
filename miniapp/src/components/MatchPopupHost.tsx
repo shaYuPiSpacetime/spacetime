@@ -1,5 +1,6 @@
 import { Image, Text, View } from '@tarojs/components'
-import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
+import Taro from '@tarojs/taro'
+import { useDidHide, useDidShow, useTabVisible } from '@/features/main-tabs/activity'
 import { useEffect, useRef, useState } from 'react'
 import personImage from '@/assets/lanhu/heart-message/heart-person.webp'
 import { useAuthStore } from '@/stores/authStore'
@@ -17,7 +18,9 @@ export default function MatchPopupHost() {
   const [submitting, setSubmitting] = useState(false)
   const popupRef = useRef<MatchPopupVO | null>(null)
   const busy = useRef(false)
-  const active = useRef(true)
+  const visible = useTabVisible()
+  const active = useRef(visible)
+  const initialized = useRef(false)
   const epoch = useRef(0)
   const querying = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout>>()
@@ -59,9 +62,13 @@ export default function MatchPopupHost() {
     }
     timer.current = setTimeout(tick, MATCH_POPUP_POLL_MS)
   }
-  useDidShow(start)
+  useDidShow(() => {
+    active.current = true
+    if (initialized.current) start()
+  })
   useDidHide(stop)
   useEffect(() => {
+    initialized.current = true
     epoch.current += 1
     querying.current = false
     popupRef.current = null
@@ -73,6 +80,7 @@ export default function MatchPopupHost() {
     Taro.eventCenter.on(MATCH_POPUP_REFRESH_EVENT, refresh)
     Taro.eventCenter.on(MESSAGE_RUNTIME_BACKGROUND_EVENT, stop)
     return () => {
+      initialized.current = false
       if (timer.current) clearTimeout(timer.current)
       epoch.current += 1
       Taro.eventCenter.off(MATCH_POPUP_REFRESH_EVENT, refresh)

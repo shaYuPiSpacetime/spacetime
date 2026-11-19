@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
@@ -40,7 +41,7 @@ export default function VerificationCenterPage({ onboarding = false }: { onboard
 
   const completeOnboarding = async () => {
     try {
-      await Taro.switchTab({ url: '/pages/index/index' })
+      await switchMainTab({ url: '/pages/index/index' })
     } catch {
       completionHandledRef.current = false
       await Taro.showToast({ title: '认证已完成，请点击进入首页', icon: 'none' })

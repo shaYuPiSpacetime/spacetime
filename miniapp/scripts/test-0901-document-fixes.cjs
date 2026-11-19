@@ -175,7 +175,7 @@ test('支付能力受限时保留原生错误语义并展示可理解的中文�
 
 test('文档中已有实现的心动、会员和 MBTI 图标规则保持不回退', () => {
   const heartHeader = read('src/components/HeartMessageHeader.tsx')
-  const profile = read('src/pages/profile/index.tsx')
+  const profile = read('src/pages/profile/panel.tsx')
   const { toggleProfileTagSelection } = loadTypeScriptModule('src/domain/profileTagSelection.ts')
 
   assert.match(heartHeader, /miniappOssIcons\.heartMutualLikes/, '对我心动页必须使用文档指定图标')
@@ -188,7 +188,7 @@ test('文档中已有实现的心动、会员和 MBTI 图标规则保持不回�
 })
 
 test('查看对我心动后立即清除顶部角标并保留本次列表快照', () => {
-  const heart = read('src/pages/community/index.tsx')
+  const heart = read('src/pages/community/panel.tsx')
   const acknowledge = functionSource(heart, '  const acknowledgeLikesAfterPaint', '  const loadLikes')
 
   assert.match(heart, /const \[likesBadgeCount, setLikesBadgeCount\] = useState\(0\)/, '心动页必须单独维护顶部未读角标')
@@ -199,7 +199,7 @@ test('查看对我心动后立即清除顶部角标并保留本次列表快照',
 })
 
 test('心动单人解锁弹窗恢复已验收的场景文案和信息层级', () => {
-  const heart = read('src/pages/community/index.tsx')
+  const heart = read('src/pages/community/panel.tsx')
   const sheet = heart.slice(heart.indexOf('function UnlockSheet'))
 
   assert.match(sheet, /'解锁Ta是谁'/, '弹窗标题必须使用已确认文案且不插入多余空格')

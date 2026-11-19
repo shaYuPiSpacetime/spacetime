@@ -125,6 +125,8 @@ function mount(t, scene = 'FOLLOWING', pageFile = 'features/qianxun/QianxunFamil
     '@/components/MatchPopupHost': { __esModule: true, default: () => null },
     '@tarojs/components': { View, Text, Image, ScrollView, Input: host('input'), Button: host('button') },
     '@tarojs/taro': { ...taro, default: taro, __esModule: true },
+    '@/features/main-tabs/activity': taro,
+    '@/custom-tab-bar/tabHost': { getRouteTab: () => 'index', selectHostedTab: () => false, switchMainTab: taro.switchTab },
     '@/constants/ossIcons': { miniappOssIcons: new Proxy({}, { get: () => 'icon.png' }) },
     '@/services/community': community,
     '@/services/recommend': { getRecommendPreferences: async () => ({ vipEffective: false }) },
@@ -511,7 +513,7 @@ test('悄悄话第二页详情处理后返回只迁移目标，不丢分页和�
 })
 
 test('关系列表后台同步保留第二页和快照游标', async t => {
-  const app = mount(t, 'HOT', 'pages/community/index.tsx')
+  const app = mount(t, 'HOT', 'pages/community/panel.tsx')
   await app.render()
   await app.show()
   const more = () => [...app.container.querySelectorAll('span')].find(node => node.textContent === '加载更多')
@@ -528,7 +530,7 @@ test('关系列表后台同步保留第二页和快照游标', async t => {
 
 for (const label of ['对我心动', '最近访客']) {
   test(label + '空列表切回时保留原画面，后台请求完成后显示新记录', async t => {
-    const app = mount(t, 'HOT', 'pages/community/index.tsx')
+    const app = mount(t, 'HOT', 'pages/community/panel.tsx')
     const empty = { current: 1, total: 0, newCount: 0, todayVisitorUv: 0, hasMore: false, accessMode: 'VIP_ALL_CLEAR', records: [] }
     app.setRelationResponse(() => empty)
     if (label === '最近访客') app.storage.set('community_requested_tab', 'visitors')

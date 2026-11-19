@@ -10,7 +10,7 @@ function read(relativePath) {
   return fs.readFileSync(path.join(miniappRoot, relativePath), 'utf8')
 }
 
-const profilePage = read('src/pages/profile/index.tsx')
+const profilePage = read('src/pages/profile/panel.tsx')
 const membershipPage = read('src/pages/membership/index.tsx')
 
 assert.match(

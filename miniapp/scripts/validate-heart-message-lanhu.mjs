@@ -13,8 +13,8 @@ const readOptional = relativePath => {
   return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
 }
 
-const chat = read('src/pages/chat/index.tsx')
-const heart = read('src/pages/community/index.tsx')
+const chat = read('src/pages/chat/panel.tsx')
+const heart = read('src/pages/community/panel.tsx')
 const matchPopup = read('src/components/MatchPopupHost.tsx')
 const mutual = read('src/pages/heart/mutual.tsx')
 const user = read('src/pages/heart/user.tsx')

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useDidShow } from '@tarojs/taro'
+import { useDidShow } from '@/features/main-tabs/activity'
 import { prd01Api } from '@/services/prd01'
 import { useAuthStore } from '@/stores/authStore'
 import type { AccessStatus } from '@/types/prd01'

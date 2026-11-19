@@ -864,7 +864,7 @@ const FORBIDDEN_COMMERCIAL_TEXT_FILES = [
   'src/pages/coins/detail.tsx',
   'src/hooks/useCoins.ts',
   'src/hooks/useProfile.ts',
-  'src/pages/profile/index.tsx',
+  'src/pages/profile/panel.tsx',
   'src/pages/featured/index.tsx',
   'src/components/UserCard/index.tsx',
   'src/services/mock.ts',

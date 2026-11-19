@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { MiniappBackIcon, getNativeNavigationMetrics } from '@/components/NativeNavigation'
@@ -14,7 +15,7 @@ export default function EducationSubmitSuccessPage() {
   const goToQianxunCity = async () => {
     Taro.setStorageSync(REQUESTED_PRIMARY_TAB_KEY, 'FAMILY')
     Taro.setStorageSync(REQUESTED_SCENE_KEY, 'CITY')
-    await Taro.switchTab({ url: '/pages/index/index' })
+    await switchMainTab({ url: '/pages/index/index' })
   }
 
   return (

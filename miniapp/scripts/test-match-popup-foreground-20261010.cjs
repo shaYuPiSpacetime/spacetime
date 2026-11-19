@@ -41,6 +41,7 @@ async function mount(t) {
     react: React, 'react/jsx-runtime': require('react/jsx-runtime'),
     '@tarojs/taro': { ...taro, default: taro },
     '@tarojs/components': { View: host('div'), Text: host('span'), Image: host('img') },
+    '@/features/main-tabs/activity': { ...taro, useTabVisible: () => true },
     '@/stores/authStore': { useAuthStore: select => select(identity) },
     '@/services/relation': api,
     '@/services/message': { resolveConversationByPeerUserId: async () => pendingConversation || ({ conversationNo: 'C1' }) },

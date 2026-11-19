@@ -44,6 +44,8 @@ async function mount(t, options = {}) {
   const dependencies = {
     react: React, 'react/jsx-runtime': require('react/jsx-runtime'),
     '@tarojs/taro': { default: taro, ...taro }, '@tarojs/components': components,
+    '@/features/main-tabs/activity': taro,
+    '@/custom-tab-bar/tabHost': { switchMainTab: taro.switchTab },
     '@/services/ideal': api, '@/constants/tabBarLayout': { getTabBarBottom: () => 0 },
     '@/constants/ossIcons': { miniappOssIcons: {} },
     '@/components/AppTabBar': { default: () => null, getCapsuleLeftActionsLayout: () => ({}) },

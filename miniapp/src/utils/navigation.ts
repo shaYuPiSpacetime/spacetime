@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import Taro from '@tarojs/taro'
 
 export const PROFILE_EDIT_FALLBACK_URL = '/pages/profile/edit'
@@ -76,6 +77,6 @@ export async function navigateBackOrSwitchTab(fallbackUrl: string) {
   if (Taro.getCurrentPages().length > 1) {
     try { await Taro.navigateBack(); return } catch { /* 页面栈已变化时继续兜底。 */ }
   }
-  try { await Taro.switchTab({ url: fallbackUrl }) }
+  try { await switchMainTab({ url: fallbackUrl }) }
   catch { await Taro.reLaunch({ url: fallbackUrl }) }
 }

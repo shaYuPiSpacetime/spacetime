@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useEffect, useMemo, useState } from 'react'
@@ -98,7 +99,7 @@ function DarkNavigation({ title }: { title: string }) {
   const titleTop = menuTop + (menuHeight - 45) / 2
   const goBack = () => {
     if (Taro.getCurrentPages().length > 1) void Taro.navigateBack()
-    else void Taro.switchTab({ url: '/pages/community/index' })
+    else void switchMainTab({ url: '/pages/community/index' })
   }
 
   return (

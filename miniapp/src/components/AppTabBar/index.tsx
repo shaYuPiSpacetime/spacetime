@@ -21,6 +21,7 @@ import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
 import { useAuthStore } from '@/stores/authStore'
 import { refreshRecommendBadge, useRecommendBadgeStore } from '@/stores/recommendBadgeStore'
 import { setActiveTabKey } from '@/custom-tab-bar/tabState'
+import { getRouteTab, selectHostedTab, switchMainTab } from '@/custom-tab-bar/tabHost'
 import { APP_TAB_BAR_HEIGHT_RPX, getTabBarBottom } from '@/constants/tabBarLayout'
 
 export type TabKey = 'kindred' | 'index' | 'community' | 'recommend' | 'chat' | 'profile'
@@ -123,7 +124,9 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
     const currentRoute = getCurrentRoute()
     // 等待页已经是推荐的当前状态，重选推荐入口不能先切回主路由再自动入栈。
     if (tab.key === 'recommend' && currentRoute === 'pages/prd08/recommend/waiting/index') return
-    const sourceTab = TABS.find(item => item.path.slice(1) === currentRoute && item.key === active)
+    const routeTab = getRouteTab(currentRoute)
+    const sourceTab = TABS.find(item => item.key === routeTab)
+      ?? TABS.find(item => item.path.slice(1) === currentRoute && item.key === active)
       ?? TABS.find(item => item.path.slice(1) === currentRoute)
     if (tabSwitchInFlight) {
       // 同一路由内的并发点击属于一次导航事务；路由已变化则说明上次切换已落地，
@@ -131,10 +134,11 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
       if (!currentRoute || currentRoute === tabSwitchSourceRoute) return
       releaseTabSwitch()
     }
-    // 是否重复点击只认微信真实路由，不能依赖可能滞后一帧的点亮状态。
-    if (tab.path.slice(1) === currentRoute) {
-      // 时空邂逅与千寻共用原生页面，通过共享点亮态切换内容，不重复导航。
-      if (tab.key === 'kindred' || tab.key === 'index') updateActive(tab.key)
+    // 点亮态可能滞后一帧，重选只认当前宿主实际展示的栏目。
+    if (sourceTab?.path === tab.path) {
+      if (tab.key === 'kindred' || tab.key === 'index') {
+        if (!selectHostedTab(currentRoute, tab.key)) updateActive(tab.key)
+      }
       if (tab.key === 'community') Taro.eventCenter.trigger('heartTabReselect')
       if (tab.key === 'recommend') Taro.eventCenter.trigger('recommendTabReselect')
       return
@@ -144,11 +148,13 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
       Taro.setStorageSync('prd08RecommendTab', 'recommend')
       Taro.eventCenter.trigger('recommendTabReselect')
     }
+    // 保留当前 WebView，微信绘制新栏目前，前一栏及其底栏仍在屏幕上。
+    if (selectHostedTab(currentRoute, tab.key)) return
     tabSwitchInFlight = true
     tabSwitchSourceRoute = currentRoute
     const generation = ++tabSwitchGeneration
     updateActive(tab.key)
-    Taro.switchTab({
+    switchMainTab({
       url: tab.path,
       success: () => releaseTabSwitch(generation),
       fail: () => {
@@ -156,7 +162,7 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
         updateActive(sourceTab?.key ?? active)
         releaseTabSwitch(generation)
       },
-    })
+    }, tab.key)
   }
 
   return (

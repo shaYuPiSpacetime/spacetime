@@ -9,7 +9,7 @@ const domain = () => import('data:text/javascript;base64,' + Buffer.from(read('s
 const page = (count, changes = {}) => ({ items: Array.from({length: count}, (_, i) => ({candidateNo: String(i)})), remainingBrowseCount: count, nextResetAt: '2026-10-11 12:00:00', preferenceVersion: 1, ...changes })
 
 test('U-01: 等待只改变内容状态，理想型点击不触发主路由导航', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const start = source.indexOf('  const openWaitingPage =')
   const snippet = ts.transpileModule(source.slice(start, source.indexOf('  const loadCandidates =', start)), {compilerOptions:{target:ts.ScriptTarget.ES2020}}).outputText
   let state
@@ -62,7 +62,7 @@ test('U-02B: 会员升级或后台总额度改变允许数字恢复，后续旧�
 })
 
 function viewHarness() {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const start = source.indexOf('  const ensureCandidateView =')
   const snippet = ts.transpileModule(source.slice(start, source.indexOf('  useEffect(', start)), {compilerOptions:{target:ts.ScriptTarget.ES2020}}).outputText
   let tick

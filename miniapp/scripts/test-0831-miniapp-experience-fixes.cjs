@@ -24,7 +24,7 @@ function loadTypeScriptModule(relativePath) {
 }
 
 test('理想型已有筛选记录时直达最新结果，无记录时才展示落地页', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
 
   assert.match(source, /getIdealSearchRecords/, '理想型入口必须查询服务端筛选记录')
   assert.match(
@@ -67,7 +67,7 @@ test('推荐偏好居住地使用省市两级联动选择器', () => {
 })
 
 test('推荐页首次送出心动后展示下一位且不写入跳过动作', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const toggleLike = source.slice(
     source.indexOf('const toggleLike'),
     source.indexOf('const updateCandidate')

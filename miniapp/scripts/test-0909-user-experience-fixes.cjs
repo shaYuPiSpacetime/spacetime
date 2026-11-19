@@ -32,7 +32,7 @@ function functionSource(source, startMarker, endMarker) {
 }
 
 test('推荐候选图片右上角不再悬浮转发按钮', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const card = functionSource(source, 'function RecommendCandidateCard', 'function ProfileInfoLine')
 
   assert.doesNotMatch(card, /onShare/, '推荐候选卡不得继续接收分享回调')

@@ -12,7 +12,7 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf
     ? fs.readFileSync(path.join(root, 'src/components/IdealResultsContent/index.tsx'), 'utf8') : '')
 
 test('推荐三重认证弹窗使用最新蓝湖独立切图', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   assert.match(source, /miniappOssIcons\.recommendCertScoreShield/)
   assert.match(source, /miniappOssIcons\.recommendCertAvatar/)
   assert.match(source, /miniappOssIcons\.recommendCertRealName/)
@@ -47,7 +47,7 @@ test('推荐与理想型客户端接口完整绑定 PRD-08 后端', () => {
 })
 
 test('推荐首页由真实推荐状态驱动并禁止继续复用家园页', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
 
   assert.doesNotMatch(source, /QianxunFamilyPage/, '推荐 Tab 不能再渲染家园页')
   assert.match(source, /getRecommendCandidates/, '推荐首页必须读取真实候选接口')
@@ -83,7 +83,7 @@ test('推荐首页由真实推荐状态驱动并禁止继续复用家园页', ()
 })
 
 test('推荐底部私信操作区按蓝湖透明悬浮且不以整条背景遮挡候选内容', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const actions = source.slice(
     source.indexOf('function RecommendActions'),
     source.indexOf('function RecommendEmpty')
@@ -148,7 +148,7 @@ test('推荐非底部静态素材全部来自 OSS 常量', () => {
 })
 
 test('推荐与理想型右上角图标按蓝湖 18px 基线渲染并保留足够点击热区', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const waiting = read('src/pages/prd08/recommend/waiting/index.tsx')
   const results = read('src/pages/prd08/ideal/results/index.tsx')
   const recommendHeader = source.slice(
@@ -270,7 +270,7 @@ test('三天回看与偏好设置均由真实接口和会员态驱动', () => {
 })
 
 test('保存偏好触发重载时只有最新的候选请求可以落状态', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const loadStart = source.indexOf('const loadCandidates = async')
   const loadEnd = source.indexOf('\n  useEffect(', loadStart)
   const loadCandidates = source.slice(loadStart, loadEnd)
@@ -439,7 +439,7 @@ test('理想型结果首卡不被原生滚动容器裁剪且筛选面板尺寸�
 })
 
 test('跨页面导航与充值回跳不会丢失状态或重复确认过期报价', () => {
-  const home = read('src/pages/recommend/index.tsx')
+  const home = read('src/pages/recommend/panel.tsx')
   const waiting = read('src/pages/prd08/recommend/waiting/index.tsx')
   const results = read('src/pages/prd08/ideal/results/index.tsx')
 
@@ -468,7 +468,7 @@ test('跨页面导航与充值回跳不会丢失状态或重复确认过期报�
 
 test('推荐与理想型页面不得使用文字字符冒充设计图标', () => {
   const sources = [
-    'src/pages/recommend/index.tsx',
+    'src/pages/recommend/panel.tsx',
     'src/pages/prd08/recommend/waiting/index.tsx',
     'src/pages/prd08/recommend/preference/index.tsx',
     'src/pages/prd08/ideal/filter/index.tsx',
@@ -494,7 +494,7 @@ test('理想型充值成功只回到结果页，不会再叠加支付结果页',
 })
 
 test('取消喜欢后必须使用服务端权限降级为悄悄话', () => {
-  const recommend = read('src/pages/recommend/index.tsx')
+  const recommend = read('src/pages/recommend/panel.tsx')
   const publicProfile = read('src/pages/heart/user.tsx')
 
   assert.match(

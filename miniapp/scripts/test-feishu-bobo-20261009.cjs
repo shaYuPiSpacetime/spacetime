@@ -251,7 +251,7 @@ test('N-04: 等待页切理想型立即废弃旧刷新且连续点击只切一�
 })
 
 test('N-04: 页面重新创建默认推荐，显式理想型入口优先于缓存', () => {
-  const source = read('pages/recommend/index.tsx')
+  const source = read('pages/recommend/panel.tsx')
   const snippet = source.slice(source.indexOf('  const [activeTab,'), source.indexOf('  const [page,'))
   for (const [tab, cached, expected] of [[undefined, 'ideal', 'recommend'], ['recommend', 'ideal', 'recommend'], ['ideal', '', 'ideal'], [undefined, '', 'recommend']]) {
     const actual = evaluateSnippet(snippet, { router: { params: { tab } }, Taro: { getStorageSync: () => cached }, useState: init => [typeof init === 'function' ? init() : init, () => {}] }, 'activeTab')
@@ -260,7 +260,7 @@ test('N-04: 页面重新创建默认推荐，显式理想型入口优先于缓�
 })
 
 test('N-05: 无刷新标记的页面重显保留候选，到新周期才重取', () => {
-  const source = read('pages/recommend/index.tsx')
+  const source = read('pages/recommend/panel.tsx')
   const start = source.indexOf('  useDidShow(')
   const snippet = source.slice(start, source.indexOf('  useDidHide(', start))
   for (const expired of [false, true]) {

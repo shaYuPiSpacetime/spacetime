@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ReactNode } from 'react'
@@ -34,7 +35,7 @@ export function MessageNav({
     if (onBack) return onBack()
     const pages = Taro.getCurrentPages()
     if (pages.length > 1) void Taro.navigateBack()
-    else void Taro.switchTab({ url: '/pages/chat/index' })
+    else void switchMainTab({ url: '/pages/chat/index' })
   }
 
   return (

@@ -62,8 +62,8 @@ test('千寻与我的共用蓝湖未认证视图', () => {
   assert.ok(fs.existsSync(componentPath), '缺少共享蓝湖未认证视图')
 
   const verificationEntry = fs.readFileSync(componentPath, 'utf8')
-  const index = read('src/pages/index/index.tsx')
-  const profile = read('src/pages/profile/index.tsx')
+  const index = read('src/pages/index/panel.tsx')
+  const profile = read('src/pages/profile/panel.tsx')
 
   assert.match(index, /import VerificationEntryView/, '千寻未认证入口必须接入共享视图')
   assert.match(index, /role="index-unverified"/, '千寻未认证入口缺少稳定运行态节点')
@@ -94,10 +94,11 @@ test('我的页先判定核心准入再加载会员和千寻币资产', () => {
 })
 
 test('我的未认证节点停留在真实我的 Tab 路由', () => {
-  const profile = read('src/pages/profile/index.tsx')
+  const profile = read('src/pages/profile/panel.tsx')
   const customTabBar = read('src/custom-tab-bar/index.tsx')
 
-  assert.match(customTabBar, /'pages\/profile\/index': 'profile'/, '我的真实路由必须点亮我的 Tab')
+  assert.match(customTabBar, /getRouteTab\(route\)/)
+  assert.match(read('src/custom-tab-bar/tabHost.ts'), /'pages\/profile\/index': 'profile'/, '我的真实路由必须点亮我的 Tab')
   const blockedBranch = profile.match(/if \(data\.accessStatus\?\.coreAccessStatus !== 'CORE_ALLOWED'\) \{[\s\S]*?\n  \}/)?.[0]
   assert.ok(blockedBranch, '我的页缺少未认证渲染分支')
   assert.doesNotMatch(blockedBranch, /redirectTo|reLaunch|switchTab/, '我的未认证态不得把用户重定向出我的 Tab')

@@ -11,7 +11,7 @@ const rootDir = path.resolve(__dirname, '..')
 const read = relativePath => fs.readFileSync(path.join(rootDir, relativePath), 'utf8')
 
 const requiredPages = [
-  'src/pages/chat/index.tsx',
+  'src/pages/chat/panel.tsx',
   'src/pages/message/whisper-list.tsx',
   'src/pages/message/whisper-detail.tsx',
   'src/pages/message/private-list.tsx',
@@ -27,7 +27,7 @@ for (const page of requiredPages) {
 const appConfig = read('src/app.config.ts')
 const runtime = requiredPages.map(read).join('\n')
 const sceneRegistry = read('src/mocks/message/designScenes.ts')
-const chat = read('src/pages/chat/index.tsx')
+const chat = read('src/pages/chat/panel.tsx')
 const report = read('src/pages/message/report.tsx')
 const messageService = read('src/services/message.ts')
 const ossIcons = read('src/constants/ossIcons.ts')
@@ -88,7 +88,7 @@ assert.doesNotMatch(runtime, /lanhuapp\.com|alipic\.lanhuapp|\.lanhu-ref/, '运�
 assert.doesNotMatch(runtime, /opacity\s*:\s*0(?:[;,}]|\b)/, '禁止透明点击热区')
 assert.doesNotMatch(runtime, /backgroundImage[^\n]*(?:reference|screenshot|design|lanhu)/i, '禁止整页设计图背景')
 assert.match(
-  read('src/pages/chat/index.tsx'),
+  read('src/pages/chat/panel.tsx'),
   /height: designRpx\(158\),[\s\S]{0,100}margin: `\$\{designRpx\(6\)\} auto 0`/,
   '消息入口卡片必须位于蓝湖 y=182rpx，不能整体下移 8rpx'
 )

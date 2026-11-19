@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { shareMessage } from '@/utils/shareMessage'
 import { profileShare } from '@/domain/sharePresentation'
 import ProfilePageBoundary from '@/components/ProfilePageBoundary'
@@ -798,7 +799,7 @@ function ProfileEditContent() {
 
   const handleBack = () => {
     const fallbackToProfile = () => {
-      const switchResult = Taro.switchTab({ url: '/pages/profile/index' })
+      const switchResult = switchMainTab({ url: '/pages/profile/index' })
       void Promise.resolve(switchResult).catch(() => {
         void Taro.reLaunch({ url: '/pages/profile/index' })
       })

@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '..')
 const read = file => fs.readFileSync(path.join(root, file), 'utf8')
 
 function createSwitcher(recordsLoader) {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const loadStart = source.indexOf('  const loadIdealTab =')
   const start = loadStart >= 0 ? loadStart : source.indexOf('  const openIdealTab =')
   const end = source.indexOf('  const handleTabChange =', start)
@@ -127,7 +127,7 @@ test('到期快照不作为有效结果复用', async () => {
 })
 
 test('切换时保留内容面板，加载未知结果不能先显示引导页', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   assert.match(source, /id="recommend-content-panel"/, '推荐内容必须常驻')
   assert.match(source, /id="ideal-content-panel"/, '理想型内容必须常驻')
   assert.doesNotMatch(source, /if \(activeTab === 'ideal' && idealSnapshotNo\)/, '禁止切换时提前返回另一棵页面树')

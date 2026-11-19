@@ -1,0 +1,954 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
+import MatchPopupHost from '@/components/MatchPopupHost'
+import { clearGivenLikesReturn } from '@/domain/givenLikesReturn'
+import { Image, Text, View } from '@tarojs/components'
+import Taro from '@tarojs/taro'
+import { useDidShow } from '@/features/main-tabs/activity'
+import { useEffect, useState } from 'react'
+import AccessBlockedPage from '@/components/AccessBlockedPage'
+import { isAccountRestricted, isCoreAccessBlocked } from '@/domain/accessStatus'
+import { miniappOssIcons } from '@/constants/ossIcons'
+import {
+  hasPartialBasicProfile,
+  isVerificationStepSubmitted,
+  resolveCertificationChecklist,
+  resolveVerificationOnboardingRoute,
+} from '@/domain/verificationOnboardingFlow'
+import VerificationEntryView from '@/features/verification/VerificationEntryView'
+import { useProfile } from '@/hooks/useProfile'
+import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
+import { usePrd01Store } from '@/stores/prd01Store'
+import { normalizeAvatarUrl } from '@/utils/avatar'
+import { navigateToOrRedirect } from '@/utils/navigation'
+import type { MyMembership } from '@/types/membership'
+import type { VerificationStatus } from '@/types/prd01'
+
+import profileBg from '@/assets/profile/profile-bg.webp'
+import defaultAvatar from '@/assets/profile/default-avatar.webp'
+import cardCoin from '@/assets/profile/card-coin.webp'
+import cardInvite from '@/assets/profile/card-invite.webp'
+import vipBannerBg from '@/assets/profile/vip-banner-bg.svg'
+
+/**
+ * 我的页面。
+ */
+export default function ProfilePage() {
+  const [showCertification, setShowCertification] = useState(false)
+  const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
+  const runtimeConfig = usePrd01Store(state => state.config)
+  const copy = usePrd01Store(state => state.copy)
+  const {
+    data,
+    loading,
+    error,
+    fetch,
+    goToEditProfile,
+    goToVip,
+    goToCoin,
+    goToInvite,
+    goToMyPosts,
+    goToHelp,
+    goToSettings,
+  } = useProfile()
+  useDidShow(() => {
+    fetch()
+  })
+
+  const nickname = data.nickname || '待完善昵称'
+  const sourceAvatar = normalizeAvatarUrl(data.avatarUrl, defaultAvatar)
+  const [avatar, setAvatar] = useState(defaultAvatar)
+  const ageText = data.age != null ? `${data.age}岁` : ''
+  const subInfo = [data.location, ageText, data.zodiac].filter(Boolean).join('丨')
+  const membership: MyMembership = data.membership || { status: 'none' }
+  const membershipVariant = membership.status
+  const goToVisitors = async () => {
+    Taro.setStorageSync('community_requested_tab', 'visitors')
+    try {
+      await switchMainTab({ url: '/pages/community/index' })
+    } catch {
+      Taro.removeStorageSync('community_requested_tab')
+      await Taro.showToast({ title: '最近来访暂时无法打开，请稍后重试', icon: 'none' })
+    }
+  }
+  const stats = [
+    {
+      value: data.likedCount,
+      label: '我喜欢的',
+      onClick: () => {
+        clearGivenLikesReturn()
+        void Taro.navigateTo({ url: '/pages/heart/my-likes' })
+      },
+    },
+    {
+      value: data.beLikedCount,
+      label: '喜欢我的',
+      onClick: async () => {
+        Taro.setStorageSync('community_requested_tab', 'likes')
+        try {
+          await switchMainTab({ url: '/pages/community/index' })
+        } catch {
+          Taro.removeStorageSync('community_requested_tab')
+          await Taro.showToast({ title: '喜欢我的暂时无法打开，请稍后重试', icon: 'none' })
+        }
+      },
+    },
+    { value: data.visitorCount, label: '最近来访', onClick: () => void goToVisitors() },
+  ]
+
+  useEffect(() => {
+    setAvatar(sourceAvatar)
+  }, [sourceAvatar])
+
+  const basic = data.basicProfile
+  const verification = data.verification
+  const introduction = data.introduction
+  const fieldSettings = basic?.fieldSettings || runtimeConfig?.fieldSettings || []
+  const hasPartialProfile = Boolean(basic) && (
+    basic?.basicProfileCompleted === true ||
+    hasPartialBasicProfile(basic, fieldSettings, runtimeConfig?.initFields || []) ||
+    isVerificationStepSubmitted(verification?.avatarVerifyStatus) ||
+    isVerificationStepSubmitted(introduction?.auditStatus) ||
+    Number(verification?.verifyLevel) > 0
+  )
+  const checklist = resolveCertificationChecklist({
+    basicCompleted: basic?.basicProfileCompleted,
+    avatarStatus: verification?.avatarVerifyStatus,
+    introductionStatus: introduction?.auditStatus,
+    verifyLevel: verification?.verifyLevel,
+  })
+
+  const continueVerification = async () => {
+    const route = resolveVerificationOnboardingRoute({
+      basicCompleted: basic?.basicProfileCompleted,
+      avatarStatus: verification?.avatarVerifyStatus,
+      introductionStatus: introduction?.auditStatus,
+    })
+    await navigateToOrRedirect(route)
+  }
+
+  const enterQianxunCity = async () => {
+    Taro.setStorageSync('qianxun_requested_scene', 'CITY')
+    await switchMainTab({ url: '/pages/index/index' })
+  }
+
+  const renderVerificationEntry = () => (
+      <VerificationEntryView
+        role="profile-unverified"
+        unreadCount={unreadCount}
+        loading={!data.entryResolved && (loading || !error)}
+        error={error || ''}
+        hasPartialProfile={hasPartialProfile}
+        checklist={checklist}
+        copy={copy}
+        onContinue={() => void continueVerification()}
+        onLater={() => void enterQianxunCity()}
+        onSettings={() => void goToSettings()}
+        onRetry={() => void fetch()}
+      />
+  )
+
+  if (isAccountRestricted(data.accessStatus) || isCoreAccessBlocked(data.accessStatus)) {
+    return <AccessBlockedPage status={data.accessStatus} loading={loading} error={error || ''}
+      blockReasons={data.accessStatus?.blockReasons || []} refresh={fetch} />
+  }
+
+  // 必须等服务端最新准入状态返回后再决定页面，避免缓存曾通过时闪现正常“我的”。
+  if (!data.entryResolved) return renderVerificationEntry()
+
+  if (data.accessStatus?.coreAccessStatus !== 'CORE_ALLOWED') {
+    return renderVerificationEntry()
+  }
+
+  return (
+    <View
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        overflow: 'hidden',
+        background: '#F3F5FB',
+      }}
+    >
+      <MatchPopupHost />
+      <Image
+        src={profileBg}
+        mode="widthFix"
+        style={{
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          width: '750rpx',
+        }}
+      />
+
+      <View
+        style={{
+          position: 'relative',
+          width: '750rpx',
+          height: '1624rpx',
+        }}
+      >
+        <HeaderBlock
+          avatar={avatar}
+          nickname={nickname}
+          subInfo={subInfo}
+          showCert={data.isVerified}
+          profileScore={data.profileScore}
+          editText="编辑资料"
+          certText="三重认证"
+          onEdit={goToEditProfile}
+          onCertification={() => setShowCertification(true)}
+          onAvatarError={() => setAvatar(defaultAvatar)}
+        />
+        <>
+          <StatsCard stats={stats} onBoost={goToCoin} />
+          <VipBanner
+            status={membershipVariant}
+            expireTime={membership.expireTime}
+            onClick={() => {
+              if (membershipVariant === 'none') {
+                goToVip()
+                return
+              }
+              Taro.navigateTo({ url: '/pages/membership/index' })
+            }}
+          />
+          <FeatureCards onCoin={goToCoin} onInvite={goToInvite} />
+          <MenuCard onPost={goToMyPosts} onHelp={goToHelp} onSettings={goToSettings} />
+        </>
+      </View>
+      {showCertification ? (
+        <CertificationSheet
+          avatar={avatar}
+          nickname={nickname}
+          school={String(basic?.school || '')}
+          verification={verification}
+          onClose={() => setShowCertification(false)}
+        />
+      ) : null}
+    </View>
+  )
+}
+
+function HeaderBlock({
+  avatar,
+  nickname,
+  subInfo,
+  showCert,
+  profileScore,
+  editText,
+  certText,
+  onEdit,
+  onCertification,
+  onAvatarError,
+}: {
+  avatar: string
+  nickname: string
+  subInfo: string
+  showCert: boolean
+  profileScore: number
+  editText: string
+  certText: string
+  onEdit: () => void
+  onCertification: () => void
+  onAvatarError: () => void
+}) {
+  return (
+    <View
+      id="profile-header-edit-area"
+      onClick={onEdit}
+      hoverClass="btn-hover"
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '186rpx',
+        width: '700rpx',
+        height: '124rpx',
+      }}
+    >
+      <ProfileAvatarFrame
+        avatar={avatar}
+        profileScore={profileScore}
+        onError={onAvatarError}
+      />
+      <View
+        id="profile-nickname-row"
+        style={{
+          position: 'absolute',
+          left: '124rpx',
+          top: '2rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <Text
+          style={{
+            color: '#333333',
+            fontSize: '32rpx',
+            fontWeight: 500,
+            lineHeight: '45rpx',
+          }}
+        >
+          {nickname}
+        </Text>
+        {showCert && <CertBadge text={certText} onClick={onCertification} />}
+      </View>
+      <Text
+        id="profile-sub-info"
+        style={{
+          position: 'absolute',
+          left: '124rpx',
+          top: '58rpx',
+          color: '#333333',
+          fontSize: '26rpx',
+          lineHeight: '37rpx',
+        }}
+      >
+        {subInfo}
+      </Text>
+      <View
+        style={{
+          position: 'absolute',
+          right: '0',
+          top: '39rpx',
+          height: '34rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
+      >
+        <Text data-role="profile-edit-copy" style={{ color: '#999999', fontSize: '26rpx', lineHeight: '34rpx' }}>{editText}</Text>
+        <View
+          style={{
+            width: '14rpx',
+            height: '34rpx',
+            marginLeft: '4rpx',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: '8rpx',
+              height: '8rpx',
+              boxSizing: 'border-box',
+              borderTop: '3rpx solid #999999',
+              borderRight: '3rpx solid #999999',
+              transform: 'rotate(45deg)',
+              marginTop: '-1rpx',
+            }}
+          />
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function ProfileAvatarFrame({
+  avatar,
+  profileScore,
+  onError,
+}: {
+  avatar: string
+  profileScore: number
+  onError: () => void
+}) {
+  return (
+    <View
+      id="profile-avatar-frame"
+      style={{
+        position: 'absolute',
+        left: '0',
+        top: '0',
+        width: '110rpx',
+        height: '110rpx',
+        borderRadius: '55rpx',
+        background: profileScore > 0 ? '#E3F1FE' : '#FFFFFF',
+        padding: '6rpx',
+        boxSizing: 'border-box',
+      }}
+    >
+      <Image
+        id="profile-avatar-image"
+        src={avatar}
+        mode="aspectFill"
+        onError={onError}
+        style={{ width: '98rpx', height: '98rpx', borderRadius: '49rpx' }}
+      />
+      {profileScore > 0 && (
+        <View
+          style={{
+            position: 'absolute',
+            left: '10rpx',
+            bottom: '-4rpx',
+            width: '90rpx',
+            height: '30rpx',
+            borderRadius: '18rpx',
+            background: '#D9EBFF',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: '14rpx',
+              height: '5rpx',
+              borderRadius: '4rpx',
+              background: '#2876FF',
+              transform: 'rotate(-45deg)',
+              marginRight: '8rpx',
+            }}
+          />
+          <Text style={{ color: '#2876FF', fontSize: '18rpx', fontWeight: 600, lineHeight: '25rpx' }}>{profileScore}%</Text>
+        </View>
+      )}
+    </View>
+  )
+}
+
+function CertBadge({ text, onClick }: { text: string; onClick: () => void }) {
+  return (
+    <View
+      id="profile-certification-badge"
+      onClick={event => {
+        event.stopPropagation()
+        onClick()
+      }}
+      style={{
+        width: '138rpx',
+        height: '48rpx',
+        borderRadius: '8rpx',
+        background: '#E3F1FE',
+        marginLeft: '22rpx',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Image
+        src={miniappOssIcons.profileCertification}
+        mode="aspectFit"
+        style={{
+          width: '28rpx',
+          height: '28rpx',
+          marginRight: '6rpx',
+        }}
+      />
+      <Text style={{ color: '#5D89DD', fontSize: '20rpx', lineHeight: '28rpx' }}>{text}</Text>
+    </View>
+  )
+}
+
+function CertificationSheet({
+  avatar,
+  nickname,
+  school,
+  verification,
+  onClose,
+}: {
+  avatar: string
+  nickname: string
+  school: string
+  verification: VerificationStatus | null
+  onClose: () => void
+}) {
+  const rows = [
+    {
+      code: 'AVATAR',
+      title: '头像已认证',
+      subtitle: '平台认证方式',
+      score: '99%',
+      icon: miniappOssIcons.recommendCertAvatar,
+      passed: isCertificationPassed(verification?.avatarVerifyStatus),
+    },
+    {
+      code: 'REAL_NAME',
+      title: '实名已认证',
+      subtitle: '居民身份证方式认证',
+      score: '80%',
+      icon: miniappOssIcons.recommendCertRealName,
+      passed: isCertificationPassed(verification?.realNameStatus),
+    },
+    {
+      code: 'EDUCATION',
+      title: '学历已认证',
+      subtitle: school ? `学历认证 | ${school}` : '学信网学历认证',
+      score: '99%',
+      icon: miniappOssIcons.recommendCertEducation,
+      passed: isCertificationPassed(verification?.educationStatus),
+    },
+  ]
+  const passedCount = rows.filter(row => row.passed).length
+  const totalScore = passedCount === 3 ? '92%' : `${Math.round((passedCount / 3) * 92)}%`
+  return (
+    <View
+      id="profile-certification-sheet"
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,.58)', display: 'flex', alignItems: 'flex-end' }}
+    >
+      <View
+        onClick={event => event.stopPropagation()}
+        style={{ width: '750rpx', padding: '36rpx 30rpx calc(38rpx + env(safe-area-inset-bottom))', borderRadius: '32rpx 32rpx 0 0', background: '#FFFFFF', boxSizing: 'border-box' }}
+      >
+        <View style={{ position: 'relative', minHeight: '116rpx', display: 'flex', alignItems: 'center' }}>
+          <Image src={avatar} mode="aspectFill" style={{ width: '88rpx', height: '88rpx', borderRadius: '44rpx', border: '6rpx solid #FFFFFF', boxSizing: 'border-box' }} />
+          <View style={{ marginLeft: '18rpx' }}>
+            <Text style={{ display: 'block', color: '#999999', fontSize: '25rpx' }}>{nickname}</Text>
+            <Text style={{ display: 'block', marginTop: '4rpx', color: '#333333', fontSize: '30rpx', fontWeight: 600 }}>已通过{passedCount}项认证</Text>
+          </View>
+          <Image src={miniappOssIcons.recommendCertScoreShield} mode="aspectFit" style={{ position: 'absolute', right: '-12rpx', top: '-16rpx', width: '184rpx', height: '184rpx', opacity: 0.22 }} />
+          <Text style={{ position: 'absolute', right: '6rpx', top: '8rpx', color: '#2876FF', fontSize: '66rpx', fontWeight: 600 }}>{totalScore}</Text>
+        </View>
+        <View style={{ marginTop: '8rpx' }}>
+          {rows.map(row => (
+            <View key={row.code} style={{ height: '158rpx', borderBottom: '1rpx solid #EEF1F5', display: 'flex', alignItems: 'center', opacity: row.passed ? 1 : 0.45 }}>
+              <Image src={row.icon} mode="aspectFit" style={{ width: '100rpx', height: '100rpx', marginRight: '30rpx' }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ display: 'block', color: '#333333', fontSize: '29rpx', fontWeight: 600 }}>{row.title}</Text>
+                <Text style={{ display: 'block', marginTop: '14rpx', color: '#777777', fontSize: '23rpx' }}>{row.subtitle}</Text>
+              </View>
+              <View style={{ textAlign: 'right' }}>
+                <Text style={{ display: 'block', color: '#2876FF', fontSize: '36rpx', fontWeight: 600 }}>{row.score}</Text>
+                <Text style={{ display: 'block', marginTop: '10rpx', color: '#777777', fontSize: '22rpx' }}>可信度</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+        <Text style={{ display: 'block', marginTop: '28rpx', color: '#777777', fontSize: '22rpx', textAlign: 'center' }}>认证信息以外的资料为用户自主填写，平台不保证真实性</Text>
+        <View onClick={onClose} style={{ height: '88rpx', margin: '34rpx 14rpx 0', borderRadius: '12rpx', background: '#2876FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: '28rpx' }}>我知道了</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+function isCertificationPassed(status?: string) {
+  return ['PASSED', 'APPROVED', 'VERIFIED', 'SUCCESS'].includes(String(status || '').toUpperCase())
+}
+
+function StatsCard({ stats, onBoost }: { stats: Array<{ value: number; label: string; onClick: () => void }>; onBoost: () => void }) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '314rpx',
+        width: '700rpx',
+        height: '178rpx',
+        borderRadius: '12rpx',
+        background: '#FFFFFF',
+        boxShadow: '0 2rpx 26rpx rgba(227,241,254,1)',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: '528rpx',
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+        }}
+      >
+        {stats.map((item, index) => (
+          <View
+            key={item.label}
+            id={`profile-stat-${index}`}
+            onClick={item.onClick}
+            hoverClass="btn-hover"
+            style={{
+              width: '176rpx',
+              height: '120rpx',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text
+              style={{
+                color: '#333333',
+                fontSize: '40rpx',
+                fontWeight: 500,
+                lineHeight: '56rpx',
+              }}
+            >
+              {item.value}
+            </Text>
+            <Text
+              style={{
+                color: '#999999',
+                fontSize: '26rpx',
+                lineHeight: '37rpx',
+                marginTop: '7rpx',
+              }}
+            >
+              {item.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+      <View
+        style={{
+          flex: 1,
+          height: '64rpx',
+          borderRadius: '100rpx 0 0 100rpx',
+          overflow: 'hidden',
+        }}
+        onClick={onBoost}
+        hoverClass="btn-hover"
+      >
+        <Image
+          src={miniappOssIcons.profileBoostButton}
+          mode="scaleToFill"
+          style={{
+            width: '172rpx',
+            height: '64rpx',
+          }}
+        />
+      </View>
+    </View>
+  )
+}
+
+function VipBanner({
+  status,
+  expireTime,
+  onClick,
+}: {
+  status: MyMembership['status']
+  expireTime?: string
+  onClick: () => void
+}) {
+  const isActive = status === 'active'
+  const title = isActive
+    ? '时空邂逅会员已开通，享尊享特权'
+    : status === 'expired'
+      ? '时空邂逅会员已过期'
+      : '开通时空邂逅会员，享尊享特权'
+  const ctaText = isActive ? '立即续费' : '立即开通'
+  const expiry = formatVipBannerExpiry(expireTime)
+
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '512rpx',
+        width: '700rpx',
+        height: '128rpx',
+        borderRadius: '12rpx',
+        overflow: 'hidden',
+        background: '#1B1B1B',
+      }}
+      onClick={onClick}
+      hoverClass="btn-hover"
+    >
+      <Image
+        src={vipBannerBg}
+        mode="scaleToFill"
+        style={{
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          width: '700rpx',
+          height: '128rpx',
+        }}
+      />
+      <Image
+        src={miniappOssIcons.profileVipMark}
+        mode="aspectFit"
+        style={{
+          position: 'absolute',
+          left: '28rpx',
+          top: '45rpx',
+          width: '48rpx',
+          height: '38rpx',
+        }}
+      />
+      <Text
+        style={{
+          position: 'absolute',
+          left: '102rpx',
+          top: isActive ? '38rpx' : '43rpx',
+          maxWidth: '400rpx',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          color: '#F7C968',
+          fontSize: '26rpx',
+          fontWeight: 700,
+          lineHeight: '40rpx',
+        }}
+      >
+        {title}
+      </Text>
+      {isActive ? (
+        <>
+          <View
+            style={{
+              position: 'absolute',
+              right: '26rpx',
+              top: '35rpx',
+              height: '40rpx',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#F7C968', fontSize: '28rpx', fontWeight: 700, lineHeight: '40rpx' }}>{ctaText}</Text>
+            <VipBannerChevron color="#F7C968" />
+          </View>
+          <Text
+            style={{
+              position: 'absolute',
+              right: '28rpx',
+              bottom: '24rpx',
+              color: '#FFFFFF',
+              fontSize: '22rpx',
+              lineHeight: '31rpx',
+            }}
+          >
+            {expiry ? `${expiry} 到期` : ''}
+          </Text>
+        </>
+      ) : (
+        <View
+          style={{
+            position: 'absolute',
+            right: '20rpx',
+            top: '35rpx',
+            width: '160rpx',
+            height: '58rpx',
+            borderRadius: '58rpx',
+            background: '#F7C968',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text style={{ color: '#211D1E', fontSize: '26rpx', fontWeight: 700, lineHeight: '36rpx' }}>
+            {ctaText}
+          </Text>
+        </View>
+      )}
+    </View>
+  )
+}
+
+function VipBannerChevron({ color }: { color: string }) {
+  return (
+    <View style={{ width: '22rpx', height: '32rpx', marginLeft: '8rpx', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: '12rpx',
+          height: '12rpx',
+          borderTop: `3rpx solid ${color}`,
+          borderRight: `3rpx solid ${color}`,
+          transform: 'rotate(45deg)',
+          boxSizing: 'border-box',
+        }}
+      />
+    </View>
+  )
+}
+
+function formatVipBannerExpiry(value?: string) {
+  return value?.replace('T', ' ').split(' ')[0].replace(/-/g, '.') || ''
+}
+
+function FeatureCards({ onCoin, onInvite }: { onCoin: () => void; onInvite: () => void }) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '660rpx',
+        width: '700rpx',
+        height: '158rpx',
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+      }}
+    >
+      <FeatureCard
+        image={cardCoin}
+        title="千寻币"
+        subtitle="查看千寻币"
+        titleColor="#00469F"
+        subtitleColor="#00469F"
+        onClick={onCoin}
+      />
+      <FeatureCard
+        image={cardInvite}
+        title="邀请好友"
+        subtitle="免费获得千寻币"
+        titleColor="#6600AF"
+        subtitleColor="#A055C3"
+        onClick={onInvite}
+      />
+    </View>
+  )
+}
+
+function FeatureCard({
+  image,
+  title,
+  subtitle,
+  titleColor,
+  subtitleColor,
+  onClick,
+}: {
+  image: string
+  title: string
+  subtitle: string
+  titleColor: string
+  subtitleColor: string
+  onClick: () => void
+}) {
+  return (
+    <View
+      style={{
+        position: 'relative',
+        width: '340rpx',
+        height: '158rpx',
+        borderRadius: '8rpx',
+        overflow: 'hidden',
+      }}
+      onClick={onClick}
+      hoverClass="btn-hover"
+    >
+      <Image
+        src={image}
+        mode="scaleToFill"
+        style={{
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          width: '340rpx',
+          height: '158rpx',
+        }}
+      />
+      <Text
+        style={{
+          position: 'absolute',
+          left: '22rpx',
+          top: '20rpx',
+          color: titleColor,
+          fontSize: '28rpx',
+          fontWeight: 500,
+          lineHeight: '40rpx',
+        }}
+      >
+        {title}
+      </Text>
+      <Text
+        style={{
+          position: 'absolute',
+          left: '22rpx',
+          top: '66rpx',
+          color: subtitleColor,
+          fontSize: '20rpx',
+          lineHeight: '28rpx',
+        }}
+      >
+        {subtitle}
+      </Text>
+    </View>
+  )
+}
+
+function MenuCard({
+  onPost,
+  onHelp,
+  onSettings,
+}: {
+  onPost: () => void
+  onHelp: () => void
+  onSettings: () => void
+}) {
+  const items = [
+    { label: '我的动态', icon: miniappOssIcons.profilePost, onClick: onPost },
+    { label: '帮助与客服', icon: miniappOssIcons.profileService, onClick: onHelp },
+    { label: '设置', icon: miniappOssIcons.profileSettings, onClick: onSettings },
+  ]
+
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: '25rpx',
+        top: '838rpx',
+        width: '700rpx',
+        height: '282rpx',
+        borderRadius: '8rpx',
+        background: '#FFFFFF',
+      }}
+    >
+      {items.map((item, index) => (
+        <View
+          key={item.label}
+          style={{
+            position: 'absolute',
+            left: '20rpx',
+            top: `${27 + index * 94}rpx`,
+            width: '660rpx',
+          }}
+        >
+          <View
+            style={{
+              height: '40rpx',
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+            onClick={item.onClick}
+            hoverClass="btn-hover"
+          >
+            <View
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}
+            >
+              <Image
+                src={item.icon}
+                mode="aspectFit"
+                style={{
+                  width: '30rpx',
+                  height: '30rpx',
+                  marginRight: '20rpx',
+                }}
+              />
+              <Text
+                style={{
+                  color: '#595F77',
+                  fontSize: '28rpx',
+                  lineHeight: '40rpx',
+                }}
+              >
+                {item.label}
+              </Text>
+            </View>
+            <Text style={{ color: '#999999', fontSize: '58rpx', lineHeight: '40rpx' }}>›</Text>
+          </View>
+          {index < items.length - 1 && (
+            <View
+              style={{
+                width: '660rpx',
+                height: '1rpx',
+                background: '#EFF4FC',
+                marginTop: '26rpx',
+              }}
+            />
+          )}
+        </View>
+      ))}
+    </View>
+  )
+}

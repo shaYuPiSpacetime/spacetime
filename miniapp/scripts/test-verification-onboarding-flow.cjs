@@ -144,7 +144,7 @@ test('首页三项勾选严格使用真实完成状态', async () => {
 })
 
 test('六个蓝湖状态必须保留既有四步外壳和返回刷新', () => {
-  const index = read('src/pages/index/index.tsx')
+  const index = read('src/pages/index/panel.tsx')
   const verificationEntry = read('src/features/verification/VerificationEntryView.tsx')
   const basic = read('src/pages/verification/basic.tsx')
   const avatar = read('src/pages/verification/avatar.tsx')
@@ -324,7 +324,7 @@ test('学历提交后进入蓝湖成功页并可直达千寻成家同城', () =>
   assert.match(successPage, /miniappOssIcons\.verificationEducationSubmitSuccess/)
   assert.match(successPage, /Taro\.setStorageSync\(REQUESTED_PRIMARY_TAB_KEY, 'FAMILY'\)/)
   assert.match(successPage, /Taro\.setStorageSync\(REQUESTED_SCENE_KEY, 'CITY'\)/)
-  assert.match(successPage, /Taro\.switchTab\(\{ url: '\/pages\/index\/index' \}\)/)
+  assert.match(successPage, /switchMainTab\(\{ url: '\/pages\/index\/index' \}\)/)
   assert.match(successPage, /id="education-submit-success-city-button"/)
   assert.match(icons, /verificationEducationSubmitSuccess:\s*'https:\/\//)
 })

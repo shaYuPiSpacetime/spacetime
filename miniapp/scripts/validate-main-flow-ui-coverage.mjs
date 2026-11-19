@@ -189,7 +189,9 @@ function cleanRoute(route) {
 }
 
 function sourcePathForRoute(route) {
-  return path.join(rootDir, 'src', `${cleanRoute(route).replace('/pages/', 'pages/')}.tsx`)
+  const page = cleanRoute(route).replace(/^\//, '')
+  const file = page.replace(/^pages\/(index|community|recommend|chat|profile)\/index$/, 'pages/$1/panel')
+  return path.join(rootDir, 'src', `${file}.tsx`)
 }
 
 function assertRoute(routeSet, route, label) {

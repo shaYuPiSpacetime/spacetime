@@ -7,7 +7,7 @@ const root = path.resolve(__dirname, '..')
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8')
 
 test('non-mock message home never falls back to fake certification or match rows', () => {
-  const source = read('src/pages/chat/index.tsx')
+  const source = read('src/pages/chat/panel.tsx')
   assert.doesNotMatch(source, /unverified\s*\?\s*mockHomeRows\.filter/)
 })
 
@@ -23,8 +23,8 @@ test('profile preview uses effective audited text and approved photos only', () 
 
 test('core blocked users are hard-blocked and school label is updated', () => {
   const access = read('src/domain/accessStatus.ts')
-  const index = read('src/pages/index/index.tsx')
-  const profile = read('src/pages/profile/index.tsx')
+  const index = read('src/pages/index/panel.tsx')
+  const profile = read('src/pages/profile/panel.tsx')
   const basicCard = read('src/pages/verification/components/BasicInfoCard.tsx')
   assert.match(access, /isCoreAccessBlocked/)
   assert.match(index, /isCoreAccessBlocked\(cachedAccessStatus\)/)

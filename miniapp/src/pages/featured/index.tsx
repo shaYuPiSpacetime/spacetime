@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useFeatured } from '@/hooks/useFeatured'
@@ -63,7 +64,7 @@ export default function FeaturedPage() {
       Taro.navigateBack({
         delta: 1,
         fail: () => {
-          Taro.switchTab({ url: '/pages/index/index' })
+          switchMainTab({ url: '/pages/index/index' })
         },
       })
       return

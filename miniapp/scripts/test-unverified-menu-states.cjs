@@ -12,7 +12,7 @@ const read = relativePath => fs.readFileSync(path.join(root, relativePath), 'utf
 const readRepo = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
 
 test('基础准入完成后千寻默认进入成家同城', () => {
-  const index = read('src/pages/index/index.tsx')
+  const index = read('src/pages/index/panel.tsx')
   const family = read('src/features/qianxun/QianxunFamilyPage.tsx')
 
   assert.match(index, /coreAccessStatus === 'NON_CORE_ONLY'/, '千寻入口必须允许基础准入完成用户浏览内容')
@@ -36,8 +36,8 @@ test('共享未认证弹窗只保留一份真实组件实现', () => {
   for (const page of [
     'src/features/qianxun/QianxunFamilyPage.tsx',
     'src/features/qianxun/QianxunZhiyinTab.tsx',
-    'src/pages/recommend/index.tsx',
-    'src/pages/chat/index.tsx',
+    'src/pages/recommend/panel.tsx',
+    'src/pages/chat/panel.tsx',
     'src/pages/heart/user.tsx',
     'src/pages/qianxun/topic.tsx',
     'src/pages/qianxun/post-detail.tsx',
@@ -49,7 +49,7 @@ test('共享未认证弹窗只保留一份真实组件实现', () => {
 })
 
 test('心动两个 Tab 复用未认证页并直达认证', () => {
-  const source = read('src/pages/community/index.tsx')
+  const source = read('src/pages/community/panel.tsx')
 
   assert.match(source, /coreAccessStatus === 'NON_CORE_ONLY'/, '心动页必须识别基础准入完成未认证状态')
   assert.match(source, /function HeartUnverifiedPage/, '心动页缺少共享未认证内容')
@@ -60,7 +60,7 @@ test('心动两个 Tab 复用未认证页并直达认证', () => {
 })
 
 test('推荐浏览动作保持开放且喜欢和悄悄话受未认证弹窗保护', () => {
-  const source = read('src/pages/recommend/index.tsx')
+  const source = read('src/pages/recommend/panel.tsx')
   const service = readRepo('backend/src/main/java/com/spacetime/miniapp/service/impl/RecommendServiceImpl.java')
 
   assert.match(service, /String opposite = GenderEnum\.MALE\.getCode\(\)\.equals\(current\.getGender\(\)\)/, '推荐必须依据准入性别计算异性目标')
@@ -79,7 +79,7 @@ test('推荐浏览动作保持开放且喜欢和悄悄话受未认证弹窗保�
 })
 
 test('消息未认证页保留四类入口并仅拦截悄悄话和私信', () => {
-  const source = read('src/pages/chat/index.tsx')
+  const source = read('src/pages/chat/panel.tsx')
 
   assert.match(source, /coreAccessStatus === 'NON_CORE_ONLY'/, '消息页必须识别基础准入完成未认证状态')
   for (const label of ['悄悄话', '私信', '官方小助手', '系统消息']) {
@@ -90,7 +90,7 @@ test('消息未认证页保留四类入口并仅拦截悄悄话和私信', () =>
 })
 
 test('我的未认证页提供设置、稍后返回同城和立即完善', () => {
-  const profile = read('src/pages/profile/index.tsx')
+  const profile = read('src/pages/profile/panel.tsx')
   const view = read('src/features/verification/VerificationEntryView.tsx')
   const uploader = read('scripts/upload-miniapp-oss-icons.mjs')
 
@@ -100,7 +100,7 @@ test('我的未认证页提供设置、稍后返回同城和立即完善', () =>
   assert.match(view, /height: `\$\{nativeNavigationMetrics\.menuHeight\}rpx`/, '设置按钮必须与原生胶囊垂直居中')
   assert.match(profile, /onSettings=\{\(\) => void goToSettings\(\)\}/, '设置按钮必须进入设置页')
   assert.match(profile, /setStorageSync\('qianxun_requested_scene', 'CITY'\)/, '稍后再说必须指定千寻同城场景')
-  assert.match(profile, /switchTab\(\{ url: '\/pages\/index\/index' \}\)/, '稍后再说必须回到千寻首页')
+  assert.match(profile, /switchMainTab\(\{ url: '\/pages\/index\/index' \}\)/, '稍后再说必须回到千寻首页')
   assert.match(profile, /onContinue=\{\(\) => void continueVerification\(\)\}/, '立即完善必须继续认证流程')
   assert.match(uploader, /qianxunVerifyNote: 'src\/assets\/lanhu\/unverified-modal\/mcp-2026-08-24\/icon-1\.png'/, '未认证插画必须引用本轮蓝湖 MCP 无损切图')
 })

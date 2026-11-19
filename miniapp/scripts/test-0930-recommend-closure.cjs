@@ -19,7 +19,7 @@ test('推荐浏览成功后本地剩余额度减一，重复或无效页不误�
   assert.equal(applyRecommendViewToPage({ ...page, remainingBrowseCount: null }, 'U-1').remainingBrowseCount, null)
   assert.equal(applyRecommendViewToPage(null, 'U-1'), null)
 
-  const recommend = read('src/pages/recommend/index.tsx')
+  const recommend = read('src/pages/recommend/panel.tsx')
   assert.match(recommend, /recordRecommendView\([\s\S]*?\.then\(\(\) => \{[\s\S]*?applyRecommendViewToPage\(/)
 })
 
@@ -34,7 +34,7 @@ test('推荐候选耗尽后，本轮再次进入直达等待页，跨中午重�
   assert.equal(shouldShowRecommendWaiting({ items: [], nextCursor: 'next', nextResetAt: cycle }, cycle), false)
   assert.equal(hasRecommendCycleExpired(cycle, Date.parse('2026-10-01T04:00:00Z')), true)
 
-  const recommend = read('src/pages/recommend/index.tsx')
+  const recommend = read('src/pages/recommend/panel.tsx')
   const waiting = read('src/pages/prd08/recommend/waiting/index.tsx')
   assert.match(recommend, /useDidShow\([\s\S]*?shouldShowRecommendWaiting\(/)
   assert.doesNotMatch(recommend, /<RecommendLimit\b/)

@@ -22,6 +22,7 @@ test('PREVIEW-04: 渲染失败显示重试和返回，重试可恢复真实内�
   } }).outputText
   Function('require', 'module', 'exports', code)(name => {
     if (name === '@tarojs/components') return { View: host('div'), Text: host('span'), Button: host('button') }
+    if (name === '@/custom-tab-bar/tabHost') return { switchMainTab: async options => { navigation.push(options.url) } }
     if (name === '@tarojs/taro') return { switchTab: async options => { navigation.push(options.url) } }
     return require(name)
   }, module, module.exports)

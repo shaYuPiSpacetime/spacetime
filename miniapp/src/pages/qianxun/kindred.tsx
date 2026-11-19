@@ -1,3 +1,4 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Text, View } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 
@@ -9,7 +10,7 @@ const REQUESTED_PRIMARY_TAB_KEY = 'qianxun_requested_primary_tab'
 export default function QianxunKindredRedirectPage() {
   useLoad(() => {
     Taro.setStorageSync(REQUESTED_PRIMARY_TAB_KEY, 'KINDRED')
-    void Taro.switchTab({ url: '/pages/index/index' })
+    void switchMainTab({ url: '/pages/index/index' }, 'kindred')
   })
 
   return <View id="qianxun-kindred-page" style={{ minHeight: '100vh', background: 'linear-gradient(100deg, #F1FEFC 0%, #F2F5FF 52%, #FCFDF3 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#7F8494', fontSize: '26rpx' }}>正在进入时空邂逅…</Text></View>

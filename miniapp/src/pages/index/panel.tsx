@@ -1,0 +1,158 @@
+import { switchMainTab } from '@/custom-tab-bar/tabHost'
+import MatchPopupHost from '@/components/MatchPopupHost'
+import { PENDING_SHARE_ROUTE_KEY, resolvePendingShareRoute } from '@/domain/pendingShareRoute'
+import { TOKEN_KEY } from '@/constants/config'
+import Taro, { useLoad } from '@tarojs/taro'
+import { useDidShow } from '@/features/main-tabs/activity'
+import { useEffect, useState } from 'react'
+import AccessBlockedPage from '@/components/AccessBlockedPage'
+import { isAccountRestricted, isCoreAccessBlocked } from '@/domain/accessStatus'
+import QianxunFamilyPage from '@/features/qianxun/QianxunFamilyPage'
+import VerificationEntryView from '@/features/verification/VerificationEntryView'
+import {
+  hasPartialBasicProfile,
+  isVerificationStepSubmitted,
+  resolveCertificationChecklist,
+  resolveVerificationOnboardingRoute,
+} from '@/domain/verificationOnboardingFlow'
+import { validateVerificationRuntime } from '@/domain/prd01Runtime'
+import { prd01Api } from '@/services/prd01'
+import { useAuthStore } from '@/stores/authStore'
+import { useMessageRuntimeStore } from '@/stores/messageRuntimeStore'
+import { usePrd01Store } from '@/stores/prd01Store'
+import type { BasicProfile, OpenTextDetail, VerificationStatus } from '@/types/prd01'
+import { navigateToOrRedirect } from '@/utils/navigation'
+
+export default function IndexPage() {
+  const unreadCount = useMessageRuntimeStore(state => state.unreadSummary.messageUnreadCount)
+  const cachedAccessStatus = useAuthStore(state => state.accessStatus)
+  const setAccessStatus = useAuthStore(state => state.setAccessStatus)
+  const bootstrap = usePrd01Store(state => state.bootstrap)
+  const copy = usePrd01Store(state => state.copy)
+  const [basic, setBasic] = useState<BasicProfile>()
+  const [verification, setVerification] = useState<VerificationStatus>()
+  const [introduction, setIntroduction] = useState<OpenTextDetail>()
+  const cachedContentAllowed = cachedAccessStatus?.coreAccessStatus === 'CORE_ALLOWED' || cachedAccessStatus?.coreAccessStatus === 'NON_CORE_ONLY'
+  const [loading, setLoading] = useState(!cachedContentAllowed)
+  const [ready, setReady] = useState(cachedContentAllowed)
+  const [contentAllowed, setContentAllowed] = useState(cachedContentAllowed)
+  const [entryError, setEntryError] = useState('')
+
+  useEffect(() => {
+    if (!cachedContentAllowed) return
+    setContentAllowed(true)
+    setReady(true)
+  }, [cachedContentAllowed])
+
+  const loadIndex = async () => {
+    setLoading(true)
+    setEntryError('')
+    try {
+      const [, verificationResult] = await Promise.all([bootstrap(), prd01Api.getVerificationStatus()])
+      const runtime = usePrd01Store.getState()
+      if (!runtime.config || !runtime.profileOptions) throw new Error('页面配置加载失败')
+      validateVerificationRuntime(runtime.config, runtime.profileOptions)
+      if (verificationResult.accessStatus) setAccessStatus(verificationResult.accessStatus)
+      if (verificationResult.accessStatus?.coreAccessStatus === 'CORE_ALLOWED' || verificationResult.accessStatus?.coreAccessStatus === 'NON_CORE_ONLY') {
+        setContentAllowed(true)
+        setReady(true)
+        return
+      }
+      setContentAllowed(false)
+      // 已准入用户无需在每次切回千寻时重读认证引导页的基础资料和自我介绍。
+      const [basicResult, introductionResult] = await Promise.all([
+        prd01Api.getBasicProfile(), prd01Api.getIntroduction(),
+      ])
+      setBasic(basicResult)
+      setVerification(verificationResult)
+      setIntroduction(introductionResult)
+      setReady(true)
+    } catch (error) {
+      setEntryError(toErrorMessage(error))
+      setReady(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useDidShow(() => {
+    void loadIndex()
+  })
+
+  useLoad(options => {
+    const sharedPost = resolvePendingShareRoute('pages/index/index', options)
+    if (sharedPost) {
+      if (!Taro.getStorageSync(TOKEN_KEY)) Taro.setStorageSync(PENDING_SHARE_ROUTE_KEY, sharedPost)
+      return
+    }
+    // 分享卡片进入：透传栏目与动态定位参数，由千寻信息流读取后滚动定位。
+    const scene = options.scene
+    if (scene) Taro.setStorageSync('qianxun_requested_scene', scene)
+    const postId = options.postId
+    if (postId) Taro.setStorageSync('qianxun_requested_post_id', postId)
+  })
+
+  const runtimeConfig = usePrd01Store.getState().config
+  const fieldSettings = basic?.fieldSettings || runtimeConfig?.fieldSettings || []
+  const hasPartialProfile = Boolean(basic) && (
+    basic?.basicProfileCompleted === true ||
+    hasPartialBasicProfile(basic, fieldSettings, runtimeConfig?.initFields || []) ||
+    isVerificationStepSubmitted(verification?.avatarVerifyStatus) ||
+    isVerificationStepSubmitted(introduction?.auditStatus) ||
+    Number(verification?.verifyLevel) > 0
+  )
+  const checklist = resolveCertificationChecklist({
+    basicCompleted: basic?.basicProfileCompleted,
+    avatarStatus: verification?.avatarVerifyStatus,
+    introductionStatus: introduction?.auditStatus,
+    verifyLevel: verification?.verifyLevel,
+  })
+
+  const continueFlow = async () => {
+    if (loading && !verification) return
+    const route = resolveVerificationOnboardingRoute({
+      basicCompleted: basic?.basicProfileCompleted,
+      avatarStatus: verification?.avatarVerifyStatus,
+      introductionStatus: introduction?.auditStatus,
+    })
+    await navigateToOrRedirect(route)
+  }
+
+  const enterAvailableArea = async () => {
+    if (verification?.accessStatus?.canBrowseCards) {
+      await switchMainTab({ url: '/pages/recommend/index' })
+      return
+    }
+    if (verification?.accessStatus?.canCommunity) {
+      await switchMainTab({ url: '/pages/community/index' })
+      return
+    }
+    const reason = verification?.accessStatus?.blockReasons?.[0] || copy('verification_home_partial_notice')
+    if (reason) await Taro.showToast({ title: reason, icon: 'none' })
+  }
+
+  if (isAccountRestricted(cachedAccessStatus) || isCoreAccessBlocked(cachedAccessStatus)) {
+    return <AccessBlockedPage status={cachedAccessStatus} loading={loading} error={entryError}
+      blockReasons={cachedAccessStatus?.blockReasons || []} refresh={loadIndex} />
+  }
+  if (contentAllowed) return <><QianxunFamilyPage /><MatchPopupHost /></>
+  return (
+    <VerificationEntryView
+      role="index-unverified"
+      unreadCount={unreadCount}
+      loading={!ready || (loading && !verification)}
+      error={entryError}
+      hasPartialProfile={hasPartialProfile}
+      checklist={checklist}
+      copy={copy}
+      onContinue={() => void continueFlow()}
+      onLater={() => void enterAvailableArea()}
+      onRetry={() => void loadIndex()}
+    />
+  )
+}
+
+function toErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || '')
+  return message || '网络开小差了，请重新加载'
+}

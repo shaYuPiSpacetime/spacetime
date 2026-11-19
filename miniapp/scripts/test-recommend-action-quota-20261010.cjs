@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const test = require('node:test')
 const ts = require('typescript')
-const source = fs.readFileSync(path.join(__dirname, '../src/pages/recommend/index.tsx'), 'utf8')
+const source = fs.readFileSync(path.join(__dirname, '../src/pages/recommend/panel.tsx'), 'utf8')
 
 function actionHarness() {
   let resolveView
