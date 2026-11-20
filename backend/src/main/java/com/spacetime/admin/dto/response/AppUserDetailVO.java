@@ -57,7 +57,7 @@ public class AppUserDetailVO {
     private String hometownDistrictLabel;
     /** 学校 */
     private String school;
-    /** 实名绑定手机号，业务层脱敏后返回 */
+    /** 后台展示手机号，业务层脱敏后返回 */
     private String phone;
     /** 专业 */
     private String major;

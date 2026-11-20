@@ -1028,7 +1028,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setHeight(user.getHeight());
         vo.setWeight(user.getWeight());
         vo.setSchool(user.getSchool());
-        vo.setPhone(maskPhone(firstNotBlank(realName == null ? null : realName.getBoundPhone(), phoneFromOpenid(user.getOpenid()))));
+        vo.setPhone(resolveAdminPhone(user, realName));
         vo.setCity(joinLocation(labels, user.getLocationProvince(), user.getLocationCity(), user.getLocationDistrict()));
         vo.setIdentityCode(user.getIdentity());
         vo.setIdentityLabel(label(labels.identity(), user.getIdentity()));
@@ -1762,7 +1762,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         vo.setHometownCityLabel(regionLabel(labels, user.getHometownCity()));
         vo.setHometownDistrictLabel(regionLabel(labels, user.getHometownDistrict()));
         vo.setSchool(user.getSchool());
-        vo.setPhone(maskPhone(firstNotBlank(realName == null ? null : realName.getBoundPhone(), phoneFromOpenid(user.getOpenid()))));
+        vo.setPhone(resolveAdminPhone(user, realName));
         vo.setMajor(user.getMajor());
         vo.setEducationLevelCode(user.getEducationLevel());
         vo.setEducationLevelLabel(label(labels.educationLevel(), user.getEducationLevel()));
@@ -2161,6 +2161,14 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
 
     private String phoneFromOpenid(String openid) {
         return StrUtil.isNotBlank(openid) && openid.startsWith("phone_") ? openid.substring("phone_".length()) : null;
+    }
+
+    /** 后台展示账号手机号：优先使用当前账号手机号，再兼容实名记录和旧版 OpenID，并始终脱敏。 */
+    private String resolveAdminPhone(AppUser user, AppUserAuditRecord realName) {
+        String legacyPhone = firstNotBlank(
+                realName == null ? null : realName.getBoundPhone(),
+                phoneFromOpenid(user.getOpenid()));
+        return maskPhone(firstNotBlank(user.getPhone(), legacyPhone));
     }
 
     private String firstNotBlank(String first, String second) {
