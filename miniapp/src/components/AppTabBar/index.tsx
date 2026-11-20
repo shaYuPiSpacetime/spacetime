@@ -193,6 +193,9 @@ export default function AppTabBar({ active, onActiveChange }: Props) {
           <View
             key={tab.key}
             id={`app-tab-${tab.key}`}
+            hoverClass="btn-hover"
+            hoverStartTime={0}
+            hoverStayTime={70}
             style={{
               position: 'absolute',
               left: `${index * 125}rpx`,

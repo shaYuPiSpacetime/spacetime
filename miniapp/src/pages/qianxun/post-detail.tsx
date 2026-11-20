@@ -3,7 +3,7 @@ import { shareMessage } from '@/utils/shareMessage'
 import { postShare } from '@/domain/sharePresentation'
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useLoad, useShareAppMessage } from '@tarojs/taro'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import NativeNavigation, { getNativeNavigationMetrics } from '@/components/NativeNavigation'
 import CommunityPostActionSheet from '@/components/CommunityPostActionSheet'
 import CommunityReportReasonSheet from '@/components/CommunityReportReasonSheet'
@@ -60,6 +60,8 @@ export default function QianxunPostDetailPage() {
   const optionLabel = usePrd01Store(state => state.optionLabel)
   const [post, setPost] = useState<CommunityPostVO>()
   const [comments, setComments] = useState<CommunityCommentVO[]>([])
+  const [commentsState, setCommentsState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const commentsRequest = useRef(0)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [comment, setComment] = useState('')
@@ -84,20 +86,32 @@ export default function QianxunPostDetailPage() {
     ...shareMessage(postShare(post)),
   }))
 
+  const loadComments = async (postId: number) => {
+    const request = ++commentsRequest.current
+    setCommentsState('loading')
+    try {
+      const page = await getCommunityComments(postId, 1, 100)
+      if (request !== commentsRequest.current) return
+      setComments(page.records || [])
+      if (Number.isSafeInteger(page.total) && page.total >= 0) {
+        setPost(current => current?.id === postId && current.commentCount !== page.total
+          ? { ...current, commentCount: page.total } : current)
+      }
+      setCommentsState('ready')
+    } catch {
+      if (request === commentsRequest.current) setCommentsState('error')
+    }
+  }
+
   const loadPost = async (postId: number) => {
     setLoading(true)
     setLoadError('')
+    void getCommunityMeta().then(setConfig).catch(() => undefined)
     try {
-      const [runtime, current] = await Promise.all([getCommunityMeta(), getCommunityPostDetail(postId)])
-      setConfig(runtime)
+      const current = await getCommunityPostDetail(postId)
       setPost(current)
       void recordCommunityView(current.id).catch(() => undefined)
-      try {
-        const page = await getCommunityComments(postId, 1, 100)
-        setComments(page.records || [])
-      } catch {
-        setComments([])
-      }
+      void loadComments(postId)
     } catch (error) {
       setLoadError(resolveCommunityFeedback(config, COMMUNITY_COPY_KEYS.loadFailed, error))
     } finally {
@@ -135,9 +149,7 @@ export default function QianxunPostDetailPage() {
       setComment('')
       setReplyTarget(undefined)
       setCommentFocused(false)
-      const [detail, page] = await Promise.all([getCommunityPostDetail(post.id), getCommunityComments(post.id, 1, 100)])
-      setPost(detail)
-      setComments(page.records || [])
+      void loadComments(post.id)
       if (result.message || result.statusName) await Taro.showToast({ title: result.message || result.statusName, icon: 'none' })
     } catch (error) {
       await showError(config, error)
@@ -247,9 +259,7 @@ export default function QianxunPostDetailPage() {
     if (!confirmation.confirm) return
     try {
       await deleteCommunityComment(target.commentNo || target.id)
-      const [detail, page] = await Promise.all([getCommunityPostDetail(post.id), getCommunityComments(post.id, 1, 100)])
-      setPost(detail)
-      setComments(page.records || [])
+      void loadComments(post.id)
       setSelectedComment(undefined)
     } catch (error) {
       await showError(config, error)
@@ -327,7 +337,13 @@ export default function QianxunPostDetailPage() {
                   onMore={target => setSelectedComment(target)}
                   onAuthor={authorId => void openCommunityAuthorProfile(authorId, currentUserId, Taro.navigateTo)}
                 />
-              )) : <CommentEmpty hasRemoteCount={post.commentCount > 0} config={config} />}
+              )) : commentsState === 'ready' ? <CommentEmpty hasRemoteCount={post.commentCount > 0} config={config} /> : null}
+              {commentsState === 'loading' && !comments.length ? (
+                <Text style={{ display: 'block', padding: '48rpx 0', textAlign: 'center', color: '#7F8494' }}>评论加载中…</Text>
+              ) : null}
+              {commentsState === 'error' ? (
+                <View role="button" hoverClass="btn-hover" onClick={() => void loadComments(post.id)} style={{ padding: '32rpx 0', textAlign: 'center', color: BLUE }}>评论加载失败，点击重试</View>
+              ) : null}
             </View>
           </View>
         </ScrollView>

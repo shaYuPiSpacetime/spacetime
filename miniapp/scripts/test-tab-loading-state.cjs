@@ -77,6 +77,37 @@ function deferred() {
   return { promise, resolve }
 }
 
+test('微信列表的同一次下拉只刷新一次，手势完成后可再次刷新', async t => {
+  const dom = new JSDOM('<div id="root"></div>')
+  global.window = dom.window
+  global.document = dom.window.document
+  global.IS_REACT_ACT_ENVIRONMENT = true
+  let env = 'WEAPP', control, calls = 0
+  const held = deferred()
+  const { useScrollRefresher } = load('hooks/useScrollRefresher.ts', {
+    '@tarojs/taro': { getEnv: () => env, ENV_TYPE: { WEAPP: 'WEAPP' } },
+  })
+  function Probe() {
+    control = useScrollRefresher(async () => { calls++; await held.promise })
+    return null
+  }
+  const root = createRoot(document.getElementById('root'))
+  t.after(async () => { await React.act(async () => root.unmount()); dom.window.close() })
+  await React.act(async () => root.render(React.createElement(Probe)))
+  assert.equal(control.refresherEnabled, true)
+  let first
+  await React.act(async () => { first = control.onRefresherRefresh(); await control.onRefresherRefresh() })
+  assert.equal(calls, 1)
+  assert.equal(control.refresherTriggered, true)
+  await React.act(async () => { held.resolve(); await first })
+  assert.equal(control.refresherTriggered, false)
+  await React.act(async () => control.onRefresherRefresh())
+  assert.equal(calls, 2)
+  env = 'H5'
+  await React.act(async () => root.render(React.createElement(Probe)))
+  assert.equal(control, undefined)
+})
+
 for (const allowed of [true, false]) {
   test(`我的资料与配置并行，地区不阻塞资产读取，准入=${allowed}`, async t => {
     const dom = new JSDOM('<div id="root"></div>')

@@ -1,5 +1,6 @@
 import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import type { ScrollRefresher } from '@/hooks/useScrollRefresher'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
 import Taro from '@tarojs/taro'
 import { useDidShow } from '@/features/main-tabs/activity'
@@ -30,10 +31,11 @@ interface Props {
   resolvingSnapshot?: boolean
   resolutionError?: string
   onRetry?: () => void
+  refresher?: ScrollRefresher
 }
 
 /** 推荐页与独立结果页复用内容；内嵌时只由推荐主页面拥有底部导航。 */
-export default function IdealResultsContent({ snapshotNo, embedded = false, onRecommend, active = true, resolvingSnapshot = false, resolutionError = '', onRetry }: Props) {
+export default function IdealResultsContent({ snapshotNo, embedded = false, onRecommend, active = true, resolvingSnapshot = false, resolutionError = '', onRetry, refresher }: Props) {
   const [page, setPage] = useState<IdealResultPageVO | null>(null)
   const scroll = useRetainedScroll(snapshotNo)
   const [items, setItems] = useState<IdealResultItemVO[]>([])
@@ -221,10 +223,11 @@ export default function IdealResultsContent({ snapshotNo, embedded = false, onRe
     >
       <IdealResultsHeader onRecommend={onRecommend} />
       {showEmptyState ? (
-        <IdealResultsEmptyState />
+        <IdealResultsEmptyState refresher={refresher} />
       ) : (
         <ScrollView
           scrollY
+          {...refresher}
           scrollTop={scroll.scrollTop}
           onScroll={scroll.onScroll}
           showScrollbar={false}
@@ -492,7 +495,7 @@ function IdealResultsHeader({ onRecommend }: { onRecommend?: () => void }) {
   )
 }
 
-function IdealResultsEmptyState() {
+function IdealResultsEmptyState({ refresher }: { refresher?: ScrollRefresher }) {
   return (
     <View
       id="ideal-results-empty-state"
@@ -506,23 +509,12 @@ function IdealResultsEmptyState() {
         background: '#FFFFFF',
       }}
     >
-      <View
-        style={{
-          paddingTop: '128rpx',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Image
-          src={miniappOssIcons.qianxunEmptyFollowing}
-          mode="aspectFit"
-          style={{ width: '334rpx', height: '254rpx' }}
-        />
-        <Text style={{ color: '#999999', fontSize: '28rpx', marginTop: '24rpx' }}>
-          当前条件下暂未找到理想型
-        </Text>
-      </View>
+      <ScrollView scrollY {...refresher} style={{ height: '100%' }}>
+        <View style={{ paddingTop: '128rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <Image src={miniappOssIcons.qianxunEmptyFollowing} mode="aspectFit" style={{ width: '334rpx', height: '254rpx' }} />
+          <Text style={{ color: '#999999', fontSize: '28rpx', marginTop: '24rpx' }}>当前条件下暂未找到理想型</Text>
+        </View>
+      </ScrollView>
       <View
         id="ideal-results-empty-filter"
         onClick={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })}

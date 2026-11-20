@@ -489,7 +489,8 @@ function HeartTabButton({ label, count, active, onClick }: { label: string; coun
   const width = label.length > 2 ? 128 : 80
   const badge = formatRelationBadge(count)
   return (
-    <View onClick={onClick} style={{ position: 'relative', width: `${width}rpx`, height: '56rpx', display: 'flex', justifyContent: 'center' }}>
+    <View onClick={onClick} hoverClass="btn-hover" hoverStartTime={0} hoverStayTime={70}
+      style={{ position: 'relative', width: `${width}rpx`, height: '56rpx', display: 'flex', justifyContent: 'center' }}>
       {active ? <View style={{ position: 'absolute', left: 0, bottom: '3rpx', width: `${width}rpx`, height: '8rpx', borderRadius: '6rpx', background: 'rgba(40,118,255,0.8)' }} /> : null}
       <Text style={{ position: 'relative', zIndex: 1, color: active ? '#0C285A' : '#7F8494', fontSize: active ? '32rpx' : '28rpx', fontWeight: active ? 500 : 400, lineHeight: '45rpx', whiteSpace: 'nowrap' }}>{label}</Text>
       {badge ? <NotificationBadge id={`relation-${label.includes('访客') ? 'visitors' : 'likes'}-badge`} value={badge} style={{ position: 'absolute', right: '-8rpx', top: '-13rpx' }} /> : null}

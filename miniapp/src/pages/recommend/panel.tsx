@@ -2,6 +2,7 @@ import MatchPopupHost from '@/components/MatchPopupHost'
 import { setActiveTabKey } from '@/custom-tab-bar/tabState'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import { useScrollRefresher, type ScrollRefresher } from '@/hooks/useScrollRefresher'
 import Taro, { usePullDownRefresh } from '@tarojs/taro'
 import { useDidHide, useDidShow, useRouter } from '@/features/main-tabs/activity'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -319,8 +320,8 @@ export default function RecommendPage() {
     return () => clearTimeout(timer)
   }, [page?.nextResetAt, pageVisible])
 
-  const [pullRefreshing, setPullRefreshing] = useState(false)
   const refreshCurrentTab = () => {
+    if (!pageVisibleRef.current) return Promise.resolve()
     if (activeTabRef.current === 'ideal') return loadIdealTab(true)
     retryCandidateCursorRef.current = null
     return loadCandidates()
@@ -629,7 +630,10 @@ export default function RecommendPage() {
     })
   }
 
-  const content = (
+  const refresher = useScrollRefresher(refreshCurrentTab)
+  const refreshIdeal = activeTab === 'ideal' ? refresher : undefined
+  const refreshRecommend = activeTab === 'recommend' ? refresher : undefined
+  return (
     <View
       id="prd08-recommend-page"
       style={{
@@ -648,19 +652,18 @@ export default function RecommendPage() {
           active={activeTab === 'ideal'}
           resolvingSnapshot={!idealTabResolved}
           resolutionError={idealTabError}
+          refresher={refreshIdeal}
           onRetry={() => void loadIdealTab(true)}
           onRecommend={() => handleTabChange('recommend')}
         />
       ) : (
-        <IdealLanding
-          onTabChange={handleTabChange}
-          onHistory={() => {
-            void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })
-          }}
-          onChoose={() => {
-            void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })
-          }}
-        />
+        <ScrollView scrollY style={{ height: '100vh' }} {...refreshIdeal}>
+          <IdealLanding
+            onTabChange={handleTabChange}
+            onHistory={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/unlocks/index' })}
+            onChoose={() => void Taro.navigateTo({ url: '/pages/prd08/ideal/filter/index' })}
+          />
+        </ScrollView>
       )}
       </View>
       <View id="recommend-content-panel" style={{ display: activeTab === 'recommend' ? 'block' : 'none' }}>
@@ -678,21 +681,26 @@ export default function RecommendPage() {
               openIdeal={() => handleTabChange('ideal')}
               onRetry={() => void loadCandidates()}
               refreshing={refreshing}
+              refresher={state === 'limit' ? refreshRecommend : undefined}
             />
           </View>
-          {state === 'loading' ? <CenteredText text="加载中…" /> : null}
-          {state === 'error' ? (
-            <CenteredText text={errorMessage || '推荐加载失败，请下拉刷新'} />
-          ) : null}
-          {state === 'empty' ? (
-            <RecommendEmpty
-              onPreference={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })}
-              onRetry={() => void loadCandidates()}
-            />
+          {state === 'loading' || state === 'error' || state === 'empty' ? (
+            <ScrollView scrollY {...refreshRecommend}
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100vh' }}>
+              <View style={{ position: 'relative', height: '100vh' }}>
+                {state === 'empty' ? (
+                  <RecommendEmpty
+                    onPreference={() => void Taro.navigateTo({ url: '/pages/prd08/recommend/preference/index' })}
+                    onRetry={() => void loadCandidates()}
+                  />
+                ) : <CenteredText text={state === 'loading' ? '加载中…' : errorMessage || '推荐加载失败，请下拉刷新'} />}
+              </View>
+            </ScrollView>
           ) : null}
           {state === 'ready' && candidate ? (
             <RecommendCandidateCard
               candidate={candidate}
+              refresher={refreshRecommend}
               onOpen={() => void openCandidateProfile()}
               onIp={() => setShowIpDialog(true)}
               onCertification={() => setShowCertification(true)}
@@ -730,17 +738,6 @@ export default function RecommendPage() {
       />
       <WhisperComposeSheet visible={whisperTarget !== null} target={whisperTarget} onClose={() => setWhisperTarget(null)} />
     </View>
-  )
-  if (Taro.getEnv() !== Taro.ENV_TYPE.WEAPP) return content
-  return (
-    <ScrollView scrollY style={{ height: '100vh' }} refresherEnabled
-      refresherTriggered={pullRefreshing} onRefresherRefresh={() => {
-        if (pullRefreshing || !pageVisibleRef.current) return
-        setPullRefreshing(true)
-        void refreshCurrentTab().finally(() => setPullRefreshing(false))
-      }}>
-      {content}
-    </ScrollView>
   )
 }
 
@@ -864,11 +861,13 @@ function RecommendHeader({
 
 function RecommendCandidateCard({
   candidate,
+  refresher,
   onOpen,
   onIp,
   onCertification,
 }: {
   candidate: RecommendCandidateVO
+  refresher?: ScrollRefresher
   onOpen: () => void
   onIp: () => void
   onCertification: () => void
@@ -893,6 +892,7 @@ function RecommendCandidateCard({
   return (
     <ScrollView
       scrollY
+      {...refresher}
       showScrollbar={false}
       style={{ width: '750rpx', height: 'calc(100vh - 164rpx)' }}
     >

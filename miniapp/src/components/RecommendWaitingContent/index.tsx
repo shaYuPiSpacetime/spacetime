@@ -1,5 +1,6 @@
 import { switchMainTab } from '@/custom-tab-bar/tabHost'
 import { Image, ScrollView, Text, View } from '@tarojs/components'
+import type { ScrollRefresher } from '@/hooks/useScrollRefresher'
 import { getTabBarBottom } from '@/constants/tabBarLayout'
 import Taro from '@tarojs/taro'
 import { useEffect, useState } from 'react'
@@ -15,11 +16,12 @@ import { navigateToOrRedirect } from '@/utils/navigation'
 const background = 'linear-gradient(90deg,rgba(233,253,251,.72),rgba(234,238,249,.68) 49%,rgba(248,250,239,.68))'
 
 /** 推荐主页面内的等待内容，切换理想型只更新父页面状态。 */
-export default function RecommendWaitingContent({ active, openIdeal, onRetry, refreshing }: {
+export default function RecommendWaitingContent({ active, openIdeal, onRetry, refreshing, refresher }: {
   active: boolean
   openIdeal: () => void
   onRetry: () => void
   refreshing: boolean
+  refresher?: ScrollRefresher
 }) {
   const metrics = getNativeNavigationMetrics()
   const [post, setPost] = useState<CommunityPostVO | null>(null)
@@ -39,7 +41,7 @@ export default function RecommendWaitingContent({ active, openIdeal, onRetry, re
 
   return (
     <View style={{ background, fontFamily: 'PingFang SC, sans-serif' }}>
-      <ScrollView scrollY showScrollbar={false} style={{ height: `calc(100vh - ${metrics.navigationHeight + 18}rpx)` }}>
+      <ScrollView scrollY {...refresher} showScrollbar={false} style={{ height: `calc(100vh - ${metrics.navigationHeight + 18}rpx)` }}>
         <View
           style={{
             width: '700rpx',
