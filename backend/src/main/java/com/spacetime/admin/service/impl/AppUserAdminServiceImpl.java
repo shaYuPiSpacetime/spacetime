@@ -1100,7 +1100,7 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return province + city;
     }
 
-    /** 手机号数据库保留明文，管理后台列表和详情默认只展示脱敏结果。 */
+    /** 操作审计快照中的手机号脱敏，避免明文写入日志。 */
     private String maskPhone(String phone) {
         if (StrUtil.isBlank(phone) || phone.length() < 7) {
             return phone;
@@ -2163,12 +2163,12 @@ public class AppUserAdminServiceImpl implements AppUserAdminService {
         return StrUtil.isNotBlank(openid) && openid.startsWith("phone_") ? openid.substring("phone_".length()) : null;
     }
 
-    /** 后台展示账号手机号：优先使用当前账号手机号，再兼容实名记录和旧版 OpenID，并始终脱敏。 */
+    /** 后台展示账号手机号：优先使用当前账号手机号，再兼容实名记录和旧版 OpenID，明文展示。 */
     private String resolveAdminPhone(AppUser user, AppUserAuditRecord realName) {
         String legacyPhone = firstNotBlank(
                 realName == null ? null : realName.getBoundPhone(),
                 phoneFromOpenid(user.getOpenid()));
-        return maskPhone(firstNotBlank(user.getPhone(), legacyPhone));
+        return firstNotBlank(user.getPhone(), legacyPhone);
     }
 
     private String firstNotBlank(String first, String second) {
