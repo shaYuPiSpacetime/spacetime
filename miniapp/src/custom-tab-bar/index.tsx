@@ -54,3 +54,6 @@ export default function CustomTabBar() {
 
   return <AppTabBar active={activeKey} onActiveChange={handleActiveChange} />
 }
+
+// 微信将自定义底栏单独作为组件加载，让它也能使用应用的按压样式。
+CustomTabBar.options = { styleIsolation: 'apply-shared' }
